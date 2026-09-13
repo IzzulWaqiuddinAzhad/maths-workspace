@@ -1,0 +1,1 @@
+{"name":"maths-workspace","private":true,"type":"module","scripts":{"test":"node work/core.test.mjs"}}
