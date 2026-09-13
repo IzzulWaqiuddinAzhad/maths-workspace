@@ -10,6 +10,13 @@ export function validateDocument(d){
     ids.add(o.id);
     if(!finite(o.strokeWidth)||o.strokeWidth<0||typeof o.strokeColour!=='string'||!finite(o.opacity)||o.opacity<0||o.opacity>1)return false;
     if(o.points&&(!Array.isArray(o.points)||o.points.length>200000||!o.points.every(p=>finite(p.x)&&finite(p.y)&&(p.pressure===undefined||finite(p.pressure)))))return false;
+    if(o.points&&!o.points.every(p=>{
+      if(p.label!==undefined&&(typeof p.label!=='string'||p.label.length>12))return false;
+      if(p.angle&&(typeof p.angle!=='object'||!['value','none','x','theta','custom'].includes(p.angle.mode)||(p.angle.text!==undefined&&(typeof p.angle.text!=='string'||p.angle.text.length>20))))return false;
+      if(p.edgeLabel&&(typeof p.edgeLabel!=='object'||!['none','manual','measured'].includes(p.edgeLabel.mode)||(p.edgeLabel.value!==undefined&&(typeof p.edgeLabel.value!=='string'||p.edgeLabel.value.length>20))))return false;
+      return true;
+    }))return false;
+    if(o.unitsPerCm!==undefined&&(!finite(o.unitsPerCm)||o.unitsPerCm<=0))return false;
     if(o.type==='InkStroke'&&(!o.points||!o.points.length))return false;
     if(o.width!==undefined&&(!finite(o.width)||o.width<0))return false;
     if(o.height!==undefined&&(!finite(o.height)||o.height<0))return false;

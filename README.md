@@ -19,6 +19,10 @@ Serve `dist/` with any HTTP server, e.g. `python3 -m http.server 5173 --director
 - Infinite pan and anchored zoom; pointer capture and coalesced pointer samples; a separate transient canvas avoids repainting the entire document while handwriting. Two-finger navigation, optional finger drawing, stylus input priority and keyboard shortcuts.
 - Local document autosave, JSON backup/import and transaction history. Language, theme and tool preferences persist locally.
 
+## Geometry annotation update
+
+Shapes erase as whole objects when the eraser crosses their visible outline; locked shapes remain protected. New shapes immediately enter selection with edit points. Point options provide clockwise unused-letter suggestions and independent angle arcs with calculated, hidden, x, θ or custom labels. Edge options distinguish label-only values from measured lengths and geometry changes. Accurate triangle construction accepts two sides and their included angle; 5 cm, 6 cm and 70° produces an opposite side of 6.36 cm. Measurements use document units, not physical screen centimetres. This is construction and editing, not a persistent constraints solver. Cartesian planes are transparent and inserted at the back. Double-click/double-tap selection is available across tools.
+
 ## Architecture
 
 `dist/core.js` owns serializable object records, validation, document transactions and coordinate transforms. `geometry.js` owns shape creation, hit testing, recognition, snapping and ink splitting. `render.js` draws independent records without flattening document state. `i18n.js` owns paired EN/BM strings. `app.js` connects pointer interactions, contextual settings, files and document history. `styles.css` and `index.html` provide the responsive interface.
@@ -35,7 +39,7 @@ This is the basic toolset, not every advanced interaction in the original roadma
 
 1. Write with Pen, change width/colour, then Undo and Redo.
 2. Highlight ink, switch Eraser to Normal, cross the middle of a stroke, then Undo once.
-3. Draw a preset shape; Select it to move, resize, rotate, duplicate or lock. Double-click to edit points.
+3. Draw a preset shape: it immediately shows editable points and can be moved. Tap a vertex for names and individual angle options; tap an edge for centimetre labels. Double-click an object from any tool to select it. Try erasing its outline, then Undo.
 4. Insert a Cartesian plane, select it, edit ranges/grid and try Move axes.
 5. Insert text or a photo; lock a worksheet and draw over it. Select an image for crop margins.
 6. Insert a ruler, return to Pen and start near its edge for straight ink.
