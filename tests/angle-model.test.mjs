@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {AngleModel,pointerWorld,quizQuestion,calculate,displayValues} from '../dist/angle-model.js';
+test('independent IDs survive crossing, remove reverses creation, totals remain fixed',()=>{
+ for(const mode of ['straight','circle']){const m=new AngleModel(mode),base=m.rays.length;assert.equal(m.regions()[0].currentValue,m.total);m.add();m.add();const newest=m.rays.at(-1).id,other=m.rays.find(r=>!r.isFixed&&r.id!==newest);const angle=other.angle;m.move(newest,{x:50,y:-120});assert.equal(other.angle,angle);assert.ok(Math.abs(m.rays.find(r=>r.id===newest).angle-Math.atan2(120,50)*180/Math.PI)<1e-8);assert.ok(Math.abs(m.regions().reduce((s,r)=>s+r.currentValue,0)-m.total)<1e-8);m.remove();assert.ok(!m.rays.some(r=>r.id===newest));m.remove();m.remove();assert.equal(m.rays.length,base);}
+});
+test('pointer uses local offset and shared pan/zoom conversion',()=>{assert.deepEqual(pointerWorld({clientX:540,clientY:330},{left:200,top:100},{x:100,y:50,zoom:2}),{x:120,y:90});});
+test('one-decimal labels still sum exactly to the fixed total',()=>{const values=displayValues([38.14,70.93,70.93].map(currentValue=>({currentValue})),180);assert.equal(values.map(Number).reduce((s,n)=>s+n,0),180);});
+test('all manual tiers generate positive exact geometry and valid integer solutions',()=>{for(const mode of ['straight','circle'])for(let tier=1;tier<=5;tier++)for(let i=0;i<100;i++){const q=quizQuestion(mode,tier);assert.equal(q.values.reduce((a,b)=>a+b,0),q.total);assert.ok(q.values.every(v=>v>0));assert.ok(Number.isInteger(q.answer));assert.deepEqual(q.values,q.terms.map(t=>t.a*q.answer+t.b));if(tier>=3)assert.equal(q.symbol,'x');}});
+test('calculator handles precedence, grouping, decimals and rejects code or infinity',()=>{assert.equal(calculate('(180-53)÷2'),63.5);assert.equal(calculate('2+3×4'),14);assert.equal(calculate('-2.5+3'),.5);assert.throws(()=>calculate('1/0'));assert.throws(()=>calculate('alert(1)'));});
