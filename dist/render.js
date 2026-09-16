@@ -15,7 +15,7 @@ function drawPlane(ctx,o,dark){
  ctx.save();ctx.setLineDash([]);const grid=dark?'#507e6c':'#42775d';
  if(o.grid!=='off'){
   const detailed=o.grid==='detailed',minor=detailed?step/10:step;
-  function gridLines(min,max,start,end,vertical){const offset=o.paperGrid?min:Math.ceil(min/minor)*minor;for(let i=0,value=offset;value<=max+minor*.001;i++,value=offset+i*minor){const n=o.paperGrid?i:Math.round(value/minor),major=!detailed||n%10===0;ctx.globalAlpha=alpha*(major?.4:n%5===0?.23:.1);ctx.strokeStyle=grid;ctx.lineWidth=major?1:.6;const p=vertical?left+(value-o.xMin)*unit:top+(o.yMax-value)*unit;ctx.beginPath();if(vertical){ctx.moveTo(p,start);ctx.lineTo(p,end);}else{ctx.moveTo(start,p);ctx.lineTo(end,p);}ctx.stroke();}}
+  function gridLines(min,max,start,end,vertical){const offset=Math.ceil(min/minor)*minor;for(let i=0,value=offset;value<=max+minor*.001;i++,value=offset+i*minor){const n=Math.round(value/minor),major=!detailed||n%10===0;ctx.globalAlpha=alpha*(major?.4:n%5===0?.23:.1);ctx.strokeStyle=grid;ctx.lineWidth=major?1:.6;const p=vertical?left+(value-o.xMin)*unit:top+(o.yMax-value)*unit;ctx.beginPath();if(vertical){ctx.moveTo(p,start);ctx.lineTo(p,end);}else{ctx.moveTo(start,p);ctx.lineTo(end,p);}ctx.stroke();}}
   gridLines(o.xMin,o.xMax,top,bottom,true);gridLines(o.yMin,o.yMax,left,right,false);
  }
  ctx.globalAlpha=alpha;ctx.strokeStyle=dark?'#dedee4':o.strokeColour;ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=o.strokeWidth??1.5;ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';

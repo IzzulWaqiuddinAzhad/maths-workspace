@@ -1,5 +1,5 @@
 import {createGraph,shiftAxis,canChangeExtent,changeExtent,associateGraph,attachGraphContents,transformGraphContents,resizeGraph,copyGraphSelection} from './graph-model.js?v=14';
-import {renderGraphScene,downloadGraphPNG} from './graph-render.js?v=14';
+import {renderGraphScene,downloadGraphPNG} from './graph-render.js?v=15';
 import {planeFunctionPanel} from './function-panel.js?v=14';
 import {ToolContinuity,installCanvasOwnership} from './interaction.js?v=13';
 import {installMathInputs} from './math-input.js?v=13';
@@ -7,7 +7,7 @@ import {eraseObjects,partAt,suggestNames,angleAt,edges,vertices,triangleSAS,setE
 import {DocumentStore,newDocument,validateDocument,screenToWorld,worldToScreen,zoomAt,validView,createObject} from './core.js?v=14';
 import {translator} from './i18n.js?v=3.1';
 import {distance,localToWorld,worldToLocal,bounds,boundsPoints,corners,makeShape,pointInPolygon,hitObject,eraseInk,recognize,planeMetrics,snapPoint,regularPoints} from './geometry.js?v=14';
-import {renderObject,selectionHandles} from './render.js?v=14';
+import {renderObject,selectionHandles} from './render.js?v=15';
 import {calculatorPanel} from './calculator-panel.js?v=13';
 import {mountAngleExplorer} from './angle-ui.js?v=13';
 const $=id=>document.getElementById(id),canvas=$('canvas'),overlay=$('overlay'),ctx=canvas.getContext('2d'),over=overlay.getContext('2d');

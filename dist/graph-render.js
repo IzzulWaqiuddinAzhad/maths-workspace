@@ -1,4 +1,4 @@
-import {renderObject,prepareImages} from './render.js?v=14';
+import {renderObject,prepareImages} from './render.js?v=15';
 import {renderSceneAnnotations} from './annotations.js?v=14';
 import {corners,worldToLocal} from './geometry.js?v=14';
 import {graphContents} from './graph-model.js?v=14';
