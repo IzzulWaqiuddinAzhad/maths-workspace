@@ -1,4 +1,4 @@
-import {mountCalculator} from './calculator-ui.js?v=9';
+import {mountCalculator} from './calculator-ui.js?v=11';
 let instance;
 export function calculatorPanel(language=()=>document.documentElement.lang==='ms'?'bm':'en'){
  if(instance)return instance;
