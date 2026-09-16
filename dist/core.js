@@ -23,6 +23,7 @@ export function validateDocument(d){
     if(o.type==='TextObject'&&(typeof o.text!=='string'||o.text.length>100000||!finite(o.fontSize)||o.fontSize<1||typeof o.fontFamily!=='string'))return false;
     if(o.type==='ImageObject'&&(typeof o.src!=='string'||!/^data:image\/(png|jpeg|webp);base64,/.test(o.src)))return false;
     if(o.type==='CartesianPlaneObject'&&(![o.xMin,o.xMax,o.yMin,o.yMax,o.interval].every(finite)||o.interval<=0||o.xMax-o.xMin<1||o.xMax-o.xMin>200||o.yMax-o.yMin<1||o.yMax-o.yMin>200))return false;
+    if(o.functions!==undefined&&(!Array.isArray(o.functions)||o.functions.length>12||!o.functions.every(f=>f&&typeof f.id==='string'&&typeof f.source==='string'&&f.source.length<=250&&typeof f.colour==='string'&&/^#[0-9a-fA-F]{6}$/.test(f.colour)&&typeof f.visible==='boolean')))return false;
     return true;
   });
 }

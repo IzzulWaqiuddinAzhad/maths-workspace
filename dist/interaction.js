@@ -2,7 +2,7 @@
 export class ToolContinuity {
  last=null; temporary=false;
  choose(tool){this.temporary=false;this.last=['shapes','smart'].includes(tool)?tool:null;}
- created(tool){if(['shapes','smart'].includes(tool)){this.last=tool;this.temporary=true;}}
+ created(tool){if(['shapes','smart','pen'].includes(tool)){this.last=tool;this.temporary=true;}}
  resume(){if(!this.temporary)return null;this.temporary=false;return this.last;}
 }
 export function installCanvasOwnership(canvas,onMixed){

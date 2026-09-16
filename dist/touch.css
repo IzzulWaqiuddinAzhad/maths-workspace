@@ -10,3 +10,6 @@ input[data-math]{cursor:pointer;caret-color:transparent;font:inherit;max-width:1
 .proof-layout{align-items:start}.proof-actions{display:flex;flex-wrap:wrap;margin-bottom:16px}.proof-actions button{font-size:13px;padding:8px 12px}.proof-side{position:sticky;top:10px}.proof-lever-box{gap:12px}.proof-scroll{align-self:start}.proof-lever-box button{padding:8px}.proof-toggles{font-size:13px}.proof-side>label{font-size:13px}
 .proof-scroll canvas{min-width:0}.proof-head .explorer-kicker{display:block}.proof-summary strong{display:block;overflow-wrap:anywhere}@media(max-width:700px){.proof-scroll{max-height:none}.proof-side{position:static}.proof-layout{gap:16px}.proof-actions button{min-height:44px}.proof-controls{font-size:13px}}
 .math-unit{font-size:13px;color:var(--muted);margin-left:5px}.proof-toggles{align-content:start}.proof-actions button{border:1px solid var(--line)}
+
+.math-keypad-keys .math-submit{grid-column:1/-1;background:var(--active);color:var(--inverse);font-weight:600}
+.math-keypad-keys{grid-template-columns:repeat(6,minmax(0,1fr))}.math-keypad-keys>button{grid-column:span 2}.math-keypad-keys>.math-submit{grid-column:1/-1}

@@ -13,6 +13,6 @@ export function straightRegions(interior){
   return rays.slice(0,-1).map((angle,i)=>({id:`region-${i}`,startRayId:i,endRayId:i+1,currentValue:rays[i]-rays[i+1]}));
 }
 export function equation(regions,total,precision=1){return `${regions.map(r=>`${Number(r.currentValue.toFixed(precision))}°`).join(' + ')} = ${total}°`}
-export {mountAngleExplorer} from './angle-ui.js?v=7';
+export {mountAngleExplorer} from './angle-ui.js?v=13';
 import {quizQuestion} from './angle-model.js?v=7';
 export function generateQuestion({mode='straight',difficulty=1,tier}={}){return quizQuestion(mode,tier??(difficulty>=4?3:difficulty));}
