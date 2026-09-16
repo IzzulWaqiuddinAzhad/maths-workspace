@@ -1,8 +1,8 @@
 import {LabelLayout,polarCandidates,edgeCandidates,paintLabel} from './label-layout.js?v=12';
-import {worldToScreen,screenToWorld} from './core.js?v=13';
+import {worldToScreen,screenToWorld} from './core.js?v=14';
 import {angleMark} from './angle-renderer.js?v=11';
-import {localToWorld,worldToLocal,distance,segmentDistance,eraseInk} from './geometry.js?v=13';
-import {createObject} from './core.js?v=13';
+import {localToWorld,worldToLocal,distance,segmentDistance,eraseInk} from './geometry.js?v=14';
+import {createObject} from './core.js?v=14';
 export const CM=40;
 export const closedShape=o=>o.type==='ShapeObject'&&o.points?.length>=3&&!['line','arrow'].includes(o.kind);
 export function vertices(o){return o.points?.map(p=>localToWorld(p,o))??[]}

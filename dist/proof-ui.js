@@ -1,6 +1,6 @@
 import {PolygonProof,interior,nextDiagonal,anglePieces,polygonError,inside} from './polygon-proof.js?v=12';
 import {angleMark} from './angle-renderer.js?v=11';
-import {screenToWorld,worldToScreen} from './core.js?v=13';
+import {screenToWorld,worldToScreen} from './core.js?v=14';
 import {installCanvasOwnership} from './interaction.js?v=13';
 import {LabelLayout,polarCandidates,edgeCandidates,paintLabel} from './label-layout.js?v=12';
 export function mountVisualProof(host,{language=()=> 'en',back}){

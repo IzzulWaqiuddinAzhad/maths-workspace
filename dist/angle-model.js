@@ -1,4 +1,4 @@
-import {screenToWorld} from './core.js?v=13';
+import {screenToWorld} from './core.js?v=14';
 const norm=a=>(a%360+360)%360;
 let serial=0;
 export class AngleModel {

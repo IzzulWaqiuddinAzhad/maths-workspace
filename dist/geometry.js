@@ -1,4 +1,4 @@
-import {createObject} from './core.js?v=13';
+import {createObject} from './core.js?v=14';
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export function segmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy,t=l?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/l)):0;return distance(p,{x:a.x+t*dx,y:a.y+t*dy})}
 export function localToWorld(p,o){const x=p.x*o.scale.x,y=p.y*o.scale.y,c=Math.cos(o.rotation),s=Math.sin(o.rotation);return {x:o.position.x+x*c-y*s,y:o.position.y+x*s+y*c}}

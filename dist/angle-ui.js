@@ -1,6 +1,6 @@
 import {LabelLayout,polarCandidates,paintLabel} from './label-layout.js?v=12';
 import {installCanvasOwnership} from './interaction.js?v=13';
-import {zoomAt} from './core.js?v=13';
+import {zoomAt} from './core.js?v=14';
 import {mountVisualProof} from './proof-ui.js?v=13';
 import {angleMark} from './angle-renderer.js?v=11';
 import {AngleModel,pointerWorld,TIERS,quizQuestion,displayValues} from './angle-model.js?v=7';

@@ -16,6 +16,8 @@ export function validateDocument(d){
       if(p.edgeLabel&&(typeof p.edgeLabel!=='object'||!['none','manual','measured'].includes(p.edgeLabel.mode)||(p.edgeLabel.value!==undefined&&(typeof p.edgeLabel.value!=='string'||p.edgeLabel.value.length>20))))return false;
       return true;
     }))return false;
+    if(o.graphId!==undefined&&typeof o.graphId!=='string')return false;
+    if(o.paperGrid!==undefined&&typeof o.paperGrid!=='boolean')return false;
     if(o.unitsPerCm!==undefined&&(!finite(o.unitsPerCm)||o.unitsPerCm<=0))return false;
     if(o.type==='InkStroke'&&(!o.points||!o.points.length))return false;
     if(o.width!==undefined&&(!finite(o.width)||o.width<0))return false;
