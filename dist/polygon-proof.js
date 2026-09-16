@@ -12,8 +12,10 @@ export function nextDiagonal(ps,cuts){const state=triangulation(ps,cuts);if(stat
 export function regularPolygon(n){return Array.from({length:n},(_,i)=>({x:220+145*Math.cos(-Math.PI/2+i*TAU/n),y:230+145*Math.sin(-Math.PI/2+i*TAU/n)}));}
 export class PolygonProof {
  constructor(n=3){this.reset(n);}
- reset(n){this.points=regularPolygon(n);this.cuts=[];this.progress=0;this.notice=null;}
+ reset(n){this.points=regularPolygon(n);this.cuts=[];this.progress=0;this.notice=null;this.triangleIds=new Map();this.nextTriangleId=1;}
  get state(){return triangulation(this.points,this.cuts);}
+ get triangles(){return this.state.faces.filter(face=>face.length===3).map(face=>{const key=[...face].sort((a,b)=>a-b).join(':');if(!this.triangleIds.has(key))this.triangleIds.set(key,this.nextTriangleId++);return {id:this.triangleIds.get(key),key,face};}).sort((a,b)=>a.id-b.id);}
+
  add(a,b){const state=triangulation(this.points,[...this.cuts,[a,b]]);if(state.error){this.notice=state.error;return false;}this.cuts.push([a,b]);this.progress=0;this.notice=null;return true;}
  move(i,p){this.points[i]=p;const state=this.state;if(state.error){if(this.cuts.length)this.notice='reset';else this.notice=state.error;this.cuts=[];this.progress=0;}else this.notice=null;}
  auto(){let cut;while((cut=nextDiagonal(this.points,this.cuts)))this.add(...cut);}

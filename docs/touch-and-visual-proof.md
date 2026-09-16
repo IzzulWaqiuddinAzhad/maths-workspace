@@ -19,9 +19,9 @@ A separate, unsaved ToolContinuity state remembers the creation tool. Auto-selec
 A shared angleMark renderer switches between arcs and ray-oriented corner markers within 0.1° of 90°. General geometry defaults to marker-only; exploration retains the numerical value. Per-angle rightAngleDisplay supports marker-only or marker-and-value. Proof corner pieces use the same renderer.
 
 ## Visual Proof
-Explore → Interior angles → Visual Proof. Generate 3–20-sided polygons and drag vertices into irregular or concave shapes. Choose Visual Proof, then tap pairs of non-adjacent vertices to draw cuts. Dragging vertices is supported even in cutting mode; Move vertices makes the intention explicit. Hint highlights one valid next diagonal; Auto-complete is available for teacher demonstrations.
+Explore → Interior angles → Visual Proof. Confirm a side count from 3–20 in the custom keypad to regenerate the polygon immediately and reset previous cuts/proof; no separate Generate button is needed. Drag vertices into irregular or concave shapes. Choose Visual Proof, then tap pairs of non-adjacent vertices to draw cuts. Dragging vertices is supported even in cutting mode; Move vertices makes the intention explicit. Hint highlights one valid next diagonal; Auto-complete is available for teacher demonstrations.
 
-The model validates simple polygons, interior diagonals, crossings and complete triangulation. The reversible lever extracts and rotates each triangle's corners into a separate half-turn. The completed result gives n−2 contributions; the general formula appears only after completion and when requested. Valid cuts survive vertex edits; invalidated cuts are cleared with feedback. Vertex selection and arrow buttons offer keyboard-accessible geometry editing; the lever supports arrow keys, Home and End.
+The model validates simple polygons, interior diagonals, crossings and complete triangulation. The reversible lever extracts and rotates each triangle's corners into a separate half-turn. Each completed triangle receives a stable circled number. The lever moves its corners to a matching numbered result in a compact 2/3-column grid, with linked highlighting. Completion enables Reveal relationship; multiplication appears only when requested, with separate optional addition and formula controls. Valid cuts survive vertex edits; invalidated cuts are cleared with feedback. Vertex selection and arrow buttons offer keyboard-accessible geometry editing; the lever supports arrow keys, Home and End.
 
 ## Architecture and files changed
 New reusable modules:
@@ -44,7 +44,7 @@ Integrated changes:
 Saved notebook geometry retains the existing schema. Transient input, gesture and creation states are not serialized.
 
 ## Verification
-33 automated tests pass. These include existing quiz, calculator, geometry, persistence/Undo and eraser tests plus keypad validation, temporary tool state, right-angle geometry, mixed touch ownership, convex and concave triangulation in both winding directions, area conservation, exact half-turn alignment, invalid polygons and invalid cuts. Polygon coverage includes 3–20 sides and an obtuse triangle.
+The original release passed 33 automated tests; the refinement release passes 42. See [the refinement report](proof-calculator-refinements.md) for the latest checks. These include existing quiz, calculator, geometry, persistence/Undo and eraser tests plus keypad validation, temporary tool state, right-angle geometry, mixed touch ownership, convex and concave triangulation in both winding directions, area conservation, exact half-turn alignment, invalid polygons and invalid cuts. Polygon coverage includes 3–20 sides and an obtuse triangle.
 
 Browser interaction checks completed:
 - Custom numeric keypad changes and confirms polygon side count; physical numeric keys also work.

@@ -7,3 +7,15 @@
 @media(min-width:1100px){dialog.angle-explorer.with-calculator{margin-left:18px;margin-right:auto;width:calc(100vw - 405px);max-width:1250px}}
 @media(max-width:500px){.calculator-floating{width:354px}.calculator-floating .calc-modes button{font-size:11px}}
 @media(min-width:1100px){dialog.angle-explorer.with-calculator.calculator-left{margin-left:390px;margin-right:18px}}
+/* Structured slots are distinct from zero-width caret boundaries. */
+.calculator-floating .natural-editor .math-slot{width:auto;min-width:0;border:0;padding:1px;text-align:left;outline:none}
+.calculator-floating .natural-editor .math-placeholder{min-width:1ch;height:1.2em;border:1px dotted #596350;text-align:center}
+.calculator-floating .natural-editor .math-boundary{width:0;min-width:0;padding:0;border:0;overflow:visible}
+.calculator-floating .natural-editor .math-boundary:focus{width:2px;outline:none;background:transparent}
+.calculator-floating .natural-editor .math-slot:focus{background:#c5d1b4;outline:1px solid #596350}
+.math-mixed{display:inline-flex;align-items:center}.calculator-floating .math-mixed>.math-sequence{margin-right:3px}
+.calc-natural-controls{display:grid;grid-template-columns:58px 1fr 58px;align-items:center;gap:12px;margin:6px 0 10px}
+.calculator-floating .calc-natural-controls>.calc-navigation{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:30px 30px;gap:2px;margin:0}
+.calc-navigation [data-direction="↑"]{grid-column:2;grid-row:1}.calc-navigation [data-direction="←"]{grid-column:1;grid-row:2}.calc-navigation [data-direction="→"]{grid-column:3;grid-row:2}.calc-navigation [data-direction="↓"]{grid-column:2;grid-row:2}
+.calculator-floating .calc-natural-controls button{font-size:11px;min-width:0}.calculator-floating .calc-functions button{position:relative;flex-direction:column;line-height:1.1;gap:3px}.calc-secondary{font-size:9px;color:#eeb66d}.calculator-floating .calc-natural-controls .calc-navigation button{font-size:18px;min-height:30px}
+.calculator-floating .calc-natural-controls>.calc-navigation{grid-column:2;grid-row:1}.calc-natural-controls>button:first-child{grid-column:1;grid-row:1}.calc-natural-controls>button:last-child{grid-column:3;grid-row:1}.calculator-floating .math-fraction>.math-sequence:first-child{border-bottom:1.5px solid #182014;padding-bottom:3px}.calculator-floating .math-fraction>.math-sequence:last-child{padding-top:3px}.calculator-floating .natural-editor .math-boundary{min-height:0}
