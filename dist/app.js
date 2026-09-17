@@ -9,7 +9,7 @@ import {translator} from './i18n.js?v=3.1';
 import {distance,localToWorld,worldToLocal,bounds,boundsPoints,corners,makeShape,pointInPolygon,hitObject,eraseInk,recognize,planeMetrics,snapPoint,regularPoints} from './geometry.js?v=14';
 import {renderObject,selectionHandles} from './render.js?v=16';
 import {calculatorPanel} from './calculator-panel.js?v=13';
-import {mountAngleExplorer} from './angle-ui.js?v=17';
+import {mountAngleExplorer} from './angle-ui.js?v=18';
 const $=id=>document.getElementById(id),canvas=$('canvas'),overlay=$('overlay'),ctx=canvas.getContext('2d'),over=overlay.getContext('2d');
 const KEY='maths-workspace:document:v1',PREF='maths-workspace:tools:v1';
 function read(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}

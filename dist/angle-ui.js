@@ -1,10 +1,10 @@
-import {mountWorksheet} from './worksheet-ui.js?v=17';
-import {LabelLayout,polarCandidates,paintLabel} from './label-layout.js?v=17';
+import {mountWorksheet} from './worksheet-ui.js?v=18';
+import {LabelLayout,polarCandidates,paintLabel} from './label-layout.js?v=18';
 import {installCanvasOwnership} from './interaction.js?v=13';
 import {zoomAt} from './core.js?v=14';
 import {mountVisualProof} from './proof-ui.js?v=13';
 import {angleMark} from './angle-renderer.js?v=11';
-import {AngleModel,pointerWorld,TIERS,quizQuestion,displayValues} from './angle-model.js?v=17';
+import {AngleModel,pointerWorld,TIERS,quizQuestion,displayValues} from './angle-model.js?v=18';
 import {calculatorPanel} from './calculator-panel.js?v=13';
 export function mountAngleExplorer({trigger,language=()=> 'en'}){
  const dialog=document.createElement('dialog');dialog.id='angleExplorer';dialog.className='angle-explorer';document.body.append(dialog);

@@ -1,4 +1,4 @@
-import {LabelLayout,polarCandidates,paintLabel} from './label-layout.js?v=17';
+import {LabelLayout,polarCandidates,paintLabel} from './label-layout.js?v=18';
 import {angleMark} from './angle-renderer.js?v=11';
 const point=(c,a,r)=>({x:c.x+Math.cos(a)*r,y:c.y+Math.sin(a)*r});
 export function layoutDiagram(q,width,height,measure=text=>text.length*7){const centre={x:width/2,y:height/2},radius=Math.min(width,height)*.32,arc=radius*.4;let best=null;
