@@ -3,7 +3,7 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const rect=(p,w,h)=>({x:p.x-w/2,y:p.y-h/2,w,h});
 const overlaps=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 function segmentRect(a,b,r){let lo=0,hi=1;const dx=b.x-a.x,dy=b.y-a.y;for(const [p,q]of [[-dx,a.x-r.x],[dx,r.x+r.w-a.x],[-dy,a.y-r.y],[dy,r.y+r.h-a.y]]){if(Math.abs(p)<1e-9){if(q<0)return false;}else{const t=q/p;if(p<0)lo=Math.max(lo,t);else hi=Math.min(hi,t);if(lo>hi)return false;}}return true;}
-export function polarCandidates(anchor,angle,radius,{spread=.25,step=9}={}){const out=[];for(const r of [radius,radius+step,radius+2*step,radius+3*step])for(const turn of [0,-spread,spread,-2*spread,2*spread])out.push({x:anchor.x+Math.cos(angle+turn)*r,y:anchor.y+Math.sin(angle+turn)*r});return out;}
+export function polarCandidates(anchor,angle,radius,{spread=.25,step=9,rings=4}={}){const out=[];for(const r of Array.from({length:rings},(_,i)=>radius+i*step))for(const turn of [0,-spread,spread,-2*spread,2*spread])out.push({x:anchor.x+Math.cos(angle+turn)*r,y:anchor.y+Math.sin(angle+turn)*r});return out;}
 export function edgeCandidates(a,b,sign=1){const d=distance(a,b)||1,t={x:(b.x-a.x)/d,y:(b.y-a.y)/d},mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2},out=[];for(const r of [18,26,34,42])for(const side of [sign,-sign])for(const along of [0,-12,12])out.push({x:mid.x+t.y*r*side+t.x*along,y:mid.y-t.x*r*side+t.y*along});return out;}
 export class LabelLayout {
  constructor(){this.previous=new Map();}
