@@ -2,7 +2,7 @@ import {createObject} from './core.js?v=14';
 import {planeMetrics,localToWorld,worldToLocal,corners,pointInPolygon} from './geometry.js?v=14';
 import {outline} from './annotations.js?v=14';
 
-export function createGraph(position){return createObject('CartesianPlaneObject',{position,width:400,height:560,strokeWidth:1.3,xMin:-4.5,xMax:4.5,yMin:-6.5,yMax:6.5,interval:1,grid:'detailed',paperGrid:true,ticks:true,labels:true,xAxis:true,yAxis:true,axisArrows:true});}
+export function createGraph(position){return createObject('CartesianPlaneObject',{position,width:400,height:560,strokeWidth:1.3,xMin:-4,xMax:5,yMin:-6,yMax:7,interval:1,grid:'detailed',paperGrid:true,gridBoundaryVersion:1,ticks:true,labels:true,xAxis:true,yAxis:true,axisArrows:true});}
 export function shiftAxis(o,direction){const s=o.interval||1;if(direction==='left'){o.xMin+=s;o.xMax+=s;}if(direction==='right'){o.xMin-=s;o.xMax-=s;}if(direction==='up'){o.yMin-=s;o.yMax-=s;}if(direction==='down'){o.yMin+=s;o.yMax+=s;}}
 export function canChangeExtent(o,direction){const s=o.interval||1,w=o.xMax-o.xMin,h=o.yMax-o.yMin;return direction==='right'?w+s<=200:direction==='up'?h+s<=200:direction==='left'?w-s>=s:h-s>=s;}
 export function changeExtent(o,direction){if(!canChangeExtent(o,direction))return false;const {unit,left,top}=planeMetrics(o),s=o.interval||1;let dx=0,dy=0;if(direction==='right')o.xMax+=s;if(direction==='left'){o.xMin+=s;dx=s*unit;}if(direction==='up'){o.yMax+=s;dy=-s*unit;}if(direction==='down')o.yMin+=s;
@@ -18,3 +18,8 @@ export function transformGraphContents(objects,baseObjects,before,after){const r
 export function resizeGraph(o,base,anchor,factor){factor=Math.max(.1,Math.min(20,factor));o.scale={x:base.scale.x*factor,y:base.scale.y*factor};const fixed=localToWorld(anchor,base),offset=localToWorld(anchor,{...o,position:{x:0,y:0}});o.position={x:fixed.x-offset.x,y:fixed.y-offset.y};}
 // Copies must not keep references to another graph's clipping frame.
 export function copyGraphSelection(objects,ids,offset=20){const chosen=new Set(ids);for(const plane of objects.filter(o=>chosen.has(o.id)&&o.type==='CartesianPlaneObject'))for(const o of graphContents(objects,plane))chosen.add(o.id);const originals=objects.filter(o=>chosen.has(o.id)),idMap=new Map(originals.map(o=>[o.id,crypto.randomUUID()]));return originals.map(o=>{const copy={...structuredClone(o),id:idMap.get(o.id),groupId:undefined,locked:false,position:{x:o.position.x+offset,y:o.position.y+offset}};if(idMap.has(o.graphId))copy.graphId=idMap.get(o.graphId);else{delete copy.graphId;const parent=originals.find(p=>p.type==='CartesianPlaneObject'&&intersectsGraph(o,p));if(parent)copy.graphId=idMap.get(parent.id);}return copy;});}
+
+// Complete partial border squares without moving any existing world-coordinate content.
+export function completeGraphSquares(o){const step=o.interval||1,{unit,left,top}=planeMetrics(o),xMin=Math.floor(o.xMin/step+1e-9)*step,xMax=Math.ceil(o.xMax/step-1e-9)*step,yMin=Math.floor(o.yMin/step+1e-9)*step,yMax=Math.ceil(o.yMax/step-1e-9)*step;
+ if(xMax-xMin>200||yMax-yMin>200)return false;
+ const position=localToWorld({x:(xMin-o.xMin)*unit,y:(o.yMax-yMax)*unit},o);Object.assign(o,{xMin,xMax,yMin,yMax,position,width:(xMax-xMin)*unit+2*left,height:(yMax-yMin)*unit+2*top,gridBoundaryVersion:1});return true;}

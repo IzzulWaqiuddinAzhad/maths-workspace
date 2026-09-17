@@ -1,7 +1,7 @@
-import {renderObject,prepareImages} from './render.js?v=15';
+import {renderObject,prepareImages} from './render.js?v=16';
 import {renderSceneAnnotations} from './annotations.js?v=14';
 import {corners,worldToLocal} from './geometry.js?v=14';
-import {graphContents} from './graph-model.js?v=14';
+import {graphContents} from './graph-model.js?v=16';
 function clipGraph(ctx,plane){const ps=corners(plane);ctx.beginPath();ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.clip();}
 export function renderGraphScene(ctx,objects,dark,refresh,environment){const planes=new Map(objects.filter(o=>o.type==='CartesianPlaneObject').map(o=>[o.id,o]));for(const o of objects){const plane=planes.get(o.graphId);ctx.save();if(plane)clipGraph(ctx,plane);renderObject(ctx,o,dark,refresh);ctx.restore();}
  renderSceneAnnotations(ctx,objects.filter(o=>!planes.has(o.graphId)),dark,environment);
