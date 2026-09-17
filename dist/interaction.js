@@ -7,7 +7,7 @@ export class ToolContinuity {
 }
 export function installCanvasOwnership(canvas,onMixed){
  const touches=new Map();let blocked=false;
- const down=e=>{if(e.pointerType!=='touch')return;touches.set(e.pointerId,canvas===e.target);if(touches.size>1&&[...touches.values()].some(Boolean)&&![...touches.values()].every(Boolean)){blocked=true;onMixed();}};
+ const down=e=>{if(e.pointerType!=='touch')return;touches.set(e.pointerId,canvas===e.target||canvas.contains?.(e.target));if(touches.size>1&&[...touches.values()].some(Boolean)&&![...touches.values()].every(Boolean)){blocked=true;onMixed();}};
  const up=e=>{touches.delete(e.pointerId);if(!touches.size)blocked=false;};
  const prevent=e=>{if(e.touches.length>1&&[...touches.values()].some(Boolean)&&e.cancelable)e.preventDefault();};
  document.addEventListener('pointerdown',down,true);document.addEventListener('pointerup',up,true);document.addEventListener('pointercancel',up,true);
