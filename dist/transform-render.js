@@ -1,4 +1,4 @@
-import { graphToScreen, screenToGraph, GRID_UNIT, formatNumber, lineHandles, lineFoot } from './transform-model.js?v=25';
+import { graphToScreen, screenToGraph, GRID_UNIT, formatNumber, lineHandles, lineFoot, mirrorGrip } from './transform-model.js?v=29';
 import { LabelLayout, polarCandidates, paintLabel } from './label-layout.js?v=12';
 
 export function createTransformationRenderer(canvas) {
@@ -58,18 +58,31 @@ export function createTransformationRenderer(canvas) {
         const p = original.points[i], q = preview.points[i], f = lineFoot(p, mirror.line); stroke([p, q], blue, 1, [4, 4]);
         for (const end of [p, q]) { const mid = screen({ x: (end.x + f.x) / 2, y: (end.y + f.y) / 2 }), A = screen(p), B = screen(q), length = Math.hypot(B.x - A.x, B.y - A.y) || 1; ctx.beginPath(); ctx.moveTo(mid.x - (B.y - A.y) * 4 / length, mid.y + (B.x - A.x) * 4 / length); ctx.lineTo(mid.x + (B.y - A.y) * 4 / length, mid.y - (B.x - A.x) * 4 / length); ctx.strokeStyle = blue; ctx.stroke(); }
       }
-      if (transform === 'rotation' && centre) {
-        stroke([a, centre, b], blue, 1.3, [5, 4]);
-        const c = screen(centre), A = screen(a), start = Math.atan2(A.y - c.y, A.x - c.x), end = start - state.angle * Math.PI / 180, radius = Math.min(64, Math.hypot(A.x - c.x, A.y - c.y) * .5);
-        if (radius > 5) { ctx.beginPath(); ctx.arc(c.x, c.y, radius, start, end, state.angle > 0); ctx.strokeStyle = blue; ctx.lineWidth = 2; ctx.stroke(); const tangent = end + (state.angle > 0 ? -Math.PI / 2 : Math.PI / 2), x = c.x + Math.cos(end) * radius, y = c.y + Math.sin(end) * radius; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 8 * Math.cos(tangent - .4), y - 8 * Math.sin(tangent - .4)); ctx.lineTo(x - 8 * Math.cos(tangent + .4), y - 8 * Math.sin(tangent + .4)); ctx.closePath(); ctx.fillStyle = blue; ctx.fill(); }
+    }
+    if (transform === 'rotation' && centre && state.rotationWedge && state.rotationGuide) {
+      const guide = state.rotationGuide, c = screen(centre), A = screen(guide.source), start = -guide.start, sweep = -guide.sweep, end = start + sweep;
+      const radius = Math.min(72, Math.hypot(A.x - c.x, A.y - c.y) * .42);
+      if (radius > 4 && Math.abs(sweep) > 1e-9) {
+        ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.arc(c.x, c.y, radius, start, end, sweep < 0); ctx.closePath();
+        ctx.fillStyle = dark ? '#6da6f240' : '#4387df26'; ctx.fill();
+        ctx.beginPath(); ctx.arc(c.x, c.y, radius, start, end, sweep < 0); ctx.strokeStyle = blue; ctx.lineWidth = 2; ctx.stroke();
+        const tangent = end + (sweep < 0 ? -Math.PI / 2 : Math.PI / 2), x = c.x + Math.cos(end) * radius, y = c.y + Math.sin(end) * radius;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 9 * Math.cos(tangent - .4), y - 9 * Math.sin(tangent - .4)); ctx.lineTo(x - 9 * Math.cos(tangent + .4), y - 9 * Math.sin(tangent + .4)); ctx.closePath(); ctx.fillStyle = blue; ctx.fill();
       }
+      stroke([centre, guide.source], blue, 1.4, [6, 4]);
+      if (state.angle) stroke([centre, guide.image], blue, 1.7);
+      segments.push([c, screen(guide.source)], [c, screen(guide.image)]);
+      requests.push({ id: 'rotation-angle', text: state.rotationLabel, colour: blue, candidates: polarCandidates(c, start + sweep / 2, radius + 24, { spread: .35, rings: 6 }) });
     }
     objects.forEach(o => object(o));
     if (preview) object(preview, true);
     if (mirror && transform === 'reflection') {
       const ps = lineHandles(mirror.line, screenToGraph({ x: w / 2, y: h / 2 }, view), Math.hypot(w, h) / spacing);
       stroke(ps, dark ? '#e5af64' : '#9b6018', 2, [9, 5]);
-      for (const p of mirror.handles) { const s = screen(p); ctx.fillStyle = paper; ctx.strokeStyle = dark ? '#e5af64' : '#9b6018'; ctx.lineWidth = 2; ctx.fillRect(s.x - 5, s.y - 5, 10, 10); ctx.strokeRect(s.x - 5, s.y - 5, 10, 10); }
+      for (const p of mirror.handles) { const s = screen(p); ctx.fillStyle = paper; ctx.strokeStyle = dark ? '#e5af64' : '#9b6018'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); dots.push(s); }
+      const grip = screen(mirrorGrip(mirror.handles));
+      ctx.save(); ctx.translate(grip.x, grip.y); ctx.rotate(Math.PI / 4); ctx.fillStyle = dark ? '#b58543' : '#a3681e'; ctx.strokeStyle = paper; ctx.lineWidth = 2; ctx.fillRect(-9, -9, 18, 18); ctx.strokeRect(-9, -9, 18, 18); ctx.restore();
+      ctx.font = 'bold 17px system-ui'; ctx.fillStyle = '#fff'; ctx.fillText('✥', grip.x, grip.y); dots.push(grip);
     }
     if (centre && transform === 'rotation') {
       const p = screen(centre); ctx.strokeStyle = dark ? '#e5af64' : '#9b6018'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2); ctx.moveTo(p.x - 11, p.y); ctx.lineTo(p.x + 11, p.y); ctx.moveTo(p.x, p.y - 11); ctx.lineTo(p.x, p.y + 11); ctx.stroke();
@@ -79,7 +92,7 @@ export function createTransformationRenderer(canvas) {
     if (state.drawLine) stroke(state.drawLine, '#b58032', 2, [6, 4]);
     labels.begin({ bounds: { x: 8, y: 8, w: w - 16, h: h - 60 }, segments, points: dots });
     // Keep vertex labels clear of axis numerals and the graph's edge controls.
-    labels.placed.push(...obstacles, { x: 5, y: h / 2 - 20, w: 40, h: 40 }, { x: w - 45, y: h / 2 - 20, w: 40, h: 40 }, { x: w / 2 - 20, y: 5, w: 40, h: 40 }, { x: w / 2 - 20, y: h - 92, w: 40, h: 40 });
+    labels.placed.push(...obstacles, ...(state.overlays || []), { x: 5, y: h / 2 - 20, w: 40, h: 40 }, { x: w - 45, y: h / 2 - 20, w: 40, h: 40 }, { x: w / 2 - 20, y: 5, w: 40, h: 40 }, { x: w / 2 - 20, y: h - 92, w: 40, h: 40 });
     ctx.font = 'italic 15px Georgia, serif';
     for (const request of requests) { const placed = labels.place({ ...request, width: ctx.measureText(request.text).width, height: 17 }); paintLabel(ctx, placed, { ink: request.colour, background: paper }); }
     labels.end();

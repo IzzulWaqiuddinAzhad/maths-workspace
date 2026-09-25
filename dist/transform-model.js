@@ -40,8 +40,35 @@ export function snapRotation(degrees, snap = true) {
   const d = Math.max(-360, Math.min(360, degrees)), stop = Math.round(d / 90) * 90;
   return clean(snap && Math.abs(d - stop) <= 3 ? stop : d);
 }
-export function leverAngle(y, top, height) {
-  return snapRotation(360 - Math.max(0, Math.min(1, (y - top) / height)) * 720);
+export function leverAngle(y, top, height, snapping = true) {
+  return snapRotation(360 - Math.max(0, Math.min(1, (y - top) / height)) * 720, snapping);
+}
+// Capture and release use different thresholds, so a quarter turn stays put
+// through small pointer movements. Exact input and keyboard nudges bypass this.
+export class RotationSnap {
+  constructor(angle = 0) { this.held = angle % 90 === 0 ? angle : null; }
+  move(value) {
+    const angle = snapRotation(value, false);
+    if (this.held !== null && Math.abs(angle - this.held) <= 18) return this.held;
+    const nearest = clean(Math.round(angle / 90) * 90);
+    this.held = Math.abs(angle - nearest) <= 10 ? nearest : null;
+    return this.held ?? angle;
+  }
+}
+export function rotationGuide(points, centre, degrees) {
+  if (!centre || !points.length) return null;
+  // Choose from the source, never the moving image. Ties keep the first vertex.
+  let index = 0;
+  const distance = p => Math.hypot(p.x - centre.x, p.y - centre.y);
+  points.forEach((p, i) => { if (distance(p) > distance(points[index]) + 1e-9) index = i; });
+  const source = points[index];
+  if (distance(source) < 1e-9) return null;
+  return { index, source, image: rotatePoint(source, centre, degrees), start: Math.atan2(source.y - centre.y, source.x - centre.x), sweep: degrees * Math.PI / 180 };
+}
+export const mirrorGrip = handles => ({ x: (handles[0].x + handles[1].x) / 2, y: (handles[0].y + handles[1].y) / 2 });
+export function moveMirror(handles, delta) { return handles.map(p => translatePoint(p, delta)); }
+export function completedImage(source, points, objects) {
+  return { id: crypto.randomUUID(), name: source.name.slice(0, 39) + '′', points: structuredClone(points), labels: imageLabels(source.labels, objects), image: true };
 }
 export class ReflectionScrub {
   constructor(progress = 0) { this.start = progress; this.progress = progress; this.last = progress; this.direction = 0; }

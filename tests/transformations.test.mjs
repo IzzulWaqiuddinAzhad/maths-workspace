@@ -6,7 +6,7 @@ import {
   parseMirrorEquation, lineEquation, lineHandles, snapRotation, leverAngle,
   graphToScreen, screenToGraph, polygonValid, nextLabels, imageLabels,
   newAnnotation, eraseAnnotations, openTransformations, validTransformationDocument,
-  transformationDocument, objectHit, ReflectionScrub,
+  transformationDocument, objectHit, ReflectionScrub, RotationSnap, rotationGuide, mirrorGrip, moveMirror, completedImage,
 } from '../dist/transform-model.js';
 const near = (a, b, eps = 1e-8) => assert.ok(Math.abs(a - b) < eps, `${a} ≠ ${b}`);
 const same = (a, b) => { near(a.x, b.x); near(a.y, b.y); };
@@ -122,4 +122,59 @@ test('storage failures retain current work and do not falsely report it saved', 
   assert.equal(studio.isSaved(), false); assert.equal(studio.store.document.transformation.objects.length, 1);
   studio.store.undo(); assert.equal(studio.store.document.transformation.objects.length, 0); studio.dispose();
   const bad = transformationDocument(); bad.transformation.objects = [null]; assert.equal(validTransformationDocument(bad), false);
+});
+
+test('rotation lever holds common angles through jitter and releases deliberately in either direction', () => {
+  for (const stop of [-270, -180, -90, 0, 90, 180, 270]) {
+    const snap = new RotationSnap(stop - 30);
+    assert.equal(snap.move(stop - 9), stop);
+    assert.equal(snap.move(stop + 17), stop);
+    assert.equal(snap.move(stop + 19), stop + 19);
+    assert.equal(snap.move(stop + 8), stop);
+    assert.equal(snap.move(stop - 17), stop);
+    assert.equal(snap.move(stop - 19), stop - 19);
+  }
+  assert.equal(new RotationSnap().move(352), 360);
+  assert.equal(new RotationSnap().move(-352), -360);
+  assert.equal(new RotationSnap().move(1000), 360);
+  near(leverAngle(230, 100, 400, false), 126);
+  assert.equal(snapRotation(89, false), 89); // exact input has no detent
+});
+test('rotation reference stays on the farthest original vertex and keeps the full signed sweep', () => {
+  const points = [{ x: 1, y: 0 }, { x: -3, y: 4 }, { x: 2, y: 1 }], centre = { x: 0, y: 0 };
+  for (const angle of [0, 45, 90, 180, 270, 360, -90, -270, -360]) {
+    const g = rotationGuide(points, centre, angle);
+    assert.equal(g.index, 1); same(g.source, points[1]); same(g.image, rotatePoint(points[1], centre, angle)); near(g.sweep, angle * Math.PI / 180);
+  }
+  assert.equal(rotationGuide(points, { x: -10, y: 0 }, 90).index, 2);
+  assert.equal(rotationGuide([{ x: 1, y: 0 }, { x: -1, y: 0 }], centre, 90).index, 0);
+  assert.equal(rotationGuide([centre], centre, 90), null);
+});
+test('parallel mirror dragging moves both endpoints and the grip without changing direction', () => {
+  for (const handles of [[{ x: 2, y: -3 }, { x: 2, y: 4 }], [{ x: -2.4, y: 1.3 }, { x: 4.5, y: 7.8 }]]) {
+    const before = structuredClone(handles), delta = { x: 3, y: -2 }, moved = moveMirror(handles, delta);
+    const a = lineFromPoints(...handles), b = lineFromPoints(...moved);
+    near(a.a, b.a); near(a.b, b.b);
+    same(mirrorGrip(moved), translatePoint(mirrorGrip(handles), delta));
+    assert.deepEqual(handles, before);
+    const turned = [moved[0], { x: moved[1].x + 1, y: moved[1].y - 2 }];
+    assert.notDeepEqual(lineFromPoints(...turned), b); same(turned[0], moved[0]);
+  }
+});
+test('combined images use the selected image coordinates, remain independent, and persist through deletion/undo', () => {
+  const memory = new Map(), storage = { getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, v) }, studio = openTransformations(storage);
+  const source = { id: 'source', name: 'Triangle A', labels: ['A', 'B', 'C'], points: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 2, y: 3 }] };
+  studio.store.transact(d => d.transformation.objects.push(source));
+  const translated = completedImage(source, source.points.map(p => translatePoint(p, { x: 2, y: -1 })), [source]);
+  studio.store.transact(d => d.transformation.objects.push(translated));
+  const rotated = completedImage(translated, translated.points.map(p => rotatePoint(p, { x: 0, y: 0 }, 90)), [source, translated]);
+  studio.store.transact(d => d.transformation.objects.push(rotated));
+  same(rotated.points[0], { x: 0, y: 3 }); assert.deepEqual(rotated.labels, ['A′′', 'B′′', 'C′′']);
+  const before = structuredClone(studio.store.document.transformation.objects);
+  studio.store.transact(d => { d.transformation.objects = d.transformation.objects.filter(o => o.id !== translated.id); });
+  assert.deepEqual(studio.store.document.transformation.objects.map(o => o.id), [source.id, rotated.id]);
+  studio.store.undo(); assert.deepEqual(studio.store.document.transformation.objects, before); studio.store.redo();
+  const restored = openTransformations(storage); assert.deepEqual(restored.store.document.transformation.objects, [source, rotated]);
+  translated.points[0].x = 999; assert.equal(rotated.points[0].x, 0); assert.equal(source.points[0].x, 1);
+  restored.dispose(); studio.dispose();
 });
