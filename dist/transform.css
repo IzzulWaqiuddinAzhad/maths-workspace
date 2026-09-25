@@ -1,0 +1,153 @@
+.angle-explorer.transform-mode {
+  width: 97vw; max-width: 1800px; height: 96dvh; max-height: 96dvh;
+  padding: 18px 22px 12px; display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+}
+.transform-mode .explorer-close { top: 4px; right: 4px; margin: 0; }
+.tf-head { display: flex; align-items: center; gap: 18px; padding-right: 36px; flex-shrink: 0; }
+.tf-head h2 { margin: 1px 0 0; font-size: 23px; font-weight: 600; }
+.tf-head .explorer-kicker { font-size: 10px; }
+.tf-history { display: flex; margin-left: auto; gap: 5px; }
+.transform-mode button { border: 1px solid var(--line); min-height: 40px; padding: 7px 12px; font-size: 13px; border-radius: 8px; }
+.transform-mode button:disabled { opacity: .4; cursor: default; }
+.transform-mode button[aria-pressed="true"] { background: #2868bd; border-color: #2868bd; color: #fff; }
+.transform-mode button:focus-visible,.transform-mode select:focus-visible,.tf-lever:focus-visible { outline: 3px solid #739bd9; outline-offset: 2px; }
+.transform-mode .tf-primary { background: #245ca7; color: #fff; border-color: #245ca7; font-weight: 600; }
+.tf-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+.tf-toolbar .tf-divider { height: 22px; width: 1px; background: var(--line); margin: 0 3px; }
+.tf-toolbar label { font-size: 12px; }
+.tf-snap { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+.transform-mode select,.transform-mode input[type="text"]:not([data-math]),.transform-mode input[type="number"] { min-height: 40px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); font: inherit; font-size: 13px; }
+.transform-mode input[data-math] { min-width: 0; font-size: 17px; text-align: center; padding: 8px 3px; min-height: 42px; }
+.tf-ink-options { display: flex; align-items: center; gap: 6px; }
+.tf-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 16px; }
+.tf-board { position: relative; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.dark .tf-board { background: #15181d; }
+#tfCanvas { display: block; width: 100%; height: 100%; position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.tf-pan-arrows,.tf-object-arrows { position: absolute; inset: 0; pointer-events: none; }
+.tf-pan-arrows button,.tf-object-arrows button { position: absolute; pointer-events: auto; display: grid; place-items: center; width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 0; font-size: 21px; box-shadow: 0 2px 7px #0001; user-select: none; -webkit-user-select: none; touch-action: none; }
+.tf-pan-arrows button { background: var(--panel); color: var(--muted); border-radius: 9px; opacity: .95; }
+#tfViewUp { top: 7px; left: 50%; transform: translateX(-50%); }
+#tfViewDown { bottom: 54px; left: 50%; transform: translateX(-50%); }
+#tfViewLeft { left: 7px; top: 50%; transform: translateY(-50%); }
+#tfViewRight { right: 7px; top: 50%; transform: translateY(-50%); }
+.tf-object-arrows button { transform: translate(-50%,-50%); border-radius: 50%; background: #e7effb; border-color: #8ba9d6; color: #164c95; }
+.dark .tf-object-arrows button { background: #253c5c; color: #dceaff; }
+.tf-view-tools { position: absolute; bottom: 8px; right: 8px; left: 8px; display: flex; align-items: center; justify-content: flex-end; gap: 3px; pointer-events: none; }
+.tf-view-tools>span { margin-right: auto; padding: 5px 7px; border-radius: 6px; background: var(--panel); color: var(--muted); font-size: 11px; }
+.tf-view-tools button,.tf-view-tools output { pointer-events: auto; background: var(--panel); min-width: 34px; min-height: 34px; padding: 6px; }
+.tf-view-tools output { font-size: 11px; display: grid; place-items: center; border-radius: 6px; }
+.tf-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: min(310px,75%); background: var(--panel); box-shadow: 0 4px 25px #0001; border: 1px solid var(--line); border-radius: 12px; padding: 22px; display: grid; gap: 12px; text-align: center; }
+.tf-empty span { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.tf-polygon-actions { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; justify-content: flex-start; }
+.tf-polygon-actions button { background: var(--panel); }
+.tf-side { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 5px 12px 0; display: flex; flex-direction: column; gap: 14px; }
+.tf-side>* { flex-shrink: 0; }
+.tf-object-select { display: grid; gap: 6px; }
+.tf-object-select label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; font-weight: 600; }
+.tf-transforms { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tf-transforms button { padding: 8px 5px; font-size: 12px; }
+.tf-coming { grid-column: 1/-1; font-size: 10px; color: var(--muted); text-align: right; }
+.tf-welcome { font-size: 14px; line-height: 1.6; color: var(--muted); padding: 22px 8px; }
+.tf-control-panel { padding: 15px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
+.tf-control-panel h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.transform-mode .tf-control-panel p { font-size: 12px; line-height: 1.6; margin: 10px 0; color: var(--muted); }
+.tf-vector { display: flex; gap: 12px; align-items: center; justify-content: center; }
+.tf-vector>span { font: italic 21px Georgia,serif; }
+.tf-column-vector { display: grid; gap: 6px; border-left: 2px solid var(--text); border-right: 2px solid var(--text); border-radius: 40% / 12%; padding: 7px 8px; }
+.tf-column-vector input { width: 72px; }
+.tf-vector-labels { display: grid; gap: 29px; font-size: 11px; color: var(--muted); }
+.tf-summary { font-variant-numeric: tabular-nums; }
+.tf-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tf-pair button { padding: 6px; font-size: 12px; }
+.tf-readout { display: block; padding: 12px 3px; font: 17px Georgia,serif; text-align: center; overflow-wrap: anywhere; }
+.tf-reflect-actions { margin: 5px 0 12px; }
+.tf-reflection-control { display: flex; flex-direction: column; align-items: center; gap: 25px; margin: 15px 0 6px; }
+.tf-reflection-control>span { font-size: 12px; color: var(--muted); }
+.tf-reflection-lever { width: 48px; height: 190px; }
+.tf-reflection-lever .tf-lever-track { left: 20px; right: 20px; }
+.tf-check { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.transform-mode input[type="checkbox"] { accent-color: #245ca7; width: 16px; height: 16px; }
+.tf-coordinate { display: flex; align-items: center; gap: 5px; font-size: 20px; margin: 10px 0; }
+.tf-coordinate>span { min-width: 0; flex: 1; }
+.tf-coordinate input { width: 100%; }
+.tf-coordinate>input { width: calc(50% - 16px); }
+#tfPickCentre { width: 100%; }
+.tf-rotation-control { display: grid; grid-template-columns: 38px 40px minmax(0,1fr); gap: 8px; padding: 18px 0; align-items: stretch; }
+.tf-lever-labels { display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; height: 256px; position: relative; top: -6px; color: var(--muted); }
+.tf-lever-labels strong { color: var(--text); }
+.tf-lever { position: relative; height: 244px; cursor: ns-resize; touch-action: none; user-select: none; -webkit-user-select: none; }
+.tf-lever[aria-disabled="true"] { opacity: .35; cursor: default; }
+.tf-lever-track { position: absolute; inset: 0 16px; border-radius: 5px; background: #9ba5b4; }
+.tf-lever-track:after { content: ''; position: absolute; left: -7px; right: -7px; top: 50%; border-top: 2px solid var(--text); }
+.tf-grip { position: absolute; top: 50%; left: 0; right: 0; height: 36px; transform: translateY(-50%); display: grid; place-items: center; border-radius: 7px; border: 2px solid #4d7bb7; background: #e5eefb; color: #184276; font-size: 22px; box-shadow: 0 2px 5px #0002; }
+.tf-rotation-value { display: flex; flex-direction: column; justify-content: space-between; align-items: stretch; gap: 8px; }
+.tf-rotation-value>span { font-size: 10px; color: var(--muted); }
+.tf-rotation-value select { font-size: 10px; padding: 5px 1px; width: 100%; }
+.tf-rotation-value button { font-size: 11px; padding: 5px; }
+.tf-exact-angle { display: flex; align-items: center; gap: 3px; }
+.tf-exact-angle input { width: calc(100% - 15px); }
+.tf-keep { width: 100%; margin-top: 12px; }
+.transform-mode .tf-small { font-size: 11px; line-height: 1.5; color: var(--muted); margin: 7px 0 0; }
+#tfProperties { border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; }
+#tfProperties summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+#tfProperties>label { display: grid; grid-template-columns: 54px minmax(0,1fr); align-items: center; gap: 8px; margin: 7px 0; }
+#tfProperties input { max-width: 100%; width: 100%; }
+#tfDelete { margin-top: 6px; color: #b84c43; width: 100%; }
+.tf-display-options { display: flex; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.tf-footer { display: flex; justify-content: space-between; gap: 15px; font-size: 11px; line-height: 1.4; color: var(--muted); flex-shrink: 0; min-height: 16px; }
+.tf-footer>span:last-child { white-space: nowrap; }
+.tf-equation { min-height: 46px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; font-size: 17px; overflow-x: auto; white-space: pre; background: var(--panel); }
+.tf-caret { color: #2868bd; }
+.tf-equation-keys { display: grid; grid-template-columns: repeat(5,1fr); gap: 4px; margin: 8px 0; }
+.tf-equation-keys button { background: var(--panel); padding: 4px; font-size: 17px; min-width: 0; }
+#tfApplyEquation { width: 100%; }
+.tf-toolbar,.tf-pan-arrows,.tf-object-arrows,.tf-equation-keys { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.tf-has-lever .tf-layout { grid-template-columns: minmax(0,1fr) 76px 300px; gap: 12px; }
+.tf-lever-dock { display: flex; justify-content: center; align-items: center; min-height: 0; }
+.tf-lever-dock .tf-reflection-control { margin: 0; gap: 30px; }
+.tf-lever-dock .tf-reflection-control>span { font-size: 11px; text-align: center; line-height: 1.6; }
+.tf-lever-dock .tf-reflection-lever { height: clamp(170px,36vh,320px); }
+.tf-lever-dock .tf-rotation-control { grid-template-columns: 30px 40px; gap: 4px; padding: 16px 0; }
+.tf-lever-dock .tf-lever-labels { height: calc(clamp(200px,40vh,360px) + 12px); }
+.tf-lever-dock #tfLever { height: clamp(200px,40vh,360px); }
+.tf-control-panel>.tf-rotation-value { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 10px; margin-top: 15px; }
+.tf-control-panel>.tf-rotation-value>span { display: none; }
+.tf-control-panel>.tf-rotation-value button { grid-column: 1/-1; }
+.tf-control-panel>.tf-rotation-value select { font-size: 12px; }
+@media(min-width:1500px) { .tf-layout { grid-template-columns: minmax(0,1fr) 330px; gap: 22px; } .tf-transforms button { font-size: 14px; } }
+@media(max-width:950px) {
+  .angle-explorer.transform-mode { max-width: 100vw; width: 100vw; height: 100dvh; max-height: 100dvh; padding: 12px; border-radius: 0; gap: 9px; }
+  .tf-layout { grid-template-columns: minmax(0,1fr) 265px; gap: 10px; }
+  .tf-has-lever .tf-layout { grid-template-columns: minmax(0,1fr) 72px 265px; gap: 8px; }
+  .tf-control-panel { padding: 11px; }
+  .tf-toolbar { gap: 4px; }
+  .tf-toolbar button { padding: 6px 8px; font-size: 12px; }
+  .tf-footer>span:last-child { display: none; }
+}
+@media(max-width:650px), (max-width:950px) and (orientation:portrait) {
+  .tf-head { gap: 8px; }
+  .tf-head h2 { font-size: 18px; }
+  .tf-head .explorer-kicker { display: none; }
+  .tf-head>button { font-size: 11px; padding: 6px; }
+  .tf-history { gap: 3px; }
+  .tf-history button { padding: 5px; min-width: 30px; }
+  .tf-toolbar .tf-divider { display: none; }
+  .tf-toolbar .tf-snap { margin-left: 3px; font-size: 11px; }
+  .tf-toolbar select { font-size: 12px; max-width: 135px; }
+  .tf-layout,.tf-has-lever .tf-layout { display: grid; grid-template-columns: minmax(0,1fr); grid-auto-rows: max-content; overflow-y: auto; overscroll-behavior: contain; gap: 12px; }
+  .tf-has-lever .tf-layout { grid-template-columns: minmax(0,1fr) 64px; gap: 8px; }
+  .tf-lever-dock { grid-column: 2; grid-row: 1; }
+  .tf-lever-dock .tf-rotation-control { grid-template-columns: 24px 36px; gap: 2px; }
+  .tf-lever-dock .tf-lever-labels { font-size: 10px; }
+  .tf-lever-dock .tf-reflection-control>span { font-size: 10px; }
+  .tf-lever-dock #tfLever { height: 220px; }
+  .tf-lever-dock .tf-lever-labels { height: 232px; }
+  .tf-lever-dock .tf-reflection-lever { height: 185px; }
+  .tf-board { min-height: max(300px,48dvh); flex-shrink: 0; }
+  .tf-side { grid-column: 1/-1; overflow: visible; flex: none; padding: 0 2px 12px; gap: 12px; }
+  .tf-transforms { grid-template-columns: repeat(2,1fr); }
+  .tf-rotation-control { max-width: 285px; margin: auto; }
+  .tf-control-panel { padding: 15px; }
+  .tf-object-select { grid-template-columns: 100px minmax(0,1fr); align-items: center; }
+  .tf-view-tools>span { font-size: 9px; }
+}
