@@ -5,7 +5,7 @@ Open **Explore → Interior angles → Triangles, quadrilaterals and more**.
 ## Changes
 
 - Diagonals split the angle wedges at their endpoints as soon as the cut is accepted. This also works during incomplete triangulation: the triangle and the remaining polygon each show their own corner angles. Removing a cut merges the sectors again.
-- Each wedge and its value share a stable face/vertex identity. The label anchor follows the wedge's translation, rotation and change in size; the text remains upright. Forward/reverse scrubbing and replay use the same calculation. Original angle labels are not left behind during extraction.
+- Each wedge and its value share a stable face/vertex identity. The label anchor follows the wedge's translation, rotation and change in size; the text remains upright. Forward/reverse scrubbing and replay use the same calculation. A stationary copy of every source wedge and angle label remains on the polygon throughout extraction, reverse scrubbing and replay, using the same colour and value as its moving copy.
 - Result groups use their available width and height, selecting a suitable number of columns and rows. Sparse proofs have much larger half-turn diagrams. Dense proofs retain readable labels and scroll within the result area. Resizing or revealing the formula recalculates the layout.
 - One-decimal values reuse the existing angle-sum rounding helper so a triangle's displayed values total 180.0°. The same values appear on the source wedges and moving/result wedges.
 - Existing diagonal validation, vertex editing, right-angle markers, triangle numbering, highlighting, reveal controls and EN/BM controls remain in place. Bar Model Studio and saved notebook data are unchanged.

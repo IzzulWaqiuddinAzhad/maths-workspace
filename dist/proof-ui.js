@@ -428,15 +428,14 @@ export function mountVisualProof(host, { language = () => "en", back }) {
     // Draw each current face's corner, not the unsplit polygon corner.
     for (const a of sectors) {
       arcs.push({ ...a, radius: sourceRadius });
-      if (!moving) {
-        ctx.strokeStyle = "#000";
-        angleMark(ctx, {
-          ...a,
-          radius: sourceRadius,
-          fill: colours[a.vertex % 6] + "55",
-          rightAngleDisplay: "marker-and-value",
-        });
-      }
+      // Keep the source sector as a reference; the proof animates a copy.
+      ctx.strokeStyle = "#000";
+      angleMark(ctx, {
+        ...a,
+        radius: sourceRadius,
+        fill: colours[a.vertex % 6] + "55",
+        rightAngleDisplay: "marker-and-value",
+      });
       if (labels)
         requests.push({
           id: a.id,
@@ -484,7 +483,7 @@ export function mountVisualProof(host, { language = () => "en", back }) {
         height: sourceFont + 1,
       });
       if (request.angleId) sourceLabels.set(request.angleId, label);
-      if (!request.angleId || !moving) stationaryLabels.push(label);
+      stationaryLabels.push(label);
     }
     labelLayout.end();
     if (moving)
