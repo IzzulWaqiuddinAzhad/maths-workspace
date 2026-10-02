@@ -19,7 +19,7 @@ export function quartileHalves(n) { return {lower:Array.from({length:Math.floor(
 export function quartiles(data) { const a=[...data].sort((x,y)=>x-y), h=quartileHalves(a.length);return {q1:median(h.lower.map(i=>a[i])),q2:median(a),q3:median(h.upper.map(i=>a[i]))}; }
 export function parseData(text) {
   const s=text.trim(); if(!s||/[^\d\s,.+\-]/.test(s)||/(^|,)\s*(,|$)/.test(s))throw Error('format');
-  const tokens=s.split(/[\s,]+/);if(tokens.length<3||tokens.length>24)throw Error('length');
+  const tokens=s.split(/[\s,]+/);if(tokens.length<2||tokens.length>24)throw Error('length');
   if(tokens.some(t=>!/^\+?(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(t)))throw Error('range');
   const data=tokens.map(Number);if(data.some(n=>!Number.isFinite(n)||n<0||n>100))throw Error('range');return data;
 }

@@ -27,7 +27,7 @@ test('mode, dot plot and frequency table share exact observation membership',()=
  const w=new StatisticsWorkspace(q(data));w.setConcept('mode');for(let i=0;i<data.length;i++)w.next();assert.equal(w.state.phase,'grouped');assert.equal(new Set(w.state.grouped).size,data.length);w.next();assert.equal(w.state.phase,'dots');w.next();assert.equal(w.state.phase,'table');assert.deepEqual(w.originalData,data);
 });
 test('custom data validation rejects malformed and oversized sets, supports zeros and decimals',()=>{
- assert.deepEqual(parseData('2.1, 2.3\n2.2 0'),[2.1,2.3,2.2,0]);for(const s of ['', '1,,2,3','1,2,3,','NaN,1,2','1e2,3,4','1,2','-1,2,3','101,2,3','1.234,2,3',Array(25).fill(1).join(',')])assert.throws(()=>parseData(s));
+ assert.deepEqual(parseData('2.1, 2.3\n2.2 0'),[2.1,2.3,2.2,0]);for(const s of ['', '1,,2,3','1,2,3,','NaN,1,2','1e2,3,4','1','-1,2,3','101,2,3','1.234,2,3',Array(25).fill(1).join(',')])assert.throws(()=>parseData(s));
 });
 test('module presets and seeded similar drills preserve profile and exact mean completion',()=>{
  for(const p of MODULE_PRESETS){assert.equal(p.source,'module');for(let seed=1;seed<=100;seed++){const g=generateSimilar(p,seed);assert.deepEqual(g,generateSimilar(p,seed));assert.deepEqual(profile(g.data).repetitions,p.generatorProfile.repetitions);assert.equal(profile(g.data).meanKind,p.generatorProfile.meanKind);assert.ok(g.data.every(x=>x>=0&&x<=100));assert.equal(g.source,'generated');}
@@ -78,8 +78,8 @@ test('quartile continuation computes Q3 and restore reinstates graph-first guard
 import {simpleQuestion} from '../dist/statistics/questions.js';
 test('simple Mean questions start as numbered tiles, then reveal rounded unit squares including 11–13',()=>{
  for(let seed=0;seed<200;seed++){
-  const question=simpleQuestion(seed),m=meanState(question.data);assert.equal(question.data.length,5);assert.ok(question.data.every(v=>v>=3&&v<=13));assert.deepEqual(question,simpleQuestion(seed));
-  const tiles=meanScene(m,question.data,1000,500);assert.equal(tiles.nodes.length,5);assert.ok(tiles.nodes.every(n=>n.classes.includes('st-number-tile')));
+  const question=simpleQuestion(seed),m=meanState(question.data);assert.ok(question.data.length>=2&&question.data.length<=8);new StatisticsWorkspace(question);assert.ok(question.data.every(v=>v>=3&&v<=13));assert.deepEqual(question,simpleQuestion(seed));
+  const tiles=meanScene(m,question.data,1000,500);assert.equal(tiles.nodes.length,question.data.length);assert.ok(tiles.nodes.every(n=>n.classes.includes('st-number-tile')));
  }
  const data=[11,12,13],bars=meanScene(nextMean(meanState(data)),data,1000,600);assert.equal(bars.nodes.length,36);assert.ok(bars.nodes.every(n=>eq(n.value,1)&&n.w===n.h&&n.radius>0&&n.label==='1'));
 });
@@ -97,4 +97,25 @@ test('sorting and controlled add/multiply changes preserve the original question
  w.modifyData('multiply',3);assert.deepEqual(w.data,[45,15,39,21,30]);assert.ok(eq(mean(w.data),30));w.undo();assert.deepEqual(w.data,[15,5,13,7,10]);w.undo();assert.deepEqual(w.data,[13,3,11,5,8]);assert.deepEqual(w.state.order,[1,3,4,2,0]);
  const before=w.snapshot(),count=w.history.length;assert.throws(()=>w.modifyData('add',-100));assert.deepEqual(w.snapshot(),before);assert.equal(w.history.length,count);
  const other=new StatisticsWorkspace(q([2,4,6]));other.modifyData('multiply',3);assert.deepEqual(w.data,[13,3,11,5,8]);assert.deepEqual(other.data,[6,12,18]);
+});
+
+test('quick practice uses all sizes from two to eight and changes count on More Questions',()=>{
+ const counts=new Set();let previous=null;
+ for(let seed=0;seed<200;seed++){const question=simpleQuestion(seed,previous);counts.add(question.data.length);assert.notEqual(question.data.length,previous);assert.deepEqual(parseData(question.data.join(',')),question.data);previous=question.data.length;}
+ assert.deepEqual([...counts].sort(),[2,3,4,5,6,7,8]);assert.deepEqual(parseData('3, 9'),[3,9]);assert.deepEqual(Object.values(quartiles([3,9])).map(num),[3,6,9]);
+});
+test('larger Mean units stay square and fit narrow or tall lesson layouts',()=>{
+ for(const [width,height]of [[360,480],[750,550],[1600,900]])for(const count of [2,3,4,5,6,7,8]){
+  const data=Array.from({length:count},(_,i)=>3+Math.round(10*i/(count-1))),columnWidth=(width-40)/count;
+  let m=nextMean(meanState(data));const metrics=blockMetrics(data,m,height,{columnWidth});
+  const bars=meanScene(m,data,width,height,{metrics});assert.ok(bars.nodes.every(n=>n.w===n.h&&n.x>=0&&n.x+n.w<=width&&n.y>=0));
+  const pool=nextMean(m),before=new Map(meanScene(pool,data,width,height,{metrics}).nodes.map(n=>[n.id,n]));m=pool;
+  while(m.phase!=='complete'){
+   m=nextMean(m);const scene=meanScene(m,data,width,height,{metrics});assert.ok(scene.nodes.every(n=>n.x>=0&&n.x+n.w<=width&&n.y>=0&&n.y+n.h<=height));
+   for(const n of scene.nodes.filter(n=>n.owner==='pool'&&before.has(n.id))){const old=before.get(n.id);assert.equal(n.x,old.x);assert.equal(n.y,old.y);}
+   const waiting=scene.nodes.filter(n=>n.owner==='pool'),placed=scene.nodes.filter(n=>n.owner!=='pool');
+   if(waiting.length&&placed.length)assert.ok(Math.max(...waiting.map(n=>n.y+n.h))<Math.min(...placed.map(n=>n.y)),'Larger waiting units stay above the receiving bars');
+  }
+ }
+ assert.ok(blockMetrics([3,5,7],nextMean(meanState([3,5,7])),900,{columnWidth:300}).unit>40);
 });

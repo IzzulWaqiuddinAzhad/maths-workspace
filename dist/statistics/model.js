@@ -1,5 +1,5 @@
-import {transformRepresentation,observations,REPRESENTATIONS} from './representations.js?v=11';
-import {rat,quantity,add,sub,div,mul,eq,num,total,selectionSortSteps,locatorCheck,quartileHalves,parseData} from './math.js?v=11';
+import {transformRepresentation,observations,REPRESENTATIONS} from './representations.js?v=14';
+import {rat,quantity,add,sub,div,mul,eq,num,total,selectionSortSteps,locatorCheck,quartileHalves,parseData} from './math.js?v=14';
 export const clone=x=>structuredClone(x);
 const newPiece=(m,value,owner,parent)=>({id:'p'+m.serial++,value:quantity(value),owner,parent});
 export function meanState(data) {

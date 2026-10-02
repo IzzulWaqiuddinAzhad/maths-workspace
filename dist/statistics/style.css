@@ -93,3 +93,41 @@
 @media(max-width:1000px) and (orientation:portrait){
  .st-comparing #stCurrentPanel { border-right:0; border-bottom:1px solid var(--st-line); padding-right:0; }
 }
+
+/* A right-hand lesson rail frees the Mean diagram's full height. */
+.st-sidebar { min-height:0; background:var(--st-bg); }
+.st-mean-layout { display:grid; grid-template-columns:minmax(0,1fr) 224px; grid-template-rows:auto auto minmax(0,1fr) auto; }
+.st-mean-layout>.st-header { grid-column:1 / -1; grid-row:1; padding-top:8px; padding-bottom:8px; }
+.st-mean-layout>.st-navigation { grid-column:1; grid-row:2; padding-top:5px; padding-bottom:5px; }
+.st-mean-layout>.st-stages { grid-column:1; grid-row:3; }
+.st-mean-layout>.st-summary { grid-column:1; grid-row:4; padding-top:8px; padding-bottom:10px; }
+.st-mean-layout>.st-sidebar { grid-column:2; grid-row:2 / 5; display:flex; flex-direction:column; border-left:1px solid var(--st-line); }
+.st-side-options { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; padding:12px; display:flex; flex-direction:column; gap:14px; }
+.st-sidebar .st-header-end { display:grid; grid-template-columns:1fr; gap:6px; margin:0; width:auto; padding:12px; border-bottom:1px solid var(--st-line); flex-shrink:0; }
+.st-sidebar .st-header-end button { min-height:38px; }
+.st-sidebar .st-views { display:flex; width:100%; margin:0; gap:3px; }
+.st-sidebar .st-views button { flex:1; padding:6px 4px; font-size:12px; }
+.st-sidebar .st-context { padding:0; min-height:0; line-height:1.5; }
+.st-sidebar .st-mean-tools { display:flex; flex-direction:column; align-items:stretch; padding:0; gap:6px; }
+.st-sidebar .st-later { order:2; display:block; margin:4px 0; font-size:11px; }
+.st-sidebar #stCompareControls { display:grid; grid-template-columns:1fr 1fr; margin:6px 0 0; gap:5px; }
+.st-sidebar #stSwapSets,.st-sidebar #stCloseCompare { grid-column:1 / -1; }
+.st-sidebar .st-adjust-panel { padding:10px; border-radius:7px; gap:6px; max-height:none; overflow:visible; }
+.st-sidebar .st-adjust-panel label { display:flex; flex-direction:column; gap:5px; width:100%; }
+.st-sidebar .st-adjust-panel input { flex:1; min-width:60px; }
+.st-sidebar #stCustomShortcut,.st-sidebar #stCloseAdjust { width:100%; }
+.st-sidebar .st-manual { display:grid; grid-template-columns:1fr; padding:10px; border-radius:7px; }
+.st-sidebar .st-controls { display:grid; grid-template-columns:1fr 1fr; grid-template-areas:'next next' 'play speed' 'undo reset'; padding:12px; gap:7px; }
+.st-sidebar #stNext { grid-area:next; min-height:46px; white-space:normal; }
+.st-sidebar #stPlay { grid-area:play; align-self:stretch; font-size:13px; padding:5px; }
+.st-sidebar #stUndo { grid-area:undo; }.st-sidebar #stReset { grid-area:reset; }
+.st-sidebar .st-speed { grid-area:speed; display:block; margin:0; font-size:11px; }
+.st-sidebar .st-speed select { display:block; width:100%; padding:3px; min-height:30px; font-size:12px; }
+.st-sidebar .st-divider,.st-sidebar .st-keyboard { display:none; }
+.st-mean-layout .st-panel h3 { margin-top:0; }
+.st-presenting .st-mean-layout>.st-header { min-height:16px; }
+.st-presenting .st-mean-layout>.st-navigation { display:none; }
+@media(min-width:760px) and (max-width:1000px){
+ .st-mean-layout { grid-template-columns:minmax(0,1fr) 204px; }
+ .st-sidebar .st-side-options,.st-sidebar .st-controls,.st-sidebar .st-header-end { padding:9px; }
+}

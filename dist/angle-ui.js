@@ -1,4 +1,4 @@
-import {mountStatistics} from './statistics/ui.js?v=11';
+import {mountStatistics} from './statistics/ui.js?v=14';
 import {mountTransformations} from './transform-ui.js?v=29';
 import {mountBarStudio} from './bar-model/ui.js?v=20';
 import {mountWorksheet} from './worksheet-ui.js?v=20';

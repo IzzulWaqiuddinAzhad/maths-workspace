@@ -1,4 +1,4 @@
-import {mean,modes,frequencyMap,parseData,num,quartiles} from './math.js?v=11';
+import {mean,modes,frequencyMap,parseData,num,quartiles} from './math.js?v=14';
 const moduleName='BIJAK SPM PPDMT 2026 · Sukatan Serakan · v2.1';
 // Transcribed from the user's module. Page numbers refer to printed module pages.
 const preset=(q,page,data,en,bm)=>({id:'bijak-'+q,title:{en,bm},source:'module',sourceRef:`${moduleName} · Q${q} · p${page}`,data,tags:['ungrouped','bijak-spm'],difficulty:'spm',startRepresentation:'raw-data',generatorProfile:profile(data)});
@@ -35,9 +35,10 @@ export function generateSimilar(question,seed=1) {
 
 export const MODULE_FORMS = {raw:[1,2,3,4,5,7,9,11,13,14,17,18,46], 'dot-plot':[6,8,43], 'frequency-table':[19,55], 'stem-and-leaf':[10,12,44], 'box-plot':[15,16], 'grouped-frequency':[33,34,35,36,37,38,51,56,57], histogram:[39,52], 'frequency-polygon':[40,54], ogive:[41,53]};
 
-// Small, varied entry point: five observations, without a module prerequisite.
-export function simpleQuestion(seed=Date.now()>>>0){
- const random=seeded(seed),data=Array.from({length:5},()=>3+Math.floor(random()*11));
- if(Math.max(...data)-Math.min(...data)<4){data[0]=3;data[4]=12;}
+// Small, varied entry point: two to eight observations, without a module prerequisite.
+export function simpleQuestion(seed=Date.now()>>>0,previousCount=null){
+ const random=seeded(seed),counts=[2,3,4,5,6,7,8].filter(n=>n!==previousCount);
+ const count=counts[Math.floor(random()*counts.length)],data=Array.from({length:count},()=>3+Math.floor(random()*11));
+ if(Math.max(...data)-Math.min(...data)<4){data[0]=3;data[data.length-1]=12;}
  return {id:'practice-'+seed,source:'practice',seed,data,title:{en:'Quick practice',bm:'Latihan ringkas'},tags:['simple'],startRepresentation:'raw-data',generatorProfile:profile(data)};
 }
