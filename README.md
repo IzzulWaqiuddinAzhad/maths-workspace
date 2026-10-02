@@ -51,3 +51,7 @@ This is the basic toolset, not every advanced interaction in the original roadma
 8. Export a JSON backup. On the target tablet, test pen pressure, two-finger pinch/pan, palm contact and optional finger drawing.
 
 No equation recognition, plotting, solving, AI, authentication, cloud document storage or collaboration is included.
+
+## Interactive Statistics
+
+Explore now includes Statistics → Ungrouped data: exact block-sharing Mean, selection-sort Median and Quartiles, Mode, and bidirectional Raw Data ↔ Dot Plot / Frequency Table, using verified BIJAK SPM PPDMT examples. See [the Statistics guide](dist/statistics/README.md) for teaching controls, preset provenance, architecture, development commands and test scope.
