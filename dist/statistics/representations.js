@@ -1,4 +1,4 @@
-import {parseData} from './math.js?v=8';
+import {parseData} from './math.js?v=11';
 const def=(id,label,bm,recoverability,implemented=true)=>({id,label:{en:label,bm},recoverability,canBuildFromRawData:true,canRecoverRawData:recoverability==='lossless',implemented});
 export const REPRESENTATIONS={
  'raw-data':def('raw-data','Raw data','Data asal','lossless'),

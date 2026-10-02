@@ -5,13 +5,13 @@ import {meanState,nextMean,meanValues,ownerTotal,transferPiece,splitPiece,regrou
 import {MODULE_PRESETS,generateSimilar,profile} from '../dist/statistics/questions.js';
 const q=data=>({id:'custom',data,source:'custom',tags:[],generatorProfile:profile(data)});
 test('mean sequence conserves every exact quantity, pauses for remainder and shares proper fractions',()=>{
- let m=meanState([3,4,5,6,9]);assert.ok(eq(m.total,27));const original=structuredClone(m);m=nextMean(m);assert.equal(m.phase,'pooled');assert.ok(meanValues(m).every(v=>eq(v,0)));
+ let m=meanState([3,4,5,6,9]);assert.ok(eq(m.total,27));const original=structuredClone(m);assert.equal(m.phase,'tiles');m=nextMean(m);assert.equal(m.phase,'original');m=nextMean(m);assert.equal(m.phase,'pooled');assert.ok(meanValues(m).every(v=>eq(v,0)));
  for(let i=0;i<5;i++)m=nextMean(m);assert.ok(eq(ownerTotal(m,'pool'),2));m=nextMean(m);assert.equal(m.phase,'remainder');m=nextMean(m);assert.equal(m.phase,'combined');assert.equal(m.pieces.filter(p=>p.owner==='pool').length,1);
  m=nextMean(m);assert.equal(m.phase,'split');assert.ok(m.pieces.filter(p=>p.owner==='pool').every(p=>eq(p.value,rat(2,5))));m=nextMean(m);assert.equal(m.phase,'complete');assert.ok(meanValues(m).every(v=>eq(v,rat(27,5))));assert.deepEqual(original,meanState([3,4,5,6,9]));
 });
 test('manual transfer, decimal/tens splitting and regrouping preserve quantity and independent history',()=>{
- let m=meanState([12,8,10]);const ten=m.pieces.find(p=>eq(p.value,10));m=splitPiece(m,ten.id);const one=m.pieces.find(p=>p.owner==='c0'&&eq(p.value,1));m=regroupPieces(m,one.id);assert.ok(m.pieces.some(p=>p.owner==='c0'&&eq(p.value,10)));m=transferPiece(m,m.pieces.find(p=>p.owner==='c0').id,'c1');assertMean(m);assert.equal(m.phase,'manual');for(let i=0;i<50&&m.phase!=='complete';i++)m=nextMean(m);assert.ok(meanValues(m).every(x=>eq(x,10)));
- const w=new StatisticsWorkspace(q([2.1,2.3,2.2]));const before=w.snapshot();w.manipulate('move',w.state.pieces[0].id,'c1');w.undo();assert.deepEqual(w.snapshot(),before);w.next();w.reset();assert.deepEqual(w.workingData.map(num),[2.1,2.3,2.2]);assert.deepEqual(w.originalData,[2.1,2.3,2.2]);
+ let m=nextMean(meanState([12,8,10]));assert.ok(m.pieces.every(p=>eq(p.value,1)));m=regroupPieces(m,m.pieces.find(p=>p.owner==='c0').id);const ten=m.pieces.find(p=>eq(p.value,10));m=splitPiece(m,ten.id);const one=m.pieces.find(p=>p.owner==='c0'&&eq(p.value,1));m=regroupPieces(m,one.id);assert.ok(m.pieces.some(p=>p.owner==='c0'&&eq(p.value,10)));m=transferPiece(m,m.pieces.find(p=>p.owner==='c0').id,'c1');assertMean(m);assert.equal(m.phase,'manual');for(let i=0;i<50&&m.phase!=='complete';i++)m=nextMean(m);assert.ok(meanValues(m).every(x=>eq(x,10)));
+ const w=new StatisticsWorkspace(q([2.1,2.3,2.2]));w.next();const before=w.snapshot();w.manipulate('move',w.state.pieces[0].id,'c1');w.undo();assert.deepEqual(w.snapshot(),before);w.next();w.reset();assert.deepEqual(w.workingData.map(num),[2.1,2.3,2.2]);assert.deepEqual(w.originalData,[2.1,2.3,2.2]);
 });
 test('selection sort scans candidates explicitly and retains observation IDs including duplicates',()=>{
  const data=[8,3,6,1,5],steps=selectionSortSteps(data);assert.deepEqual(steps.filter(s=>s.kind==='inspect'&&s.start===0).map(s=>s.scan),[1,2,3,4]);const end=steps.at(-1);assert.deepEqual(end.order.map(id=>data[+id.slice(1)]),[1,3,5,6,8]);assert.equal(new Set(end.order).size,5);assert.ok(eq(median(data),5));assert.equal(locatorCheck(end.order,[0,1,2,3,4],4,data).left.length,2);assert.equal(locatorCheck(end.order,[0,1,2,3,4],4,data).right.length,2);assert.equal(locatorCheck(end.order,[0,1,2,3,4],3,data).correct,false);
@@ -46,7 +46,7 @@ test('graph-first questions and generated drills retain their original presentat
  for(const id of ['bijak-6','bijak-19']){const q=MODULE_PRESETS.find(q=>q.id===id),w=new StatisticsWorkspace(q);assert.equal(w.concept,'representations');assert.equal(w.state.representation,q.startRepresentation);const ids=w.observations.map(o=>o.id);w.transform('raw-data');w.next();assert.equal(w.state.representation,'grouped-values');w.next();assert.equal(w.state.representation,'raw-data');assert.deepEqual(w.observations.map(o=>o.id),ids);w.undo();assert.equal(w.state.representation,'grouped-values');w.reset();assert.equal(w.state.representation,q.startRepresentation);assert.equal(generateSimilar(q,77).startRepresentation,q.startRepresentation);}
 });
 test('split mean views share block metrics and all rendered observations survive representation changes',()=>{
- const data=[3,4,5,6,9],a=meanState(data),b=nextMean(nextMean(a)),metrics=blockMetrics(data,b,600,false);const left=meanScene(a,data,800,600,{metrics}),right=meanScene(b,data,800,600,{metrics});assert.equal(left.nodes.find(n=>n.label==='1').h,right.nodes.find(n=>n.owner==='c0').h);
+ const data=[3,4,5,6,9],a=nextMean(meanState(data)),b=nextMean(nextMean(a)),metrics=blockMetrics(data,b,600,false);const left=meanScene(a,data,800,600,{metrics}),right=meanScene(b,data,800,600,{metrics});assert.equal(left.nodes.find(n=>n.label==='1').h,right.nodes.find(n=>n.owner==='c0').h);
  for(const phase of ['grouped','dots','table']){const scene=modeScene(data,{phase,grouped:data.map((_,i)=>'o'+i)},800,600);assert.deepEqual(scene.nodes.map(n=>n.id),data.map((_,i)=>'o'+i));assert.ok(scene.nodes.every(n=>Number.isFinite(n.x)&&Number.isFinite(n.y)));}
 });
 
@@ -73,4 +73,28 @@ test('quartile continuation computes Q3 and restore reinstates graph-first guard
  }
  assert.equal(w.canNext,false);
  const g=new StatisticsWorkspace(MODULE_PRESETS.find(p=>p.id==='bijak-6'));g.setConcept('mean');assert.equal(g.concept,'representations');g.transform('raw-data');g.next();g.next();g.setConcept('mean');assert.equal(g.concept,'mean');g.restoreOriginal();assert.equal(g.concept,'representations');assert.equal(g.reconstructed,false);g.undo();assert.equal(g.concept,'mean');
+});
+
+import {simpleQuestion} from '../dist/statistics/questions.js';
+test('simple Mean questions start as numbered tiles, then reveal rounded unit squares including 11–13',()=>{
+ for(let seed=0;seed<200;seed++){
+  const question=simpleQuestion(seed),m=meanState(question.data);assert.equal(question.data.length,5);assert.ok(question.data.every(v=>v>=3&&v<=13));assert.deepEqual(question,simpleQuestion(seed));
+  const tiles=meanScene(m,question.data,1000,500);assert.equal(tiles.nodes.length,5);assert.ok(tiles.nodes.every(n=>n.classes.includes('st-number-tile')));
+ }
+ const data=[11,12,13],bars=meanScene(nextMean(meanState(data)),data,1000,600);assert.equal(bars.nodes.length,36);assert.ok(bars.nodes.every(n=>eq(n.value,1)&&n.w===n.h&&n.radius>0&&n.label==='1'));
+});
+test('waiting Mean pieces keep their exact positions while consecutive layers are shared',()=>{
+ const data=[3,6,8,11,13];let m=nextMean(nextMean(meanState(data)));const metrics=blockMetrics(data,m,600),positions=new Map(meanScene(m,data,1000,600,{metrics}).nodes.map(n=>[n.id,n]));
+ for(let i=0;i<7;i++){
+  m=nextMean(m);const current=meanScene(m,data,1000,600,{metrics});
+  for(const n of current.nodes.filter(n=>n.owner==='pool'))assert.deepEqual([n.x,n.y,n.w,n.h],[positions.get(n.id).x,positions.get(n.id).y,positions.get(n.id).w,positions.get(n.id).h]);
+  assertMean(m);
+ }
+});
+test('sorting and controlled add/multiply changes preserve the original question and undo exactly',()=>{
+ const w=new StatisticsWorkspace(q([13,3,11,5,8]));w.sortMean();assert.deepEqual(w.state.order,[1,3,4,2,0]);assert.deepEqual(w.data,[13,3,11,5,8]);w.next();
+ w.modifyData('add',2);assert.deepEqual(w.data,[15,5,13,7,10]);assert.ok(eq(mean(w.data),10));assert.deepEqual(w.originalData,[13,3,11,5,8]);assert.equal(w.state.phase,'original');
+ w.modifyData('multiply',3);assert.deepEqual(w.data,[45,15,39,21,30]);assert.ok(eq(mean(w.data),30));w.undo();assert.deepEqual(w.data,[15,5,13,7,10]);w.undo();assert.deepEqual(w.data,[13,3,11,5,8]);assert.deepEqual(w.state.order,[1,3,4,2,0]);
+ const before=w.snapshot(),count=w.history.length;assert.throws(()=>w.modifyData('add',-100));assert.deepEqual(w.snapshot(),before);assert.equal(w.history.length,count);
+ const other=new StatisticsWorkspace(q([2,4,6]));other.modifyData('multiply',3);assert.deepEqual(w.data,[13,3,11,5,8]);assert.deepEqual(other.data,[6,12,18]);
 });
