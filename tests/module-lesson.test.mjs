@@ -46,7 +46,7 @@ test('all four printed translation questions match their independent answer-sche
     assert.equal(JSON.stringify(q), before);
     assert.equal(findModuleQuestion(q.id), q);
   }
-  assert.equal(findModuleQuestion('5'), undefined);
+  assert.equal(findModuleQuestion('9'), undefined);
   assert.equal(findModuleQuestion('not-a-question'), undefined);
 });
 

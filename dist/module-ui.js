@@ -1,12 +1,13 @@
-import { TRANSLATION_QUESTIONS, QUESTION_ONE, findModuleQuestion, TranslationLesson, fitQuestion } from './module-lesson.js?v=3';
-import { createTransformationRenderer } from './transform-render.js?v=31';
-import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations } from './transform-model.js?v=29';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion } from './module-lesson.js?v=4';
+import { paintReflectionLesson } from './module-reflection-render.js?v=1';
+import { createTransformationRenderer } from './transform-render.js?v=32';
+import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
 import { installCanvasOwnership } from './interaction.js?v=13';
 
 const $ = id => document.getElementById(id);
 const requested = new URLSearchParams(location.search).get('question');
-let q = findModuleQuestion(requested) || QUESTION_ONE, lesson = new TranslationLesson(q);
+let q = findModuleQuestion(requested) || QUESTION_ONE, lesson = createModuleLesson(q);
 const canvas = $('graph'), board = $('board'), drawGraph = createTransformationRenderer(canvas);
 // The lesson does not write into the free exploration's saved document.
 let inkStore = new DocumentStore(), unsubscribeInk;
@@ -19,7 +20,10 @@ const fmt = n => String(n).replace('-', '−');
 const coord = p => `(${fmt(p.x)}, ${fmt(p.y)})`;
 const signed = n => n > 0 ? `+${fmt(n)}` : fmt(n);
 const calculation = (given, delta, answer) => `${fmt(given)} ${delta < 0 ? '−' : '+'} ${fmt(Math.abs(delta))} = ${fmt(answer)}`;
-const nextQuestion = () => TRANSLATION_QUESTIONS[TRANSLATION_QUESTIONS.indexOf(q) + 1];
+const isReflection = () => q.type === 'reflection';
+const graphBounds = () => isReflection() ? lesson.bounds : q.bounds;
+const nextQuestion = () => MODULE_QUESTIONS[MODULE_QUESTIONS.indexOf(q) + 1];
+let axisPulseUntil = 0, reflectionScrub = null, scrubPointer = null;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const text = (id, en, bm) => { $(id).textContent = tr(en, bm); };
 const a11y = (id, en, bm) => { $(id).setAttribute('aria-label', tr(en, bm)); $(id).title = tr(en, bm); };
@@ -29,13 +33,24 @@ function renderCopy() {
   document.body.classList.toggle('dark', dark);
   document.title = tr(`Question ${q.id} · BIJAK Transformations`, `Soalan ${q.id} · Transformasi BIJAK`);
   text('back', '← Workspace', '← Ruang kerja'); text('pageTitle', 'Transformations', 'Transformasi');
-  text('questionBadge', `Question ${q.number} · Translation`, `Soalan ${q.number} · Translasi`);
-  text('section', `A1 / TRANSLATION · ${q.number}`, `A1 / TRANSLASI · ${q.number}`);
+  const reflection = isReflection(), topic = reflection ? tr('Reflection', 'Pantulan') : tr('Translation', 'Translasi');
+  document.body.classList.toggle('reflection-lesson', reflection);
+  $('reflectionControls').hidden = !reflection;
+  $('questionGroup').value = q.type;
+  $('questionGroup').setAttribute('aria-label', tr('Module activity', 'Aktiviti modul'));
+  $('questionGroup').options[0].textContent = tr('Translation · 1–4', 'Translasi · 1–4');
+  $('questionGroup').options[1].textContent = tr('Reflection · 5–8', 'Pantulan · 5–8');
+  $('questionBadge').textContent = tr(`Question ${q.number}`, `Soalan ${q.number}`) + ' · ' + topic;
+  $('section').textContent = `${q.section} / ${topic.toUpperCase()} · ${q.number}`;
   text('questionTitle', lesson.inverse ? 'Find the original point' : 'Find the image', lesson.inverse ? 'Cari koordinat objek' : 'Cari koordinat imej'); $('prompt').textContent = q.prompt[language];
   text('answerHeading', lesson.inverse ? 'Coordinates of the object' : 'Coordinates of the image', lesson.inverse ? 'Koordinat objek' : 'Koordinat imej');
-  text('sourceNote', `Module page 1 · Question ${q.id}. One square = one unit.`, `Halaman modul 1 · Soalan ${q.id}. Satu petak = satu unit.`);
-  $('givenDX').textContent = fmt(q.vector.x); $('givenDY').textContent = fmt(q.vector.y);
-  $('questionNav').setAttribute('aria-label', tr('Translation module questions', 'Soalan modul translasi'));
+  text('sourceNote', `Module page ${reflection ? 2 : 1} · Question ${q.id}. One square = one unit.`, `Halaman modul ${reflection ? 2 : 1} · Soalan ${q.id}. Satu petak = satu unit.`);
+  document.querySelector('.given-vector').hidden = reflection;
+  $('givenMirror').hidden = !reflection;
+  if (reflection) $('givenMirror').textContent = reflectionEquation(q.mirror);
+  else { $('givenDX').textContent = fmt(q.vector.x); $('givenDY').textContent = fmt(q.vector.y); }
+  $('questionNav').innerHTML = MODULE_QUESTIONS.filter(question => question.type === q.type).map(question => `<button type="button" data-question="${question.id}">${question.number}</button>`).join('');
+  $('questionNav').setAttribute('aria-label', tr('Module questions', 'Soalan modul'));
   for (const button of $('questionNav').querySelectorAll('button')) {
     button.setAttribute('aria-label', tr(`Question ${button.dataset.question}`, `Soalan ${button.dataset.question}`));
     if (button.dataset.question === q.id) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
@@ -53,12 +68,14 @@ function renderCopy() {
   a11y('zoomOut', 'Zoom out', 'Zum keluar'); a11y('zoomIn', 'Zoom in', 'Zum masuk'); a11y('previous', 'Previous step', 'Langkah sebelumnya');
   $('graph').setAttribute('aria-label', tr(`Question ${q.id}, interactive Cartesian graph`, `Soalan ${q.id}, graf Cartes interaktif`));
   canvas.textContent = tr(`Cartesian diagram for Question ${q.id}.`, `Rajah Cartes untuk Soalan ${q.id}.`);
-  $('progress').setAttribute('aria-label', tr('Translation movement, horizontal then vertical', 'Pergerakan translasi, mengufuk kemudian menegak'));
-  document.querySelector('.given-vector').setAttribute('aria-label', tr(`Translation vector ${coord(q.vector)}`, `Vektor translasi ${coord(q.vector)}`));
+  $('progress').max = reflection ? 1 : 2;
+  $('progress').setAttribute('aria-label', reflection ? tr('Control reflection', 'Kawal pantulan') : tr('Translation movement, horizontal then vertical', 'Pergerakan translasi, mengufuk kemudian menegak'));
+  if (!reflection) document.querySelector('.given-vector').setAttribute('aria-label', tr(`Translation vector ${coord(q.vector)}`, `Vektor translasi ${coord(q.vector)}`));
+  else $('givenMirror').setAttribute('aria-label', tr(`Question line: ${reflectionEquation(q.mirror)}`, `Garis soalan: ${reflectionEquation(q.mirror)}`));
   syncFullscreen(); sync();
 }
 
-function sync() {
+function syncTranslation() {
   const v = lesson.movementVector;
   const horizontal = v.x < 0 ? tr('left', 'kiri') : tr('right', 'kanan');
   const vertical = v.y < 0 ? tr('down', 'bawah') : tr('up', 'atas');
@@ -79,6 +96,50 @@ function sync() {
   $('progress').value = lesson.progress; $('scrubber').hidden = lesson.stage === 0;
   $('progress').setAttribute('aria-valuetext', tr(`${Math.round(Math.min(1, lesson.progress) * 100)}% horizontal, ${Math.round(Math.max(0, lesson.progress - 1) * 100)}% vertical`, `${Math.round(Math.min(1, lesson.progress) * 100)}% mengufuk, ${Math.round(Math.max(0, lesson.progress - 1) * 100)}% menegak`));
   $('startLabel').textContent = lesson.givenLabel; $('horizontalStep').textContent = signed(v.x); $('verticalStep').textContent = signed(v.y);
+}
+
+function syncReflection() {
+  const choice = lesson.choice, kind = choice?.kind, equation = lesson.equation;
+  text('predictionPrompt', 'What kind of reflection line is it?', 'Apakah jenis garis pantulan ini?');
+  text('horizontal', 'Horizontal', 'Mengufuk'); text('vertical', 'Vertical', 'Menegak'); text('slanted', 'Slanted', 'Condong');
+  document.querySelector('.orientation-buttons').setAttribute('aria-label', tr('Line orientation', 'Arah garis'));
+  $('reflectionControls').setAttribute('aria-label', tr('Try a reflection line', 'Cuba garis pantulan'));
+  for (const button of document.querySelectorAll('[data-orientation]')) button.setAttribute('aria-pressed', String(button.dataset.orientation === kind));
+  $('trialControls').hidden = !choice; $('reflectionControls').classList.toggle('has-trial', !!choice);
+  text('trialHeading', 'Trying', 'Mencuba'); $('trialEquation').textContent = equation;
+  const rule = kind === 'horizontal' ? [`Horizontal: y = k. Every point has y = ${fmt(choice.k)}.`, `Mengufuk: y = k. Setiap titik mempunyai y = ${fmt(choice.k)}.`]
+    : kind === 'vertical' ? [`Vertical: x = k. Every point has x = ${fmt(choice.k)}.`, `Menegak: x = k. Setiap titik mempunyai x = ${fmt(choice.k)}.`]
+    : ['Choose the rising or falling diagonal.', 'Pilih pepenjuru menaik atau menurun.'];
+  text('axisRule', ...rule);
+  $('positionControls').hidden = kind === 'slanted'; $('slopeControls').hidden = kind !== 'slanted';
+  $('lineDecrease').textContent = kind === 'horizontal' ? '↓' : '←'; $('lineIncrease').textContent = kind === 'horizontal' ? '↑' : '→';
+  a11y('lineDecrease', kind === 'horizontal' ? 'Move line down one unit' : 'Move line left one unit', kind === 'horizontal' ? 'Alih garis ke bawah satu unit' : 'Alih garis ke kiri satu unit');
+  a11y('lineIncrease', kind === 'horizontal' ? 'Move line up one unit' : 'Move line right one unit', kind === 'horizontal' ? 'Alih garis ke atas satu unit' : 'Alih garis ke kanan satu unit');
+  $('lineDecrease').disabled = !choice || choice.k <= -8; $('lineIncrease').disabled = !choice || choice.k >= 8;
+  $('slopePositive').setAttribute('aria-pressed', String(choice?.slope === 1)); $('slopeNegative').setAttribute('aria-pressed', String(choice?.slope === -1));
+  text('guides', 'Guide', 'Panduan'); $('guides').setAttribute('aria-pressed', String(lesson.guideVisible));
+  a11y('guides', lesson.guideVisible ? 'Hide perpendicular guide' : 'Show perpendicular guide', lesson.guideVisible ? 'Sembunyikan panduan serenjang' : 'Tunjukkan panduan serenjang');
+  text('stepNumber', lesson.answerVisible ? 'ANSWER REVEALED' : choice ? 'TRY • DISCUSS • REFLECT' : 'PREDICT THE LINE', lesson.answerVisible ? 'JAWAPAN DIDEDAHKAN' : choice ? 'CUBA • BINCANG • PANTUL' : 'RAMALKAN GARIS');
+  text('stepTitle', choice ? lesson.progress === 1 ? (lesson.answerVisible ? `${lesson.answerLabel} = ${coord(lesson.answer)}` : lesson.matchesQuestion ? 'Ready to reveal' : 'Compare the two equations') : lesson.progress > 0 ? 'Control the flip' : lesson.guideVisible ? 'Perpendicular to the mirror line' : `Try ${equation}` : 'Horizontal, vertical or slanted?',
+    choice ? lesson.progress === 1 ? (lesson.answerVisible ? `${lesson.answerLabel} = ${coord(lesson.answer)}` : lesson.matchesQuestion ? 'Sedia untuk didedahkan' : 'Bandingkan kedua-dua persamaan') : lesson.progress > 0 ? 'Kawal lipatan' : lesson.guideVisible ? 'Serenjang dengan garis pantulan' : `Cuba ${equation}` : 'Mengufuk, menegak atau condong?');
+  text('stepDetail', !choice ? 'Choose a suggestion from the class.' : lesson.answerVisible ? 'Equal perpendicular distances on both sides.' : `Question: ${reflectionEquation(q.mirror)} · Trying: ${equation}` + (lesson.inverse ? ' · Recover the original point.' : ''),
+    !choice ? 'Pilih cadangan daripada kelas.' : lesson.answerVisible ? 'Jarak serenjang sama pada kedua-dua belah.' : `Soalan: ${reflectionEquation(q.mirror)} · Mencuba: ${equation}` + (lesson.inverse ? ' · Cari titik asal.' : ''));
+  if (choice && lesson.progress > 0 && Math.hypot(lesson.trialAnswer.x - q.given.x, lesson.trialAnswer.y - q.given.y) < 1e-8) {
+    text('stepTitle', 'A point on the mirror stays in place', 'Titik pada garis pantulan kekal di tempatnya');
+  }
+  const action = !choice ? ['Choose a line', 'Pilih garis'] : lesson.answerVisible ? (nextQuestion() ? ['Next question →', 'Soalan seterusnya →'] : ['Answer revealed', 'Jawapan didedahkan']) : lesson.progress === 1 ? (lesson.matchesQuestion ? ['Reveal answer', 'Dedahkan jawapan'] : ['Match the question line', 'Padankan garis soalan']) : !lesson.progress && !lesson.guideVisible ? ['Show guide', 'Tunjuk panduan'] : [lesson.progress ? 'Finish reflection →' : 'Reflect →', lesson.progress ? 'Lengkapkan pantulan →' : 'Pantulkan →'];
+  text('next', ...action);
+  $('next').disabled = !!animation || !choice || (lesson.answerVisible && !nextQuestion()) || (lesson.progress === 1 && !lesson.matchesQuestion);
+  $('previous').disabled = !choice || !!animation;
+  $('scrubber').hidden = !choice; $('progress').value = lesson.progress;
+  text('scrubLabel', 'Control reflection', 'Kawal pantulan');
+  $('progress').setAttribute('aria-valuetext', tr(`${Math.round(lesson.progress * 100)}% reflected`, `${Math.round(lesson.progress * 100)}% dipantulkan`));
+  $('startLabel').textContent = lesson.givenLabel; text('horizontalStep', 'On line', 'Pada garis');
+  $('verticalStep').textContent = lesson.matchesQuestion ? lesson.answerLabel : tr('Trial', 'Cubaan');
+}
+
+function sync() {
+  if (isReflection()) syncReflection(); else syncTranslation();
   $('answer').textContent = `${lesson.answerLabel} = ${lesson.answerVisible ? coord(lesson.answer) : '(      ,      )'}`;
   $('answer').classList.toggle('object-answer', lesson.inverse);
   $('answerBox').classList.toggle('revealed', lesson.answerVisible);
@@ -86,11 +147,15 @@ function sync() {
   if (lesson.answerVisible) {
     $('mappingSource').textContent = `${q.label}${coord(lesson.object)}`;
     $('mappingImage').textContent = `${q.label}′${coord(lesson.image)}`;
-    $('mappingDX').textContent = fmt(q.vector.x); $('mappingDY').textContent = fmt(q.vector.y);
-    text('mappingName', 'Translation', 'Translasi');
+    const reflection = isReflection();
+    $('mappingVector').hidden = reflection; $('mappingMirror').hidden = !reflection;
+    if (reflection) $('mappingMirror').textContent = reflectionEquation(q.mirror);
+    else { $('mappingDX').textContent = fmt(q.vector.x); $('mappingDY').textContent = fmt(q.vector.y); }
+    text('mappingName', reflection ? 'Reflection in' : 'Translation', reflection ? 'Pantulan pada' : 'Translasi');
+    const operation = reflection ? tr(`reflection in ${reflectionEquation(q.mirror)}`, `pantulan pada ${reflectionEquation(q.mirror)}`) : tr(`translation vector ${coord(q.vector)}`, `vektor translasi ${coord(q.vector)}`);
     $('finalMapping').setAttribute('aria-label', tr(
-      `${q.label} ${coord(lesson.object)} maps to ${q.label}′ ${coord(lesson.image)} under translation vector ${coord(q.vector)}.`,
-      `${q.label} ${coord(lesson.object)} dipetakan kepada ${q.label}′ ${coord(lesson.image)} di bawah vektor translasi ${coord(q.vector)}.`));
+      `${q.label} ${coord(lesson.object)} maps to ${q.label}′ ${coord(lesson.image)} under ${operation}.`,
+      `${q.label} ${coord(lesson.object)} dipetakan kepada ${q.label}′ ${coord(lesson.image)} di bawah ${operation}.`));
   }
   text('canvasCaption', lesson.stage ? `GIVEN ${lesson.givenLabel} STAYS IN PLACE` : `GIVEN DIAGRAM · QUESTION ${q.number}`, lesson.stage ? `TITIK DIBERI ${lesson.givenLabel} DIKEKALKAN` : `RAJAH DIBERI · SOALAN ${q.number}`);
   $('undo').disabled = !inkStore.past.length; $('redo').disabled = !inkStore.future.length;
@@ -100,13 +165,13 @@ function sync() {
 
 function schedule() { if (!frame) frame = requestAnimationFrame(draw); }
 function stopAnimation() { cancelAnimationFrame(animation); animation = 0; }
-function goTo(stage) {
+function animateProgress(target) {
   stopAnimation();
-  const from = lesson.progress; lesson.goTo(stage); const target = lesson.progress;
-  if (from === target || lesson.stage < 2 || reducedMotion.matches) { sync(); return; }
-  lesson.progress = from; let start;
+  const from = lesson.progress;
+  if (from === target || reducedMotion.matches) { lesson.progress = target; sync(); return; }
+  let start;
   const tick = time => {
-    start ??= time; const t = Math.min(1, (time - start) / 800), eased = t * t * (3 - 2 * t);
+    start ??= time; const t = Math.min(1, (time - start) / 650), eased = t * t * (3 - 2 * t);
     lesson.progress = from + (target - from) * eased;
     $('progress').value = lesson.progress; schedule();
     if (t < 1) animation = requestAnimationFrame(tick);
@@ -114,21 +179,39 @@ function goTo(stage) {
   };
   animation = requestAnimationFrame(tick); sync();
 }
+function goTo(stage) {
+  const from = lesson.progress; lesson.goTo(stage); const target = lesson.progress;
+  lesson.progress = from; animateProgress(target);
+}
+function reflectTo(target) {
+  if (!lesson.choice) return;
+  const from = lesson.progress; lesson.scrub(target); lesson.progress = from;
+  ensureTrialVisible(); animateProgress(target);
+}
+function ensureTrialVisible() {
+  if (!lesson.trialAnswer) return;
+  const point = graphToScreen(lesson.trialAnswer, view);
+  if (point.x < 40 || point.x > canvas.clientWidth - 80 || point.y < 50 || point.y > canvas.clientHeight - 65) fit();
+}
 
 function draw() {
   frame = 0;
-  const image = lesson.pointAt(), visibleImage = lesson.progress > 0;
-  const v = lesson.movementVector;
+  const image = lesson.pointAt(), visibleImage = lesson.progress > 0 && (!isReflection() || Math.hypot(image.x - q.given.x, image.y - q.given.y) > 1e-8);
+  const reflection = isReflection(), v = reflection ? { x: 0, y: 0 } : lesson.movementVector;
   const a = graphToScreen(q.given, view), corner = graphToScreen({ x: q.given.x + v.x, y: q.given.y }, view), p = graphToScreen(image, view);
   const obstacles = [...board.querySelectorAll('button:not([hidden]),.ink-tools,.view-tools,.canvas-caption')].filter(el => el.getClientRects().length).map(el => { const r = el.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; });
   if (lesson.answerVisible) obstacles.push(positionMapping([a, p], obstacles));
-  if (lesson.progress >= 1) obstacles.push({ x: (a.x + corner.x) / 2 - 23, y: a.y - 32, w: 46, h: 28 });
-  if (lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
-  drawGraph({ view, gridBounds: q.bounds, tickStride: 2, axisFontSize: 15, labelFontSize: 23, pointRadius: 5,
+  if (!reflection && lesson.progress >= 1) obstacles.push({ x: (a.x + corner.x) / 2 - 23, y: a.y - 32, w: 46, h: 28 });
+  if (!reflection && lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
+  const complete = lesson.progress === (reflection ? 1 : 2);
+  const pulse = reducedMotion.matches ? 0 : Math.max(0, (axisPulseUntil - performance.now()) / 600);
+  drawGraph({ view, originLabel: !(reflection && lesson.choice && lesson.choice.kind !== 'slanted' && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: 2, axisFontSize: 15, labelFontSize: reflection && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
     objects: [{ id: 'given', points: [q.given], labels: [lesson.givenLabel], image: lesson.inverse, coordinates: lesson.stage > 0 }],
-    preview: visibleImage ? { id: 'moving', points: [image], labels: [lesson.progress === 2 ? lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible } : null,
+    preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? reflection && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible } : null,
     annotations: erased ?? inkStore.document.objects, ink, overlays: obstacles,
+    geometryOverlay: reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: graphBounds(), dark, pulse }) : null,
   });
+  if (reflection) { if (pulse > 0) schedule(); return; }
   if (!visibleImage) return;
   const ctx = canvas.getContext('2d'), colour = dark ? '#91beff' : '#2468c4';
   ctx.save(); ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
@@ -154,14 +237,25 @@ function positionMapping(points, controls) {
     { x: Math.min(...points.map(p => p.x)) - w - 80, y: (points[0].y + points[1].y) / 2 - h / 2 },
     { x: midX - w / 2, y: Math.min(...points.map(p => p.y)) - h - 80 },
   ].map(clamp);
-  const avoid = controls.concat(points.map(p => ({ x: p.x - 88, y: p.y - 50, w: 176, h: 100 })));
+  // Search additional open rows on narrow canvases; the mirror itself is part
+  // of the proof and must not disappear behind a full-width mapping card.
+  for (let y = 64; y <= height - h - 76; y += 20) options.push(clamp({ x: midX - w / 2, y }));
+  const avoid = controls.concat(points.map(p => ({ x: p.x - 88, y: p.y - 40, w: 176, h: 70 })));
+  if (isReflection() && lesson.choice) {
+    const f = graphToScreen(lesson.foot, view);
+    avoid.push({ x: f.x - 20, y: f.y - 20, w: 40, h: 40 });
+    if (lesson.choice.kind === 'horizontal') {
+      const b = graphBounds(), left = graphToScreen({x:b.xmin,y:lesson.choice.k},view), right = graphToScreen({x:b.xmax,y:lesson.choice.k},view);
+      avoid.push({ x: left.x, y: left.y - 12, w: right.x - left.x, h: 24 });
+    }
+  }
   const score = p => avoid.reduce((sum, o) => sum + Math.max(0, Math.min(p.x + w, o.x + o.w) - Math.max(p.x, o.x)) * Math.max(0, Math.min(p.y + h, o.y + o.h) - Math.max(p.y, o.y)) * 20, 0) + Math.hypot(p.x - preferred.x, p.y - preferred.y);
   const best = options.reduce((a, b) => score(a) <= score(b) ? a : b);
   el.style.left = `${best.x}px`; el.style.top = `${best.y}px`;
   return best;
 }
 
-function fit() { fitted = true; view = fitQuestion(q.bounds, canvas.clientWidth, canvas.clientHeight); schedule(); }
+function fit() { fitted = true; view = fitQuestion(graphBounds(), canvas.clientWidth, canvas.clientHeight); schedule(); }
 function zoom(factor, point = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 }) {
   fitted = false; const scale = Math.max(.2, Math.min(3, view.zoom * factor)); view = zoomAt(view, point, scale / view.zoom); schedule();
 }
@@ -184,6 +278,12 @@ canvas.onpointerdown = e => {
   }
   if (pointers.size > 2 || drag) return;
   const p = graphPoint(e); drag = { type: tool, pointer: e.pointerId, start: screenPoint(e), view: { ...view }, previous: p };
+  if (isReflection() && tool === 'pan' && lesson.choice && lesson.choice.kind !== 'slanted') {
+    const line = lesson.line, b = graphBounds();
+    if (Math.abs(line.a * p.x + line.b * p.y + line.c) * GRID_UNIT * view.zoom <= 14 && p.x >= b.xmin && p.x <= b.xmax && p.y >= b.ymin && p.y <= b.ymax) {
+      drag = { ...drag, type: 'mirror', startGraph: p, startPosition: lesson.choice.k };
+    }
+  }
   if (tool === 'pen') ink = newAnnotation([p], '#d04d40', 2.6 / (GRID_UNIT * view.zoom));
   if (tool === 'eraser') erased = eraseAnnotations(inkStore.document.objects, p, p, 13 / (GRID_UNIT * view.zoom));
   schedule();
@@ -198,7 +298,11 @@ canvas.onpointermove = e => {
     view = { ...next, x: next.x + mid.x - drag.midpoint.x, y: next.y + mid.y - drag.midpoint.y };
   } else if (drag.pointer === e.pointerId) {
     const p = graphPoint(e), s = screenPoint(e);
-    if (drag.type === 'pan') { fitted = false; view = { ...drag.view, x: drag.view.x + s.x - drag.start.x, y: drag.view.y + s.y - drag.start.y }; }
+    if (drag.type === 'mirror') {
+      const axis = lesson.choice.kind === 'horizontal' ? 'y' : 'x';
+      changeTrial(() => lesson.setPosition(drag.startPosition + p[axis] - drag.startGraph[axis]));
+    }
+    else if (drag.type === 'pan') { fitted = false; view = { ...drag.view, x: drag.view.x + s.x - drag.start.x, y: drag.view.y + s.y - drag.start.y }; }
     else if (drag.type === 'pen') { const samples = e.getCoalescedEvents?.(); for (const sample of samples?.length ? samples : [e]) { const v = graphPoint(sample); if (ink.points.length < 10000 && distance(v, ink.points.at(-1)) * GRID_UNIT * view.zoom > .8) ink.points.push(v); } }
     else if (drag.type === 'eraser') { erased = eraseAnnotations(erased, drag.previous, p, 13 / (GRID_UNIT * view.zoom)); drag.previous = p; }
   }
@@ -210,6 +314,7 @@ function endPointer(e, cancelled = false) {
   if (!drag) return;
   if (drag.type === 'pinch') { if (drag.ids.includes(e.pointerId)) { pointers.clear(); discard(); } return; }
   if (drag.pointer !== e.pointerId) return;
+  if (cancelled && drag.type === 'mirror') changeTrial(() => lesson.setPosition(drag.startPosition));
   if (!cancelled && ink) { const stroke = ink; inkStore.transact(d => d.objects.push(stroke)); }
   if (!cancelled && erased) { const strokes = erased; inkStore.transact(d => { d.objects = strokes; }); }
   discard();
@@ -221,31 +326,75 @@ canvas.onkeydown = e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); discard(); e.shiftKey ? inkStore.redo() : inkStore.undo(); }
   else if (e.key === 'Escape') { pointers.clear(); discard(); }
   else if ((e.key === 'ArrowRight' || e.key === 'Enter') && !animation && lesson.stage < 4) { e.preventDefault(); advance(); }
-  else if (e.key === 'ArrowLeft' && !animation && lesson.stage > 0) { e.preventDefault(); goTo(lesson.stage - 1); }
+  else if (e.key === 'ArrowLeft' && !animation && lesson.stage > 0) { e.preventDefault(); previousStep(); }
 };
 
 function advance() {
-  if (lesson.stage === 4) { if (nextQuestion()) selectQuestion(nextQuestion().id); return; }
+  if (lesson.answerVisible) { if (nextQuestion()) selectQuestion(nextQuestion().id); return; }
+  if (isReflection()) {
+    if (!lesson.choice) return;
+    if (!lesson.progress && !lesson.guideVisible) { lesson.toggleGuides(); sync(); }
+    else if (lesson.progress < 1) reflectTo(1);
+    else { lesson.reveal(); sync(); }
+    return;
+  }
   goTo(lesson.progress < lesson.targetProgress ? lesson.stage : lesson.stage + 1);
 }
+function previousStep() {
+  if (!isReflection()) { goTo(lesson.stage - 1); return; }
+  if (lesson.answerVisible) { lesson.scrub(1); sync(); }
+  else if (lesson.progress > 0) reflectTo(0);
+  else if (lesson.guideVisible) { lesson.toggleGuides(); sync(); }
+  else { lesson.reset(); fit(); sync(); }
+}
+function changeTrial(change) {
+  if (!change()) return;
+  stopAnimation(); reflectionScrub = null; scrubPointer = null;
+  axisPulseUntil = performance.now() + 600;
+  sync();
+}
+for (const button of document.querySelectorAll('[data-orientation]')) button.onclick = () => changeTrial(() => lesson.chooseOrientation(button.dataset.orientation));
+$('lineDecrease').onclick = () => changeTrial(() => lesson.setPosition(lesson.choice.k - 1));
+$('lineIncrease').onclick = () => changeTrial(() => lesson.setPosition(lesson.choice.k + 1));
+$('slopePositive').onclick = () => changeTrial(() => lesson.setSlope(1));
+$('slopeNegative').onclick = () => changeTrial(() => lesson.setSlope(-1));
+$('guides').onclick = () => { lesson.toggleGuides(); sync(); };
 $('next').onclick = advance;
-$('previous').onclick = () => goTo(lesson.stage - 1);
-$('progress').oninput = e => { stopAnimation(); lesson.scrub(Number(e.target.value)); sync(); };
-$('reset').onclick = () => { stopAnimation(); pointers.clear(); discard(); lesson.reset(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); fit(); sync(); };
+$('previous').onclick = previousStep;
+$('progress').onpointerdown = e => {
+  if (!isReflection()) return;
+  stopAnimation(); ensureTrialVisible(); reflectionScrub = new ReflectionScrub(lesson.progress); scrubPointer = e.pointerId;
+  e.currentTarget.setPointerCapture(e.pointerId);
+};
+$('progress').oninput = e => {
+  stopAnimation(); const value = Number(e.target.value);
+  if (isReflection()) { ensureTrialVisible(); reflectionScrub?.move(value); }
+  lesson.scrub(value); sync();
+};
+$('progress').onpointerup = e => {
+  if (e.pointerId !== scrubPointer || !reflectionScrub) return;
+  const target = reflectionScrub.target(); reflectionScrub = null; scrubPointer = null; reflectTo(target);
+};
+$('progress').onpointercancel = e => {
+  if (e.pointerId !== scrubPointer || !reflectionScrub) return;
+  const start = reflectionScrub.start; reflectionScrub = null; scrubPointer = null; stopAnimation(); lesson.scrub(start); sync();
+};
+$('reset').onclick = () => { stopAnimation(); pointers.clear(); discard(); lesson.reset(); reflectionScrub = null; scrubPointer = null; inkStore.transact(d => { d.objects = []; }); setTool('pan'); fit(); sync(); };
 for (const name of ['pan', 'pen', 'eraser']) $(name).onclick = () => setTool(name);
 $('undo').onclick = () => { discard(); inkStore.undo(); }; $('redo').onclick = () => { discard(); inkStore.redo(); };
 unsubscribeInk = inkStore.subscribe(sync);
 function selectQuestion(id, updateUrl = true) {
   const next = findModuleQuestion(id); if (!next) return;
   stopAnimation(); pointers.clear(); discard(); unsubscribeInk();
-  q = next; lesson = new TranslationLesson(q);
+  q = next; lesson = createModuleLesson(q); axisPulseUntil = 0; reflectionScrub = null; scrubPointer = null;
   if (!questionInk.has(q.id)) questionInk.set(q.id, new DocumentStore());
   inkStore = questionInk.get(q.id); unsubscribeInk = inkStore.subscribe(sync);
   $('status').hidden = true;
   if (updateUrl) { const url = new URL(location.href); url.searchParams.set('question', q.id); history.pushState(null, '', url); }
   setTool('pan'); renderCopy(); fit();
 }
-for (const button of $('questionNav').querySelectorAll('button')) button.onclick = () => { if (button.dataset.question !== q.id) selectQuestion(button.dataset.question); };
+$('questionNav').onclick = e => { const button = e.target.closest('[data-question]'); if (button && button.dataset.question !== q.id) selectQuestion(button.dataset.question); };
+$('questionGroup').onchange = e => selectQuestion(e.target.value === 'reflection' ? '5' : '1');
 window.addEventListener('popstate', () => selectQuestion(findModuleQuestion(new URLSearchParams(location.search).get('question'))?.id || QUESTION_ONE.id, false));
 $('zoomOut').onclick = () => zoom(.8); $('zoomIn').onclick = () => zoom(1.25); $('fit').onclick = fit;
 function toggleQuestion() {
@@ -265,11 +414,11 @@ $('fullscreen').onclick = async () => {
 document.addEventListener('fullscreenchange', syncFullscreen);
 const resize = new ResizeObserver(() => {
   const width = canvas.clientWidth, height = canvas.clientHeight;
-  if (fitted || !previousSize) view = fitQuestion(q.bounds, width, height);
+  if (fitted || !previousSize) view = fitQuestion(graphBounds(), width, height);
   else { view.x += (width - previousSize.width) / 2; view.y += (height - previousSize.height) / 2; }
   previousSize = { width, height }; schedule();
 });
 resize.observe(board);
 window.addEventListener('pagehide', () => { stopAnimation(); discard(); pointers.clear(); });
 renderCopy(); setTool('pan');
-if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–4. Showing Question 1.', 'Modul ini mengandungi Soalan 1–4. Memaparkan Soalan 1.'); }
+if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–8. Showing Question 1.', 'Modul ini mengandungi Soalan 1–8. Memaparkan Soalan 1.'); }

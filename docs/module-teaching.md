@@ -1,4 +1,4 @@
-# Module teaching: translation questions 1–4
+# Module teaching: translation 1–4 and reflection 5–8
 
 Open `module.html?question=1`, or Explore → Transformations → Module teaching · Translation 1–4. This separate full-page teaching view preserves the existing free exploration.
 
@@ -33,4 +33,34 @@ The question card collapses to enlarge the graph. Fit restores the printed grid.
 
 Run `npm test`. In a browser, check all four direct links, question navigation and browser Back; verify hidden answers, every teaching step, forward final mappings, reverse/scrub/reset, separate annotation histories, pan/zoom, EN/BM and light/dark. Inspect desktop, tablet and phone layouts, collapsed questions and fullscreen.
 
-Only translation-coordinate Questions 1–4 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Other coordinate questions and area demonstrations are future work.
+Translation Questions 1–4 and Reflection Questions 5–8 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Rotation, enlargement, combined transformations and area demonstrations are future work.
+
+## Reflection questions 5–8
+
+Open `module.html?question=5`, use the module activity selector, or Explore → Transformations → Module teaching · Reflection 5–8. These questions come from printed page 2 (PDF page 3), A2, of the same v4.2 booklet:
+
+| Question | Given | Mirror line | Required answer |
+| --- | --- | --- | --- |
+| 5 | A(−3, 4) | x = 1 | A′(5, 4) |
+| 6 | B(4, 3) | y = −2 | B′(4, −7) |
+| 7 | C′(5, −2) | y = x | C(−2, 5) |
+| 8 | D′(−4, 2) | y = −x | D(−2, 4) |
+
+Every reflection question starts with no trial line selected. The teacher asks whether the given equation describes a horizontal, vertical or slanted line. Any suggestion may be tried. The original question and its equation stay separate from the trial equation.
+
+- Horizontal lines show `y = k`, a dot at the y-axis crossing and a brief pulse around the changed axis value. Up/down buttons move one unit. Dragging the line in Move mode snaps to integer y values.
+- Vertical lines provide the equivalent `x = k` behaviour on the x-axis, with left/right buttons. Both use the existing pointer capture and graph coordinate conversion, including after pan and zoom. Positions are bounded to −8…8.
+- Slanted lines offer `y = x` and `y = −x`; arbitrary slope/intercept editing is outside this release.
+- Changing the line resets the moving copy and hides the answer. The teacher can keep the perpendicular guide visible while comparing lines.
+- The independent reflection slider uses the existing book-flip geometry. It follows the user's movement, then completes toward the last deliberate direction on release. Keyboard arrows, Home and End control the same range. No editable field or software keyboard is needed.
+- Guide mode shows the perpendicular and a rotating square right-angle marker. Matching equal-distance ticks appear only at the completed reflection, never during unequal intermediate positions. A point on the mirror remains fixed.
+- Wrong suggestions can be reflected and discussed, but never populate the module answer. Reveal becomes available only after the trial line matches the question and reflection is complete. Returning the slider or changing the line hides the reveal.
+- Questions 7–8 start from the given image and recover the object. The final graph mapping still reads object → image under the stated reflection line.
+
+The activity selector switches between Translation 1–4 and Reflection 5–8. Next question proceeds in module order. Question navigation resets the teaching state while keeping separate session ink histories. Trial results outside the original grid get an expanded view when needed; the initial question preserves the original grid. On phones, a minimum canvas height keeps labels readable; the question and lesson area can scroll vertically, or the question can collapse for more diagram space.
+
+### Implementation and verification
+
+`PointLesson` shares object/image identity between translation and reflection. `ReflectionLesson` owns trial line, guide, progress and reveal validity. The mathematical reflection and flip calculations reuse `transform-model.js`. `module-reflection-render.js` uses the shared right-angle marker and returns geometry obstacles to the existing renderer so point labels avoid the mirror and guides. Pointer handling, annotation history, pan/zoom and final mapping remain in the shared module UI.
+
+The reflection tests check all four independent scheme answers, wrong-line reveal guards, reset/scrub behaviour, equal perpendicular distances, stationary points, diagonal clipping, grid expansion and pan/zoom coordinate invariants. Browser checks cover trial switching, arrow nudges, line dragging after zoom/pan, lever reversal, both diagonals, EN/BM, dark/light, translation regression and phone/tablet/desktop layouts. Physical multi-touch and stylus hardware still require device testing.

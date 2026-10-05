@@ -35,7 +35,7 @@ export function createTransformationRenderer(canvas) {
       for (let y = ymin; y < ymax + (state.gridBounds ? 1 : 0); y++) if (y && y % stride === 0) { const p = screen({ x: 0, y }); ctx.fillStyle = ink; ctx.fillRect(p.x - 3, p.y - .6, 6, 1.2); text(String(y), p.x - 16, p.y); }
       const p = screen({ x: 0, y: ymax }); text('y', p.x, p.y - 16);
     }
-    if (xvisible && yvisible) { const p = screen({ x: 0, y: 0 }); text('0', p.x - 13, p.y + 15); }
+    if (xvisible && yvisible && state.originLabel !== false) { const p = screen({ x: 0, y: 0 }); text('0', p.x - 13, p.y + 15); }
     function object(o, isImage = false) {
       const ps = o.points.map(screen), active = o.id === selected, colour = (o.image ?? isImage) ? blue : ink;
       if (ps.length > 1) {
@@ -75,6 +75,10 @@ export function createTransformationRenderer(canvas) {
       if (state.angle) stroke([centre, guide.image], blue, 1.7);
       segments.push([c, screen(guide.source)], [c, screen(guide.image)]);
       requests.push({ id: 'rotation-angle', text: state.rotationLabel, colour: blue, candidates: polarCandidates(c, start + sweep / 2, radius + 24, { spread: .35, rings: 6 }) });
+    }
+    if (state.geometryOverlay) {
+      const extra = state.geometryOverlay(ctx) || {};
+      segments.push(...(extra.segments || [])); dots.push(...(extra.points || [])); obstacles.push(...(extra.obstacles || []));
     }
     objects.forEach(o => object(o));
     if (preview) object(preview, true);
