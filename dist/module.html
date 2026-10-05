@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
+  <link rel="stylesheet" href="module.css?v=3">
+</head>
+<body>
+  <header class="lesson-header">
+    <a class="back-link" href="index.html" id="back">← Workspace</a>
+    <div class="lesson-brand"><span>BIJAK SPM PPDMT 2026</span><strong id="pageTitle">Transformations</strong></div>
+    <span class="question-badge" id="questionBadge">Question 01 · Translation</span>
+    <div class="header-actions">
+      <button id="language" aria-label="Switch language">BM</button>
+      <button id="theme" aria-label="Switch theme">◐</button>
+      <button id="fullscreen">Full screen</button>
+    </div>
+  </header>
+  <main id="lesson" class="lesson-layout">
+    <aside class="question-panel" id="questionPanel">
+      <div class="panel-heading"><span class="eyebrow" id="section">A1 / TRANSLATION</span><button id="collapse" aria-controls="questionPanel" aria-expanded="true" aria-label="Hide question">‹</button></div>
+      <nav id="questionNav" class="question-nav" aria-label="Module questions">
+        <button type="button" data-question="1">01</button><button type="button" data-question="2">02</button><button type="button" data-question="3">03</button><button type="button" data-question="4">04</button>
+      </nav>
+      <h1 id="questionTitle">Find the image</h1>
+      <p class="question-text" id="prompt"></p>
+      <div class="given-vector" aria-label="Translation vector"><span>T =</span><span class="column-vector"><span id="givenDX"></span><span id="givenDY"></span></span></div>
+      <div class="answer-box" id="answerBox"><span id="answerHeading">Coordinates of the image</span><strong id="answer">A′ = ( &nbsp; , &nbsp; )</strong></div>
+      <p class="source-note" id="sourceNote">Module page 1 · Question 1<br>Original diagram · one square = one unit</p>
+      <div class="lesson-note"><span class="eyebrow" id="teachingLabel">TEACH TOGETHER</span><p id="teacherNote">Start with the given point. Reveal each step when your class is ready.</p></div>
+      <div class="credit">Izzul Waqiuddin Azhad<br><span>SMK Telok Mas</span></div>
+    </aside>
+    <section class="graph-section" aria-label="Teaching canvas">
+      <div class="graph-board" id="board">
+        <canvas id="graph" tabindex="0" aria-describedby="diagramDescription">Cartesian diagram for Question 1.</canvas>
+        <p id="diagramDescription" class="sr-only"></p>
+        <div id="finalMapping" class="final-mapping" role="img" hidden>
+          <span id="mappingSource" class="mapping-point" aria-hidden="true"></span>
+          <span class="mapping-transform" aria-hidden="true">
+            <span class="mapping-operation"><span id="mappingName">Translation</span><span class="mapping-vector"><span id="mappingDX"></span><span id="mappingDY"></span></span></span>
+            <svg class="mapping-arrow" viewBox="0 0 160 20" preserveAspectRatio="none"><path d="M2 10H156M146 2L156 10L146 18"/></svg>
+          </span>
+          <span id="mappingImage" class="mapping-point mapping-image" aria-hidden="true"></span>
+        </div>
+        <button id="expand" class="expand-question" aria-controls="questionPanel" aria-expanded="false" hidden>Question ›</button>
+        <div class="ink-tools" role="toolbar" aria-label="Canvas tools">
+          <button id="pan" aria-pressed="true" title="Move graph"><span aria-hidden="true">✥</span><small id="panText">Move</small></button>
+          <button id="pen" aria-pressed="false" title="Pen"><span aria-hidden="true">✎</span><small id="penText">Pen</small></button>
+          <button id="eraser" aria-pressed="false" title="Erase ink"><span aria-hidden="true">▱</span><small id="eraserText">Eraser</small></button>
+          <span class="tool-divider"></span>
+          <button id="undo" aria-label="Undo ink" title="Undo ink">↶</button>
+          <button id="redo" aria-label="Redo ink" title="Redo ink">↷</button>
+        </div>
+        <div class="view-tools" aria-label="Graph view"><button id="zoomOut" aria-label="Zoom out">−</button><button id="fit">Fit graph</button><button id="zoomIn" aria-label="Zoom in">+</button></div>
+        <span class="canvas-caption" id="canvasCaption">GIVEN DIAGRAM</span>
+      </div>
+      <footer class="lesson-controls">
+        <div class="step-copy" aria-live="polite"><span class="eyebrow" id="stepNumber">QUESTION</span><strong id="stepTitle">Where will A move?</strong><span id="stepDetail">Read the vector before revealing the image.</span></div>
+        <div class="scrubber" id="scrubber" hidden><label id="scrubLabel" for="progress">Control the movement</label><input id="progress" type="range" min="0" max="2" step="0.01" value="0"><div class="scrub-labels"><span id="startLabel"></span><span id="horizontalStep"></span><span id="verticalStep"></span></div></div>
+        <div class="step-actions"><button id="reset" class="quiet">Reset</button><button id="previous" aria-label="Previous step">←</button><button id="next" class="primary">Start teaching →</button></div>
+      </footer>
+    </section>
+  </main>
+  <p class="status" id="status" role="status" hidden></p>
+  <script type="module" src="module-ui.js?v=3"></script>
+</body>
+</html>

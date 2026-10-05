@@ -17,25 +17,27 @@ export function createTransformationRenderer(canvas) {
     const text = (value, x, y, colour = ink) => { ctx.fillStyle = colour; ctx.fillText(value, x, y); obstacles.push({ x: x - ctx.measureText(value).width / 2 - 3, y: y - 8, w: ctx.measureText(value).width + 6, h: 16 }); };
     ctx.fillStyle = paper; ctx.fillRect(0, 0, w, h);
     const low = screenToGraph({ x: 32, y: h - 32 }, view), high = screenToGraph({ x: w - 32, y: 32 }, view);
-    const xmin = Math.ceil(low.x), xmax = Math.floor(high.x), ymin = Math.ceil(low.y), ymax = Math.floor(high.y);
+    // Lessons may keep the exact printed grid and enlarge labels for projection.
+    // Exploration callers retain the original viewport-sized grid and defaults.
+    const xmin = Math.max(Math.ceil(low.x), state.gridBounds?.xmin ?? -Infinity), xmax = Math.min(Math.floor(high.x), state.gridBounds?.xmax ?? Infinity), ymin = Math.max(Math.ceil(low.y), state.gridBounds?.ymin ?? -Infinity), ymax = Math.min(Math.floor(high.y), state.gridBounds?.ymax ?? Infinity);
     const spacing = GRID_UNIT * view.zoom;
     for (let x = xmin; x <= xmax; x++) stroke([{ x, y: ymin }, { x, y: ymax }], dark ? '#3d424b' : '#d9dde2', .8);
     for (let y = ymin; y <= ymax; y++) stroke([{ x: xmin, y }, { x: xmax, y }], dark ? '#3d424b' : '#d9dde2', .8);
-    ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const stride = spacing < 32 ? 2 : 1, xvisible = ymin <= 0 && ymax >= 0, yvisible = xmin <= 0 && xmax >= 0;
+    ctx.font = `${state.axisFontSize || 12}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const stride = state.tickStride || (spacing < 32 ? 2 : 1), xvisible = ymin <= 0 && ymax >= 0 && xmin <= xmax, yvisible = xmin <= 0 && xmax >= 0 && ymin <= ymax;
     if (xvisible) {
       arrow({ x: xmin, y: 0 }, { x: xmax, y: 0 }, ink, 2); segments.push([screen({ x: xmin, y: 0 }), screen({ x: xmax, y: 0 })]);
-      for (let x = xmin; x < xmax; x++) if (x && x % stride === 0) { const p = screen({ x, y: 0 }); ctx.fillStyle = ink; ctx.fillRect(p.x - .6, p.y - 3, 1.2, 6); text(String(x), p.x, p.y + 16); }
+      for (let x = xmin; x < xmax + (state.gridBounds ? 1 : 0); x++) if (x && x % stride === 0) { const p = screen({ x, y: 0 }); ctx.fillStyle = ink; ctx.fillRect(p.x - .6, p.y - 3, 1.2, 6); text(String(x), p.x, p.y + 16); }
       const p = screen({ x: xmax, y: 0 }); text('x', p.x + 15, p.y);
     }
     if (yvisible) {
       arrow({ x: 0, y: ymin }, { x: 0, y: ymax }, ink, 2); segments.push([screen({ x: 0, y: ymin }), screen({ x: 0, y: ymax })]);
-      for (let y = ymin; y < ymax; y++) if (y && y % stride === 0) { const p = screen({ x: 0, y }); ctx.fillStyle = ink; ctx.fillRect(p.x - 3, p.y - .6, 6, 1.2); text(String(y), p.x - 16, p.y); }
+      for (let y = ymin; y < ymax + (state.gridBounds ? 1 : 0); y++) if (y && y % stride === 0) { const p = screen({ x: 0, y }); ctx.fillStyle = ink; ctx.fillRect(p.x - 3, p.y - .6, 6, 1.2); text(String(y), p.x - 16, p.y); }
       const p = screen({ x: 0, y: ymax }); text('y', p.x, p.y - 16);
     }
     if (xvisible && yvisible) { const p = screen({ x: 0, y: 0 }); text('0', p.x - 13, p.y + 15); }
     function object(o, isImage = false) {
-      const ps = o.points.map(screen), active = o.id === selected, colour = isImage || o.image ? blue : ink;
+      const ps = o.points.map(screen), active = o.id === selected, colour = (o.image ?? isImage) ? blue : ink;
       if (ps.length > 1) {
         ctx.beginPath(); ps.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
         if (ps.length > 2) { ctx.closePath(); ctx.fillStyle = isImage ? (dark ? '#699feb26' : '#4e92f226') : active ? (dark ? '#edf0f509' : '#24304705') : 'transparent'; ctx.fill(); }
@@ -44,8 +46,8 @@ export function createTransformationRenderer(canvas) {
       }
       const mid = ps.reduce((p, q) => ({ x: p.x + q.x / ps.length, y: p.y + q.y / ps.length }), { x: 0, y: 0 });
       ps.forEach((p, i) => {
-        ctx.beginPath(); ctx.arc(p.x, p.y, active && !isImage ? 5 : 3.5, 0, Math.PI * 2); ctx.fillStyle = active && !isImage ? paper : colour; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = colour; ctx.stroke(); dots.push(p);
-        const label = o.labels[i] + (coordinates ? ` (${formatNumber(o.points[i].x)}, ${formatNumber(o.points[i].y)})` : '');
+        ctx.beginPath(); ctx.arc(p.x, p.y, state.pointRadius || (active && !isImage ? 5 : 3.5), 0, Math.PI * 2); ctx.fillStyle = active && !isImage ? paper : colour; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = colour; ctx.stroke(); dots.push(p);
+        const label = o.labels[i] + ((o.coordinates ?? coordinates) ? ` (${formatNumber(o.points[i].x)}, ${formatNumber(o.points[i].y)})` : '');
         if (state.labels !== false) requests.push({ id: `${isImage ? 'image' : o.id}:${i}`, text: label, colour, candidates: polarCandidates(p, ps.length === 1 ? -Math.PI / 4 : Math.atan2(p.y - mid.y, p.x - mid.x), 21, { spread: .5, rings: 5 }) });
       });
     }
@@ -93,8 +95,8 @@ export function createTransformationRenderer(canvas) {
     labels.begin({ bounds: { x: 8, y: 8, w: w - 16, h: h - 60 }, segments, points: dots });
     // Keep vertex labels clear of axis numerals and the graph's edge controls.
     labels.placed.push(...obstacles, ...(state.overlays || []), { x: 5, y: h / 2 - 20, w: 40, h: 40 }, { x: w - 45, y: h / 2 - 20, w: 40, h: 40 }, { x: w / 2 - 20, y: 5, w: 40, h: 40 }, { x: w / 2 - 20, y: h - 92, w: 40, h: 40 });
-    ctx.font = 'italic 15px Georgia, serif';
-    for (const request of requests) { const placed = labels.place({ ...request, width: ctx.measureText(request.text).width, height: 17 }); paintLabel(ctx, placed, { ink: request.colour, background: paper }); }
+    ctx.font = `italic ${state.labelFontSize || 15}px Georgia, serif`;
+    for (const request of requests) { const placed = labels.place({ ...request, width: ctx.measureText(request.text).width, height: (state.labelFontSize || 15) + 2 }); paintLabel(ctx, placed, { ink: request.colour, background: paper }); }
     labels.end();
     for (const s of [...annotations, ...(state.ink ? [state.ink] : [])]) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; const colour = dark && s.strokeColour === '#20242c' ? '#edf0f5' : s.strokeColour;
