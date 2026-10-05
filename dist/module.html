@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
-  <link rel="stylesheet" href="module.css?v=4">
+  <link rel="stylesheet" href="module.css?v=5">
 </head>
 <body>
   <header class="lesson-header">
@@ -21,13 +21,14 @@
   <main id="lesson" class="lesson-layout">
     <aside class="question-panel" id="questionPanel">
       <div class="panel-heading"><span class="eyebrow" id="section">A1 / TRANSLATION</span><button id="collapse" aria-controls="questionPanel" aria-expanded="true" aria-label="Hide question">‹</button></div>
-      <select id="questionGroup" class="question-group" aria-label="Module activity"><option value="translation">Translation · 1–4</option><option value="reflection">Reflection · 5–8</option></select>
+      <select id="questionGroup" class="question-group" aria-label="Module activity"><option value="translation">Translation · 1–4</option><option value="reflection">Reflection · 5–8</option><option value="rotation">Rotation · 9–16</option></select>
       <nav id="questionNav" class="question-nav" aria-label="Module questions">
         <button type="button" data-question="1">01</button><button type="button" data-question="2">02</button><button type="button" data-question="3">03</button><button type="button" data-question="4">04</button>
       </nav>
       <h1 id="questionTitle">Find the image</h1>
       <p class="question-text" id="prompt"></p>
       <div class="given-vector" aria-label="Translation vector"><span>T =</span><span class="column-vector"><span id="givenDX"></span><span id="givenDY"></span></span></div>
+      <div id="givenRotation" class="given-rotation" hidden></div>
       <div id="givenMirror" class="given-mirror" hidden></div>
       <div class="answer-box" id="answerBox"><span id="answerHeading">Coordinates of the image</span><strong id="answer">A′ = ( &nbsp; , &nbsp; )</strong></div>
       <p class="source-note" id="sourceNote">Module page 1 · Question 1<br>Original diagram · one square = one unit</p>
@@ -46,13 +47,17 @@
           <button id="guides" aria-pressed="false">Guide</button>
         </div>
       </section>
+      <section id="rotationControls" class="rotation-controls" aria-label="Rotation guide" hidden>
+        <div><strong id="rotationCentre"></strong><span id="clockHint"></span></div>
+        <button id="clockGuide" aria-pressed="false" disabled>Clock guide</button>
+      </section>
       <div class="graph-board" id="board">
         <canvas id="graph" tabindex="0" aria-describedby="diagramDescription">Cartesian diagram for Question 1.</canvas>
         <p id="diagramDescription" class="sr-only"></p>
         <div id="finalMapping" class="final-mapping" role="img" hidden>
           <span id="mappingSource" class="mapping-point" aria-hidden="true"></span>
           <span class="mapping-transform" aria-hidden="true">
-            <span class="mapping-operation"><span id="mappingName">Translation</span><span id="mappingVector" class="mapping-vector"><span id="mappingDX"></span><span id="mappingDY"></span></span><span id="mappingMirror" hidden></span></span>
+            <span class="mapping-operation"><span id="mappingName">Translation</span><span id="mappingVector" class="mapping-vector"><span id="mappingDX"></span><span id="mappingDY"></span></span><span id="mappingMirror" hidden></span><span id="mappingRotation" hidden></span></span>
             <svg class="mapping-arrow" viewBox="0 0 160 20" preserveAspectRatio="none"><path d="M2 10H156M146 2L156 10L146 18"/></svg>
           </span>
           <span id="mappingImage" class="mapping-point mapping-image" aria-hidden="true"></span>
@@ -77,6 +82,6 @@
     </section>
   </main>
   <p class="status" id="status" role="status" hidden></p>
-  <script type="module" src="module-ui.js?v=4"></script>
+  <script type="module" src="module-ui.js?v=5"></script>
 </body>
 </html>

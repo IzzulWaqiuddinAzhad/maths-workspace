@@ -1,4 +1,4 @@
-import { translatePoint, reflectPoint, flipPoint, lineFoot, GRID_UNIT } from './transform-model.js?v=29';
+import { translatePoint, reflectPoint, flipPoint, lineFoot, rotatePoint, GRID_UNIT } from './transform-model.js?v=29';
 
 // A1, printed page 1 (PDF page 2), BIJAK Transformasi Bengkel v4.2.
 // Read each given point from the original diagram, not from the answer scheme.
@@ -32,9 +32,32 @@ export const REFLECTION_QUESTIONS = Object.freeze([
     bm: `${q.label}′ ialah imej bagi ${q.label} di bawah pantulan pada garis ${reflectionEquation(q.mirror)}. Cari koordinat ${q.label}${q.find === 'image' ? '′' : ''}.`,
   }),
 })));
-export const MODULE_QUESTIONS = Object.freeze([...TRANSLATION_QUESTIONS, ...REFLECTION_QUESTIONS]);
+// A3–A4, printed pages 3–4 (PDF pages 4–5), read from the original diagrams.
+export const ROTATION_QUESTIONS = Object.freeze([
+  { id: '9', label: 'A', given: { x: 3, y: 2 }, centre: { x: 0, y: 0 }, degrees: -90 },
+  { id: '10', label: 'B', given: { x: -2, y: 5 }, centre: { x: -3, y: 2 }, degrees: 90 },
+  { id: '11', label: 'C', given: { x: 5, y: 4 }, centre: { x: 2, y: 1 }, degrees: -90 },
+  { id: '12', label: 'D', given: { x: -4, y: -1 }, centre: { x: -1, y: -2 }, degrees: 90 },
+  { id: '13', label: 'E', given: { x: 5, y: -2 }, centre: { x: 2, y: -3 }, degrees: 180 },
+  { id: '14', label: 'F', given: { x: -2, y: 6 }, centre: { x: 2, y: 3 }, degrees: 180 },
+  { id: '15', label: 'G', given: { x: 5, y: -1 }, centre: { x: 1, y: 2 }, degrees: -90 },
+  { id: '16', label: 'H', given: { x: -5, y: 3 }, centre: { x: 0, y: -1 }, degrees: 90 },
+].map(q => {
+  const about = `(${q.centre.x}, ${q.centre.y})`;
+  const enDirection = q.degrees === 180 ? '' : q.degrees < 0 ? ' clockwise' : ' anticlockwise';
+  const bmDirection = q.degrees === 180 ? '' : q.degrees < 0 ? ' ikut arah jam' : ' lawan arah jam';
+  return Object.freeze({ ...q, type: 'rotation', find: 'image', number: q.id.padStart(2, '0'), section: Number(q.id) < 13 ? 'A3' : 'A4',
+    given: Object.freeze(q.given), centre: Object.freeze(q.centre),
+    bounds: Object.freeze({ xmin: -8, xmax: 8, ymin: -8, ymax: 8 }),
+    prompt: Object.freeze({
+      en: `${q.label}′ is the image of ${q.label} under a ${Math.abs(q.degrees)}°${enDirection} rotation about ${about}. Find its coordinates.`,
+      bm: `${q.label}′ ialah imej bagi ${q.label} di bawah putaran ${Math.abs(q.degrees)}°${bmDirection} berpusat di ${about}. Cari koordinat ${q.label}′.`,
+    }),
+  });
+}));
+export const MODULE_QUESTIONS = Object.freeze([...TRANSLATION_QUESTIONS, ...REFLECTION_QUESTIONS, ...ROTATION_QUESTIONS]);
 export const findModuleQuestion = id => MODULE_QUESTIONS.find(q => q.id === id);
-export const createModuleLesson = q => q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
+export const createModuleLesson = q => q.type === 'rotation' ? new RotationLesson(q) : q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
 
 export function reflectionEquation(choice) {
   if (!choice) return '';
@@ -130,6 +153,55 @@ export class TranslationLesson extends PointLesson {
   pointAt(progress = this.progress) {
     const p = Math.max(0, Math.min(2, progress)), v = this.movementVector;
     return translatePoint(this.question.given, { x: v.x * Math.min(1, p), y: v.y * Math.max(0, p - 1) });
+  }
+}
+
+// Each arm is the same two-segment path rotated about the actual centre.
+// Signed offsets are essential when the point lies left of / below that centre.
+export class RotationLesson extends PointLesson {
+  constructor(question = ROTATION_QUESTIONS[0]) { super(question); }
+  reset() { this.stage = 0; this.progress = 0; this.answerVisible = false; this.clockVisible = false; }
+  get movementDegrees() { return this.question.degrees * (this.inverse ? -1 : 1); }
+  get answer() { return rotatePoint(this.question.given, this.question.centre, this.movementDegrees); }
+  get corner() { return { x: this.question.given.x, y: this.question.centre.y }; }
+  get arms() {
+    return [0, 90, 180, 270].map(degrees => ({
+      centre: this.question.centre,
+      corner: rotatePoint(this.corner, this.question.centre, degrees),
+      end: rotatePoint(this.question.given, this.question.centre, degrees),
+    }));
+  }
+  get armCount() { return Math.min(4, Math.max(0, this.stage - 1)); }
+  get bendCount() { return Math.min(4, Math.max(0, this.stage - 5)); }
+  get constructionComplete() { return this.stage >= 9; }
+  get targetProgress() { return this.stage >= 10 ? 1 : 0; }
+  get bounds() {
+    const b = this.question.bounds;
+    if (!this.stage) return b;
+    const c = this.question.centre, r = Math.hypot(this.question.given.x - c.x, this.question.given.y - c.y);
+    return { xmin: Math.min(b.xmin, Math.floor(c.x-r)-1), xmax: Math.max(b.xmax, Math.ceil(c.x+r)+1),
+      ymin: Math.min(b.ymin, Math.floor(c.y-r)-1), ymax: Math.max(b.ymax, Math.ceil(c.y+r)+1) };
+  }
+  goTo(value) {
+    if (!Number.isFinite(value)) return;
+    this.stage = Math.max(0, Math.min(11, Math.round(value)));
+    this.progress = this.targetProgress; this.answerVisible = this.stage === 11;
+    if (!this.constructionComplete) this.clockVisible = false;
+  }
+  scrub(value) {
+    if (!this.constructionComplete) return;
+    this.progress = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+    this.stage = this.progress > 0 ? 10 : 9; this.answerVisible = false;
+  }
+  toggleClock() {
+    if (!this.constructionComplete) return false;
+    this.clockVisible = !this.clockVisible; return true;
+  }
+  pointAt(progress = this.progress) {
+    return rotatePoint(this.question.given, this.question.centre, this.movementDegrees * Math.max(0, Math.min(1, progress)));
+  }
+  cornerAt(progress = this.progress) {
+    return rotatePoint(this.corner, this.question.centre, this.movementDegrees * Math.max(0, Math.min(1, progress)));
   }
 }
 

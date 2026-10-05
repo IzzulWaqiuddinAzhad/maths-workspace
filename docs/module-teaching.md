@@ -1,4 +1,4 @@
-# Module teaching: translation 1–4 and reflection 5–8
+# Module teaching: translation 1–4, reflection 5–8 and rotation 9–16
 
 Open `module.html?question=1`, or Explore → Transformations → Module teaching · Translation 1–4. This separate full-page teaching view preserves the existing free exploration.
 
@@ -33,7 +33,7 @@ The question card collapses to enlarge the graph. Fit restores the printed grid.
 
 Run `npm test`. In a browser, check all four direct links, question navigation and browser Back; verify hidden answers, every teaching step, forward final mappings, reverse/scrub/reset, separate annotation histories, pan/zoom, EN/BM and light/dark. Inspect desktop, tablet and phone layouts, collapsed questions and fullscreen.
 
-Translation Questions 1–4 and Reflection Questions 5–8 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Rotation, enlargement, combined transformations and area demonstrations are future work.
+Translation Questions 1–4, Reflection Questions 5–8 and Rotation Questions 9–16 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Enlargement, combined transformations and area demonstrations remain future module work.
 
 ## Reflection questions 5–8
 
@@ -64,3 +64,27 @@ The activity selector switches between Translation 1–4 and Reflection 5–8. N
 `PointLesson` shares object/image identity between translation and reflection. `ReflectionLesson` owns trial line, guide, progress and reveal validity. The mathematical reflection and flip calculations reuse `transform-model.js`. `module-reflection-render.js` uses the shared right-angle marker and returns geometry obstacles to the existing renderer so point labels avoid the mirror and guides. Pointer handling, annotation history, pan/zoom and final mapping remain in the shared module UI.
 
 The reflection tests check all four independent scheme answers, wrong-line reveal guards, reset/scrub behaviour, equal perpendicular distances, stationary points, diagonal clipping, grid expansion and pan/zoom coordinate invariants. Browser checks cover trial switching, arrow nudges, line dragging after zoom/pan, lever reversal, both diagonals, EN/BM, dark/light, translation regression and phone/tablet/desktop layouts. Physical multi-touch and stylus hardware still require device testing.
+
+
+## Rotation questions 9–16
+
+Open `module.html?question=9`, choose Rotation in the module selector, or use Explore → Transformations → Module teaching · Rotation 9–16. Source: A3–A4, printed pages 3–4 (PDF pages 4–5) of the same question booklet. Starting points were read from the diagrams; calculated answers were checked against the scheme.
+
+| Question | Given | Centre | Rotation | Answer |
+| --- | --- | --- | --- | --- |
+| 9 | A(3, 2) | (0, 0) | 90° clockwise | A′(2, −3) |
+| 10 | B(−2, 5) | (−3, 2) | 90° anticlockwise | B′(−6, 3) |
+| 11 | C(5, 4) | (2, 1) | 90° clockwise | C′(5, −2) |
+| 12 | D(−4, −1) | (−1, −2) | 90° anticlockwise | D′(−2, −5) |
+| 13 | E(5, −2) | (2, −3) | 180° | E′(−1, −4) |
+| 14 | F(−2, 6) | (2, 3) | 180° | F′(6, 0) |
+| 15 | G(5, −1) | (1, 2) | 90° clockwise | G′(−2, −2) |
+| 16 | H(−5, 3) | (0, −1) | 90° anticlockwise | H′(−4, −6) |
+
+The construction has no method name in the UI. Teacher-paced steps mark the centre, draw the first horizontal arm, copy three quarter-turned arms, bend to the given point, then copy the other three bends. Signed offsets are measured from the actual centre; leftward and downward first paths work without a quadrant-specific shortcut. The original construction stays visible while the blue copy turns. A reversible slider controls the stated turn, and a separate reveal shows the coordinates and the final mapping on the graph. Half-turn questions explicitly explain that either direction reaches the same endpoint.
+
+After the construction is complete, the optional Clock guide toggle shows an analogue clock exactly at the rotation centre. It starts off and its hands always move clockwise, independently of the question direction or movement slider. The clock follows pan/zoom while keeping a readable screen size. It does not change answers, progress, objects or Undo history. Going back before the completed construction, Reset or changing question switches it off. Hidden tabs do not continuously redraw the clock. Reduced-motion preferences show a stationary clock and a textual 12 → 3 → 6 → 9 direction guide instead.
+
+`RotationLesson` extends the existing shared point lesson. `module-rotation-render.js` paints the construction and clock through the shared renderer's geometry overlay and returns label obstacles. No new pointer handler or editable input is introduced. The original camera, annotations, question navigation, EN/BM, theme, mapping and Undo/Redo remain shared.
+
+Tests cover all eight independent answers, the rigid lengths and right angles of every copy, centre-relative construction, bounded rotation paths, reveal/scrub/back/reset behaviour and a clockwise screen-coordinate clock that cannot mutate lesson state. Browser checks include the eight complete walkthroughs, clock toggling, reverse scrubbing, 180° turns, off-origin centres, translation/reflection regressions, desktop, phone and tablet layouts. Physical iPad/stylus/multi-touch testing remains a device check.

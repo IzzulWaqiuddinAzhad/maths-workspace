@@ -1,4 +1,5 @@
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion } from './module-lesson.js?v=4';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion } from './module-lesson.js?v=5';
+import { paintRotationLesson } from './module-rotation-render.js?v=1';
 import { paintReflectionLesson } from './module-reflection-render.js?v=1';
 import { createTransformationRenderer } from './transform-render.js?v=32';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub } from './transform-model.js?v=29';
@@ -21,7 +22,11 @@ const coord = p => `(${fmt(p.x)}, ${fmt(p.y)})`;
 const signed = n => n > 0 ? `+${fmt(n)}` : fmt(n);
 const calculation = (given, delta, answer) => `${fmt(given)} ${delta < 0 ? '−' : '+'} ${fmt(Math.abs(delta))} = ${fmt(answer)}`;
 const isReflection = () => q.type === 'reflection';
-const graphBounds = () => isReflection() ? lesson.bounds : q.bounds;
+const isRotation = () => q.type === 'rotation';
+const graphBounds = () => lesson.bounds || q.bounds;
+const rotationDescription = () => `${Math.abs(q.degrees)}° ${q.degrees === 180 ? tr('half-turn', 'separuh pusingan') : q.degrees < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam')}`;
+const rotationProgressLabel = () => `${Math.round(Math.abs(lesson.movementDegrees)*lesson.progress)}° ${lesson.movementDegrees < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam')}`;
+let clockStarted = 0;
 const nextQuestion = () => MODULE_QUESTIONS[MODULE_QUESTIONS.indexOf(q) + 1];
 let axisPulseUntil = 0, reflectionScrub = null, scrubPointer = null;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -33,22 +38,27 @@ function renderCopy() {
   document.body.classList.toggle('dark', dark);
   document.title = tr(`Question ${q.id} · BIJAK Transformations`, `Soalan ${q.id} · Transformasi BIJAK`);
   text('back', '← Workspace', '← Ruang kerja'); text('pageTitle', 'Transformations', 'Transformasi');
-  const reflection = isReflection(), topic = reflection ? tr('Reflection', 'Pantulan') : tr('Translation', 'Translasi');
+  const reflection = isReflection(), rotation = isRotation(), topic = rotation ? tr('Rotation', 'Putaran') : reflection ? tr('Reflection', 'Pantulan') : tr('Translation', 'Translasi');
+  document.body.classList.toggle('rotation-lesson', rotation);
+  $('rotationControls').hidden = !rotation;
   document.body.classList.toggle('reflection-lesson', reflection);
   $('reflectionControls').hidden = !reflection;
   $('questionGroup').value = q.type;
   $('questionGroup').setAttribute('aria-label', tr('Module activity', 'Aktiviti modul'));
   $('questionGroup').options[0].textContent = tr('Translation · 1–4', 'Translasi · 1–4');
   $('questionGroup').options[1].textContent = tr('Reflection · 5–8', 'Pantulan · 5–8');
+  $('questionGroup').options[2].textContent = tr('Rotation · 9–16', 'Putaran · 9–16');
   $('questionBadge').textContent = tr(`Question ${q.number}`, `Soalan ${q.number}`) + ' · ' + topic;
   $('section').textContent = `${q.section} / ${topic.toUpperCase()} · ${q.number}`;
   text('questionTitle', lesson.inverse ? 'Find the original point' : 'Find the image', lesson.inverse ? 'Cari koordinat objek' : 'Cari koordinat imej'); $('prompt').textContent = q.prompt[language];
   text('answerHeading', lesson.inverse ? 'Coordinates of the object' : 'Coordinates of the image', lesson.inverse ? 'Koordinat objek' : 'Koordinat imej');
-  text('sourceNote', `Module page ${reflection ? 2 : 1} · Question ${q.id}. One square = one unit.`, `Halaman modul ${reflection ? 2 : 1} · Soalan ${q.id}. Satu petak = satu unit.`);
-  document.querySelector('.given-vector').hidden = reflection;
+  text('sourceNote', `Module page ${rotation ? Number(q.id) < 13 ? 3 : 4 : reflection ? 2 : 1} · Question ${q.id}. One square = one unit.`, `Halaman modul ${rotation ? Number(q.id) < 13 ? 3 : 4 : reflection ? 2 : 1} · Soalan ${q.id}. Satu petak = satu unit.`);
+  document.querySelector('.given-vector').hidden = reflection || rotation;
+  $('givenRotation').hidden = !rotation;
+  if (rotation) $('givenRotation').textContent = `${rotationDescription()} · ${tr('Centre', 'Pusat')} ${coord(q.centre)}`;
   $('givenMirror').hidden = !reflection;
   if (reflection) $('givenMirror').textContent = reflectionEquation(q.mirror);
-  else { $('givenDX').textContent = fmt(q.vector.x); $('givenDY').textContent = fmt(q.vector.y); }
+  else if (!rotation) { $('givenDX').textContent = fmt(q.vector.x); $('givenDY').textContent = fmt(q.vector.y); }
   $('questionNav').innerHTML = MODULE_QUESTIONS.filter(question => question.type === q.type).map(question => `<button type="button" data-question="${question.id}">${question.number}</button>`).join('');
   $('questionNav').setAttribute('aria-label', tr('Module questions', 'Soalan modul'));
   for (const button of $('questionNav').querySelectorAll('button')) {
@@ -68,10 +78,10 @@ function renderCopy() {
   a11y('zoomOut', 'Zoom out', 'Zum keluar'); a11y('zoomIn', 'Zoom in', 'Zum masuk'); a11y('previous', 'Previous step', 'Langkah sebelumnya');
   $('graph').setAttribute('aria-label', tr(`Question ${q.id}, interactive Cartesian graph`, `Soalan ${q.id}, graf Cartes interaktif`));
   canvas.textContent = tr(`Cartesian diagram for Question ${q.id}.`, `Rajah Cartes untuk Soalan ${q.id}.`);
-  $('progress').max = reflection ? 1 : 2;
-  $('progress').setAttribute('aria-label', reflection ? tr('Control reflection', 'Kawal pantulan') : tr('Translation movement, horizontal then vertical', 'Pergerakan translasi, mengufuk kemudian menegak'));
-  if (!reflection) document.querySelector('.given-vector').setAttribute('aria-label', tr(`Translation vector ${coord(q.vector)}`, `Vektor translasi ${coord(q.vector)}`));
-  else $('givenMirror').setAttribute('aria-label', tr(`Question line: ${reflectionEquation(q.mirror)}`, `Garis soalan: ${reflectionEquation(q.mirror)}`));
+  $('progress').max = reflection || rotation ? 1 : 2;
+  $('progress').setAttribute('aria-label', rotation ? tr('Control rotation', 'Kawal putaran') : reflection ? tr('Control reflection', 'Kawal pantulan') : tr('Translation movement, horizontal then vertical', 'Pergerakan translasi, mengufuk kemudian menegak'));
+  if (!reflection && !rotation) document.querySelector('.given-vector').setAttribute('aria-label', tr(`Translation vector ${coord(q.vector)}`, `Vektor translasi ${coord(q.vector)}`));
+  else if (reflection) $('givenMirror').setAttribute('aria-label', tr(`Question line: ${reflectionEquation(q.mirror)}`, `Garis soalan: ${reflectionEquation(q.mirror)}`));
   syncFullscreen(); sync();
 }
 
@@ -138,8 +148,46 @@ function syncReflection() {
   $('verticalStep').textContent = lesson.matchesQuestion ? lesson.answerLabel : tr('Trial', 'Cubaan');
 }
 
+function syncRotation() {
+  const stage = lesson.stage, dx = q.given.x-q.centre.x, dy = q.given.y-q.centre.y;
+  const horizontal = dx < 0 ? tr('left','kiri') : tr('right','kanan'), vertical = dy < 0 ? tr('down','bawah') : tr('up','atas');
+  const titles = [
+    ["Where is the centre?", 'Di manakah pusat putaran?'],
+    [`Centre ${coord(q.centre)}`, `Pusat ${coord(q.centre)}`],
+    [`${Math.abs(dx)} units ${horizontal}`, `${Math.abs(dx)} unit ke ${horizontal}`],
+    ['Copy the first arm through a quarter-turn', 'Salin lengan pertama dengan suku pusingan'],
+    ['Add the opposite arm', 'Tambah lengan bertentangan'],
+    ['Complete the four equal arms', 'Lengkapkan empat lengan sama panjang'],
+    [`Bend ${Math.abs(dy)} units ${vertical} to reach ${q.label}`, `Belok ${Math.abs(dy)} unit ke ${vertical} hingga ${q.label}`],
+    ['Copy the bend to the next arm', 'Salin belokan pada lengan seterusnya'],
+    ['Copy the opposite bend', 'Salin belokan bertentangan'],
+    ['Construction complete', 'Binaan lengkap'],
+    [rotationProgressLabel(), rotationProgressLabel()],
+    [`${lesson.answerLabel} = ${coord(lesson.answer)}`, `${lesson.answerLabel} = ${coord(lesson.answer)}`],
+  ];
+  text('stepTitle', ...titles[stage]);
+  text('stepDetail', stage < 2 ? 'Measure from the rotation centre, not necessarily the origin.' : stage < 6 ? 'Keep each arm the same length. Each new arm adds another quarter-turn.' : stage < 9 ? 'Rotate the same bend. Keep both lengths and the right angle.' : stage === 9 ? 'Use the optional clock to discuss direction, then show the required turn.' : Math.abs(q.degrees)===180 ? 'A half-turn reaches the same point in either direction.' : 'The given point stays in place. Follow the blue copy.',
+    stage < 2 ? 'Ukur dari pusat putaran, tidak semestinya asalan.' : stage < 6 ? 'Kekalkan panjang setiap lengan. Setiap lengan baharu menambah satu suku pusingan.' : stage < 9 ? 'Putarkan belokan yang sama. Kekalkan kedua-dua panjang dan sudut tegak.' : stage === 9 ? 'Guna jam untuk membincangkan arah, kemudian tunjukkan putaran.' : Math.abs(q.degrees)===180 ? 'Separuh pusingan mencapai titik yang sama dalam kedua-dua arah.' : 'Titik diberi dikekalkan. Ikuti salinan biru.');
+  text('stepNumber', stage ? `STEP ${stage} / 11` : `QUESTION ${q.number}`, stage ? `LANGKAH ${stage} / 11` : `SOALAN ${q.number}`);
+  const actions = [ ['Mark the centre →','Tandakan pusat →'], ['Draw first arm →','Lukis lengan pertama →'], ['Copy arm →','Salin lengan →'], ['Copy arm →','Salin lengan →'], ['Complete cross →','Lengkapkan silang →'], ['Bend to the point →','Belok ke titik →'], ['Copy bend →','Salin belokan →'], ['Copy bend →','Salin belokan →'], ['Complete construction →','Lengkapkan binaan →'], ['Show rotation →','Tunjuk putaran →'], ['Reveal answer','Dedahkan jawapan'], [nextQuestion() ? 'Next question →':'Answer revealed',nextQuestion() ? 'Soalan seterusnya →':'Jawapan didedahkan'] ];
+  text('next', ...actions[stage]);
+  if (lesson.progress < lesson.targetProgress) text('next','Finish rotation →','Lengkapkan putaran →');
+  $('next').disabled = !!animation || (stage===11 && !nextQuestion()); $('previous').disabled = !stage || !!animation;
+  $('scrubber').hidden = !lesson.constructionComplete; $('progress').value = lesson.progress;
+  text('scrubLabel','Control rotation','Kawal putaran');
+  $('progress').setAttribute('aria-valuetext',rotationProgressLabel());
+  $('startLabel').textContent='0°'; $('horizontalStep').textContent=''; $('verticalStep').textContent=`${Math.abs(q.degrees)}°`;
+  $('rotationControls').setAttribute('aria-label',tr('Rotation guide','Panduan putaran'));
+  text('rotationCentre',`Centre ${coord(q.centre)}`,`Pusat ${coord(q.centre)}`);
+  text('clockGuide','Clock guide','Panduan jam'); $('clockGuide').disabled = !lesson.constructionComplete;
+  $('clockGuide').setAttribute('aria-pressed', String(lesson.clockVisible));
+  a11y('clockGuide',lesson.clockVisible ? 'Hide clock guide':'Show clock guide',lesson.clockVisible ? 'Sembunyikan panduan jam':'Tunjukkan panduan jam');
+  text('clockHint', lesson.clockVisible ? (reducedMotion.matches ? 'Clockwise: 12 → 3 → 6 → 9. Opposite: anticlockwise. Motion reduced.' : 'The clock moves clockwise. The opposite direction is anticlockwise.') : lesson.constructionComplete ? 'Clock guide is optional.' : 'Clock guide becomes available after the construction.',
+    lesson.clockVisible ? (reducedMotion.matches ? 'Ikut arah jam: 12 → 3 → 6 → 9. Arah bertentangan: lawan arah jam. Gerakan dikurangkan.' : 'Jam bergerak ikut arah jam. Arah bertentangan ialah lawan arah jam.') : lesson.constructionComplete ? 'Panduan jam ialah pilihan.' : 'Panduan jam tersedia setelah binaan lengkap.');
+}
+
 function sync() {
-  if (isReflection()) syncReflection(); else syncTranslation();
+  if (isRotation()) syncRotation(); else if (isReflection()) syncReflection(); else syncTranslation();
   $('answer').textContent = `${lesson.answerLabel} = ${lesson.answerVisible ? coord(lesson.answer) : '(      ,      )'}`;
   $('answer').classList.toggle('object-answer', lesson.inverse);
   $('answerBox').classList.toggle('revealed', lesson.answerVisible);
@@ -147,12 +195,13 @@ function sync() {
   if (lesson.answerVisible) {
     $('mappingSource').textContent = `${q.label}${coord(lesson.object)}`;
     $('mappingImage').textContent = `${q.label}′${coord(lesson.image)}`;
-    const reflection = isReflection();
-    $('mappingVector').hidden = reflection; $('mappingMirror').hidden = !reflection;
+    const reflection = isReflection(), rotation = isRotation();
+    $('mappingVector').hidden = reflection || rotation; $('mappingMirror').hidden = !reflection; $('mappingRotation').hidden = !rotation;
+    if (rotation) $('mappingRotation').textContent = `${rotationDescription()} · ${tr('centre', 'pusat')} ${coord(q.centre)}`;
     if (reflection) $('mappingMirror').textContent = reflectionEquation(q.mirror);
-    else { $('mappingDX').textContent = fmt(q.vector.x); $('mappingDY').textContent = fmt(q.vector.y); }
-    text('mappingName', reflection ? 'Reflection in' : 'Translation', reflection ? 'Pantulan pada' : 'Translasi');
-    const operation = reflection ? tr(`reflection in ${reflectionEquation(q.mirror)}`, `pantulan pada ${reflectionEquation(q.mirror)}`) : tr(`translation vector ${coord(q.vector)}`, `vektor translasi ${coord(q.vector)}`);
+    else if (!rotation) { $('mappingDX').textContent = fmt(q.vector.x); $('mappingDY').textContent = fmt(q.vector.y); }
+    text('mappingName', rotation ? 'Rotation' : reflection ? 'Reflection in' : 'Translation', rotation ? 'Putaran' : reflection ? 'Pantulan pada' : 'Translasi');
+    const operation = rotation ? `${rotationDescription()} ${tr('about', 'berpusat di')} ${coord(q.centre)}` : reflection ? tr(`reflection in ${reflectionEquation(q.mirror)}`, `pantulan pada ${reflectionEquation(q.mirror)}`) : tr(`translation vector ${coord(q.vector)}`, `vektor translasi ${coord(q.vector)}`);
     $('finalMapping').setAttribute('aria-label', tr(
       `${q.label} ${coord(lesson.object)} maps to ${q.label}′ ${coord(lesson.image)} under ${operation}.`,
       `${q.label} ${coord(lesson.object)} dipetakan kepada ${q.label}′ ${coord(lesson.image)} di bawah ${operation}.`));
@@ -173,7 +222,12 @@ function animateProgress(target) {
   const tick = time => {
     start ??= time; const t = Math.min(1, (time - start) / 650), eased = t * t * (3 - 2 * t);
     lesson.progress = from + (target - from) * eased;
-    $('progress').value = lesson.progress; schedule();
+    $('progress').value = lesson.progress;
+    if (isRotation() && lesson.stage === 10) {
+      const value = rotationProgressLabel();
+      $('stepTitle').textContent = value; $('progress').setAttribute('aria-valuetext',value);
+    }
+    schedule();
     if (t < 1) animation = requestAnimationFrame(tick);
     else { animation = 0; lesson.progress = target; sync(); }
   };
@@ -181,6 +235,7 @@ function animateProgress(target) {
 }
 function goTo(stage) {
   const from = lesson.progress; lesson.goTo(stage); const target = lesson.progress;
+  if (isRotation() && fitted) fit();
   lesson.progress = from; animateProgress(target);
 }
 function reflectTo(target) {
@@ -197,21 +252,22 @@ function ensureTrialVisible() {
 function draw() {
   frame = 0;
   const image = lesson.pointAt(), visibleImage = lesson.progress > 0 && (!isReflection() || Math.hypot(image.x - q.given.x, image.y - q.given.y) > 1e-8);
-  const reflection = isReflection(), v = reflection ? { x: 0, y: 0 } : lesson.movementVector;
+  const reflection = isReflection(), rotation = isRotation(), v = reflection || rotation ? { x: 0, y: 0 } : lesson.movementVector;
   const a = graphToScreen(q.given, view), corner = graphToScreen({ x: q.given.x + v.x, y: q.given.y }, view), p = graphToScreen(image, view);
   const obstacles = [...board.querySelectorAll('button:not([hidden]),.ink-tools,.view-tools,.canvas-caption')].filter(el => el.getClientRects().length).map(el => { const r = el.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; });
   if (lesson.answerVisible) obstacles.push(positionMapping([a, p], obstacles));
-  if (!reflection && lesson.progress >= 1) obstacles.push({ x: (a.x + corner.x) / 2 - 23, y: a.y - 32, w: 46, h: 28 });
-  if (!reflection && lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
-  const complete = lesson.progress === (reflection ? 1 : 2);
+  if (!reflection && !rotation && lesson.progress >= 1) obstacles.push({ x: (a.x + corner.x) / 2 - 23, y: a.y - 32, w: 46, h: 28 });
+  if (!reflection && !rotation && lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
+  const complete = lesson.progress === (reflection || rotation ? 1 : 2);
   const pulse = reducedMotion.matches ? 0 : Math.max(0, (axisPulseUntil - performance.now()) / 600);
-  drawGraph({ view, originLabel: !(reflection && lesson.choice && lesson.choice.kind !== 'slanted' && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: 2, axisFontSize: 15, labelFontSize: reflection && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
+  drawGraph({ view, originLabel: !(reflection && lesson.choice && lesson.choice.kind !== 'slanted' && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: 2, axisFontSize: 15, labelFontSize: (reflection || rotation) && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
     objects: [{ id: 'given', points: [q.given], labels: [lesson.givenLabel], image: lesson.inverse, coordinates: lesson.stage > 0 }],
     preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? reflection && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible } : null,
     annotations: erased ?? inkStore.document.objects, ink, overlays: obstacles,
-    geometryOverlay: reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: graphBounds(), dark, pulse }) : null,
+    geometryOverlay: rotation ? ctx => paintRotationLesson(ctx, { lesson, view, dark, clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: graphBounds(), dark, pulse }) : null,
   });
   if (reflection) { if (pulse > 0) schedule(); return; }
+  if (rotation) { if (lesson.clockVisible && !reducedMotion.matches && !document.hidden) schedule(); return; }
   if (!visibleImage) return;
   const ctx = canvas.getContext('2d'), colour = dark ? '#91beff' : '#2468c4';
   ctx.save(); ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
@@ -241,6 +297,14 @@ function positionMapping(points, controls) {
   // of the proof and must not disappear behind a full-width mapping card.
   for (let y = 64; y <= height - h - 76; y += 20) options.push(clamp({ x: midX - w / 2, y }));
   const avoid = controls.concat(points.map(p => ({ x: p.x - 88, y: p.y - 40, w: 176, h: 70 })));
+  if (isRotation() && lesson.stage) {
+    const c = graphToScreen(q.centre, view);
+    avoid.push({ x: c.x - 48, y: c.y - 48, w: 96, h: 96 });
+    for (const arm of lesson.arms) {
+      const b = graphToScreen(arm.corner, view), e = graphToScreen(arm.end, view);
+      for (const [a,z] of [[c,b],[b,e]]) avoid.push({x:Math.min(a.x,z.x)-6,y:Math.min(a.y,z.y)-6,w:Math.abs(a.x-z.x)+12,h:Math.abs(a.y-z.y)+12});
+    }
+  }
   if (isReflection() && lesson.choice) {
     const f = graphToScreen(lesson.foot, view);
     avoid.push({ x: f.x - 20, y: f.y - 20, w: 40, h: 40 });
@@ -325,7 +389,7 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); if (!drag) zoom(Math
 canvas.onkeydown = e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); discard(); e.shiftKey ? inkStore.redo() : inkStore.undo(); }
   else if (e.key === 'Escape') { pointers.clear(); discard(); }
-  else if ((e.key === 'ArrowRight' || e.key === 'Enter') && !animation && lesson.stage < 4) { e.preventDefault(); advance(); }
+  else if ((e.key === 'ArrowRight' || e.key === 'Enter') && !animation && lesson.stage < (isRotation() ? 11 : 4)) { e.preventDefault(); advance(); }
   else if (e.key === 'ArrowLeft' && !animation && lesson.stage > 0) { e.preventDefault(); previousStep(); }
 };
 
@@ -358,6 +422,7 @@ $('lineDecrease').onclick = () => changeTrial(() => lesson.setPosition(lesson.ch
 $('lineIncrease').onclick = () => changeTrial(() => lesson.setPosition(lesson.choice.k + 1));
 $('slopePositive').onclick = () => changeTrial(() => lesson.setSlope(1));
 $('slopeNegative').onclick = () => changeTrial(() => lesson.setSlope(-1));
+$('clockGuide').onclick = () => { if (lesson.toggleClock()) { clockStarted = performance.now(); sync(); } };
 $('guides').onclick = () => { lesson.toggleGuides(); sync(); };
 $('next').onclick = advance;
 $('previous').onclick = previousStep;
@@ -394,7 +459,7 @@ function selectQuestion(id, updateUrl = true) {
   setTool('pan'); renderCopy(); fit();
 }
 $('questionNav').onclick = e => { const button = e.target.closest('[data-question]'); if (button && button.dataset.question !== q.id) selectQuestion(button.dataset.question); };
-$('questionGroup').onchange = e => selectQuestion(e.target.value === 'reflection' ? '5' : '1');
+$('questionGroup').onchange = e => selectQuestion(({translation:'1',reflection:'5',rotation:'9'})[e.target.value]);
 window.addEventListener('popstate', () => selectQuestion(findModuleQuestion(new URLSearchParams(location.search).get('question'))?.id || QUESTION_ONE.id, false));
 $('zoomOut').onclick = () => zoom(.8); $('zoomIn').onclick = () => zoom(1.25); $('fit').onclick = fit;
 function toggleQuestion() {
@@ -419,6 +484,8 @@ const resize = new ResizeObserver(() => {
   previousSize = { width, height }; schedule();
 });
 resize.observe(board);
-window.addEventListener('pagehide', () => { stopAnimation(); discard(); pointers.clear(); });
+window.addEventListener('pagehide', () => { stopAnimation(); pointers.clear(); drag = ink = erased = null; cancelAnimationFrame(frame); frame = 0; });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) schedule(); });
+reducedMotion.addEventListener('change', sync);
 renderCopy(); setTool('pan');
-if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–8. Showing Question 1.', 'Modul ini mengandungi Soalan 1–8. Memaparkan Soalan 1.'); }
+if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–16. Showing Question 1.', 'Modul ini mengandungi Soalan 1–16. Memaparkan Soalan 1.'); }
