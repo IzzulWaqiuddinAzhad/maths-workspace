@@ -24,9 +24,9 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0 }) 
   const arms = lesson.arms;
   for (let i=0; i<lesson.armCount; i++) line([arms[i].centre,arms[i].corner],red);
   for (let i=0; i<lesson.bendCount; i++) line([arms[i].corner,arms[i].end],red);
-  if (lesson.progress > 0) {
+  if (lesson.angle !== 0) {
     line([lesson.question.centre, lesson.cornerAt(), lesson.pointAt()], blue, 3.5);
-    const start = Math.atan2(source.y-c.y,source.x-c.x), sweep = -lesson.movementDegrees * lesson.progress * Math.PI / 180;
+    const start = Math.atan2(source.y-c.y,source.x-c.x), sweep = -lesson.angle * Math.PI / 180;
     const radius = Math.min(distance * .8, Math.max(lesson.clockVisible ? clockRadius+12 : 18, Math.min(64,distance*.5)));
     if (radius > 3) {
       ctx.beginPath(); ctx.arc(c.x,c.y,radius,start,start+sweep,sweep<0); ctx.strokeStyle=blue; ctx.lineWidth=2;ctx.stroke();

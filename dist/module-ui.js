@@ -1,8 +1,8 @@
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion } from './module-lesson.js?v=5';
-import { paintRotationLesson } from './module-rotation-render.js?v=1';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion } from './module-lesson.js?v=6';
+import { paintRotationLesson } from './module-rotation-render.js?v=2';
 import { paintReflectionLesson } from './module-reflection-render.js?v=1';
 import { createTransformationRenderer } from './transform-render.js?v=32';
-import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub } from './transform-model.js?v=29';
+import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
 import { installCanvasOwnership } from './interaction.js?v=13';
 
@@ -25,10 +25,11 @@ const isReflection = () => q.type === 'reflection';
 const isRotation = () => q.type === 'rotation';
 const graphBounds = () => lesson.bounds || q.bounds;
 const rotationDescription = () => `${Math.abs(q.degrees)}° ${q.degrees === 180 ? tr('half-turn', 'separuh pusingan') : q.degrees < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam')}`;
-const rotationProgressLabel = () => `${Math.round(Math.abs(lesson.movementDegrees)*lesson.progress)}° ${lesson.movementDegrees < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam')}`;
+const angleWords = angle => `${Math.round(Math.abs(angle))}°${angle === 0 ? '' : ' ' + (angle < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam'))}`;
+const rotationProgressLabel = () => angleWords(lesson.angle);
 let clockStarted = 0;
 const nextQuestion = () => MODULE_QUESTIONS[MODULE_QUESTIONS.indexOf(q) + 1];
-let axisPulseUntil = 0, reflectionScrub = null, scrubPointer = null;
+let axisPulseUntil = 0, reflectionScrub = null, rotationScrub = null, scrubPointer = null;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const text = (id, en, bm) => { $(id).textContent = tr(en, bm); };
 const a11y = (id, en, bm) => { $(id).setAttribute('aria-label', tr(en, bm)); $(id).title = tr(en, bm); };
@@ -41,6 +42,7 @@ function renderCopy() {
   const reflection = isReflection(), rotation = isRotation(), topic = rotation ? tr('Rotation', 'Putaran') : reflection ? tr('Reflection', 'Pantulan') : tr('Translation', 'Translasi');
   document.body.classList.toggle('rotation-lesson', rotation);
   $('rotationControls').hidden = !rotation;
+  $('rotationShortcuts').hidden = !rotation;
   document.body.classList.toggle('reflection-lesson', reflection);
   $('reflectionControls').hidden = !reflection;
   $('questionGroup').value = q.type;
@@ -78,8 +80,10 @@ function renderCopy() {
   a11y('zoomOut', 'Zoom out', 'Zum keluar'); a11y('zoomIn', 'Zoom in', 'Zum masuk'); a11y('previous', 'Previous step', 'Langkah sebelumnya');
   $('graph').setAttribute('aria-label', tr(`Question ${q.id}, interactive Cartesian graph`, `Soalan ${q.id}, graf Cartes interaktif`));
   canvas.textContent = tr(`Cartesian diagram for Question ${q.id}.`, `Rajah Cartes untuk Soalan ${q.id}.`);
-  $('progress').max = reflection || rotation ? 1 : 2;
-  $('progress').setAttribute('aria-label', rotation ? tr('Control rotation', 'Kawal putaran') : reflection ? tr('Control reflection', 'Kawal pantulan') : tr('Translation movement, horizontal then vertical', 'Pergerakan translasi, mengufuk kemudian menegak'));
+  $('progress').min = rotation ? -360 : 0;
+  $('progress').max = rotation ? 360 : reflection ? 1 : 2;
+  $('progress').step = rotation ? 1 : .01;
+  $('progress').setAttribute('aria-label', rotation ? tr('Rotation angle: left clockwise, right anticlockwise', 'Sudut putaran: kiri ikut arah jam, kanan lawan arah jam') : reflection ? tr('Control reflection', 'Kawal pantulan') : tr('Translation movement, horizontal then vertical', 'Pergerakan translasi, mengufuk kemudian menegak'));
   if (!reflection && !rotation) document.querySelector('.given-vector').setAttribute('aria-label', tr(`Translation vector ${coord(q.vector)}`, `Vektor translasi ${coord(q.vector)}`));
   else if (reflection) $('givenMirror').setAttribute('aria-label', tr(`Question line: ${reflectionEquation(q.mirror)}`, `Garis soalan: ${reflectionEquation(q.mirror)}`));
   syncFullscreen(); sync();
@@ -171,14 +175,26 @@ function syncRotation() {
   text('stepNumber', stage ? `STEP ${stage} / 11` : `QUESTION ${q.number}`, stage ? `LANGKAH ${stage} / 11` : `SOALAN ${q.number}`);
   const actions = [ ['Mark the centre →','Tandakan pusat →'], ['Draw first arm →','Lukis lengan pertama →'], ['Copy arm →','Salin lengan →'], ['Copy arm →','Salin lengan →'], ['Complete cross →','Lengkapkan silang →'], ['Bend to the point →','Belok ke titik →'], ['Copy bend →','Salin belokan →'], ['Copy bend →','Salin belokan →'], ['Complete construction →','Lengkapkan binaan →'], ['Show rotation →','Tunjuk putaran →'], ['Reveal answer','Dedahkan jawapan'], [nextQuestion() ? 'Next question →':'Answer revealed',nextQuestion() ? 'Soalan seterusnya →':'Jawapan didedahkan'] ];
   text('next', ...actions[stage]);
-  if (lesson.progress < lesson.targetProgress) text('next','Finish rotation →','Lengkapkan putaran →');
+  if (lesson.constructionComplete && !lesson.answerVisible) text('next', lesson.canReveal ? 'Reveal answer' : 'Show question’s turn →', lesson.canReveal ? 'Dedahkan jawapan' : 'Tunjuk putaran soalan →');
   $('next').disabled = !!animation || (stage===11 && !nextQuestion()); $('previous').disabled = !stage || !!animation;
   $('scrubber').hidden = !lesson.constructionComplete; $('progress').value = lesson.progress;
   text('scrubLabel','Control rotation','Kawal putaran');
   $('progress').setAttribute('aria-valuetext',rotationProgressLabel());
-  $('startLabel').textContent='0°'; $('horizontalStep').textContent=''; $('verticalStep').textContent=`${Math.abs(q.degrees)}°`;
+  $('startLabel').textContent='↻ 360°'; $('horizontalStep').textContent='0°'; $('verticalStep').textContent='360° ↺';
+  a11y('rotationCW','Clockwise','Ikut arah jam'); a11y('rotationCCW','Anticlockwise','Lawan arah jam');
+  $('rotationCW').setAttribute('aria-pressed',String(lesson.direction === -1)); $('rotationCCW').setAttribute('aria-pressed',String(lesson.direction === 1));
+  for (const button of document.querySelectorAll('[data-rotation-angle]')) {
+    const degrees = Number(button.dataset.rotationAngle);
+    button.setAttribute('aria-pressed',String(Math.abs(lesson.angle) === degrees));
+    button.setAttribute('aria-label',angleWords(degrees * lesson.direction));
+  }
+  if (lesson.constructionComplete && !lesson.answerVisible) {
+    text('stepTitle',rotationProgressLabel(),rotationProgressLabel());
+    text('stepDetail', lesson.atStart ? (lesson.angle ? 'One full turn: back at the original position.' : 'Slide either way, or choose a direction and an angle.') : `Same position as ${angleWords(lesson.equivalentAngle)}.`,
+      lesson.atStart ? (lesson.angle ? 'Satu pusingan penuh: kembali ke kedudukan asal.' : 'Seret ke mana-mana arah, atau pilih arah dan sudut.') : `Kedudukan sama seperti ${angleWords(lesson.equivalentAngle)}.`);
+  }
   $('rotationControls').setAttribute('aria-label',tr('Rotation guide','Panduan putaran'));
-  text('rotationCentre',`Centre ${coord(q.centre)}`,`Pusat ${coord(q.centre)}`);
+  text('rotationCentre',`Centre ${coord(q.centre)} · Question: ${rotationDescription()}`,`Pusat ${coord(q.centre)} · Soalan: ${rotationDescription()}`);
   text('clockGuide','Clock guide','Panduan jam'); $('clockGuide').disabled = !lesson.constructionComplete;
   $('clockGuide').setAttribute('aria-pressed', String(lesson.clockVisible));
   a11y('clockGuide',lesson.clockVisible ? 'Hide clock guide':'Show clock guide',lesson.clockVisible ? 'Sembunyikan panduan jam':'Tunjukkan panduan jam');
@@ -251,18 +267,18 @@ function ensureTrialVisible() {
 
 function draw() {
   frame = 0;
-  const image = lesson.pointAt(), visibleImage = lesson.progress > 0 && (!isReflection() || Math.hypot(image.x - q.given.x, image.y - q.given.y) > 1e-8);
+  const image = lesson.pointAt(), visibleImage = (isRotation() ? lesson.angle !== 0 : lesson.progress > 0) && (!(isReflection() || isRotation()) || Math.hypot(image.x - q.given.x, image.y - q.given.y) > 1e-8);
   const reflection = isReflection(), rotation = isRotation(), v = reflection || rotation ? { x: 0, y: 0 } : lesson.movementVector;
   const a = graphToScreen(q.given, view), corner = graphToScreen({ x: q.given.x + v.x, y: q.given.y }, view), p = graphToScreen(image, view);
   const obstacles = [...board.querySelectorAll('button:not([hidden]),.ink-tools,.view-tools,.canvas-caption')].filter(el => el.getClientRects().length).map(el => { const r = el.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; });
   if (lesson.answerVisible) obstacles.push(positionMapping([a, p], obstacles));
   if (!reflection && !rotation && lesson.progress >= 1) obstacles.push({ x: (a.x + corner.x) / 2 - 23, y: a.y - 32, w: 46, h: 28 });
   if (!reflection && !rotation && lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
-  const complete = lesson.progress === (reflection || rotation ? 1 : 2);
+  const complete = rotation ? true : lesson.progress === (reflection ? 1 : 2);
   const pulse = reducedMotion.matches ? 0 : Math.max(0, (axisPulseUntil - performance.now()) / 600);
   drawGraph({ view, originLabel: !(reflection && lesson.choice && lesson.choice.kind !== 'slanted' && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: 2, axisFontSize: 15, labelFontSize: (reflection || rotation) && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
     objects: [{ id: 'given', points: [q.given], labels: [lesson.givenLabel], image: lesson.inverse, coordinates: lesson.stage > 0 }],
-    preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? reflection && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible } : null,
+    preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? (reflection || rotation) && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible } : null,
     annotations: erased ?? inkStore.document.objects, ink, overlays: obstacles,
     geometryOverlay: rotation ? ctx => paintRotationLesson(ctx, { lesson, view, dark, clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: graphBounds(), dark, pulse }) : null,
   });
@@ -395,6 +411,12 @@ canvas.onkeydown = e => {
 
 function advance() {
   if (lesson.answerVisible) { if (nextQuestion()) selectQuestion(nextQuestion().id); return; }
+  if (isRotation()) {
+    if (!lesson.constructionComplete) goTo(lesson.stage + 1);
+    else if (lesson.canReveal) { lesson.reveal(); sync(); }
+    else { lesson.scrub(0); lesson.stage = 10; lesson.direction = Math.sign(lesson.movementDegrees); animateProgress(lesson.movementDegrees); }
+    return;
+  }
   if (isReflection()) {
     if (!lesson.choice) return;
     if (!lesson.progress && !lesson.guideVisible) { lesson.toggleGuides(); sync(); }
@@ -405,6 +427,12 @@ function advance() {
   goTo(lesson.progress < lesson.targetProgress ? lesson.stage : lesson.stage + 1);
 }
 function previousStep() {
+  if (isRotation()) {
+    if (lesson.answerVisible) { lesson.scrub(lesson.angle); sync(); }
+    else if (lesson.angle !== 0) { lesson.answerVisible = false; lesson.stage = 9; animateProgress(0); }
+    else goTo(lesson.stage - 1);
+    return;
+  }
   if (!isReflection()) { goTo(lesson.stage - 1); return; }
   if (lesson.answerVisible) { lesson.scrub(1); sync(); }
   else if (lesson.progress > 0) reflectTo(0);
@@ -413,7 +441,7 @@ function previousStep() {
 }
 function changeTrial(change) {
   if (!change()) return;
-  stopAnimation(); reflectionScrub = null; scrubPointer = null;
+  stopAnimation(); clearScrub();
   axisPulseUntil = performance.now() + 600;
   sync();
 }
@@ -426,32 +454,59 @@ $('clockGuide').onclick = () => { if (lesson.toggleClock()) { clockStarted = per
 $('guides').onclick = () => { lesson.toggleGuides(); sync(); };
 $('next').onclick = advance;
 $('previous').onclick = previousStep;
+function clearScrub() { reflectionScrub = null; rotationScrub = null; scrubPointer = null; }
+function changeRotation(change) { stopAnimation(); clearScrub(); change(); sync(); }
+$('rotationCW').onclick = () => changeRotation(() => lesson.setDirection(-1));
+$('rotationCCW').onclick = () => changeRotation(() => lesson.setDirection(1));
+for (const button of document.querySelectorAll('[data-rotation-angle]')) button.onclick = () => changeRotation(() => lesson.scrub(Number(button.dataset.rotationAngle)*lesson.direction));
+const moveRotationScrub = e => {
+  if (!rotationScrub || e.pointerId !== scrubPointer) return;
+  const r = $('progress').getBoundingClientRect(), inset = 10;
+  const raw = ((e.clientX - r.left - inset) / Math.max(1,r.width - 2*inset)) * 720 - 360;
+  lesson.scrub(rotationScrub.snap.move(Math.round(raw))); sync();
+};
 $('progress').onpointerdown = e => {
+  if (e.button !== 0 || scrubPointer !== null) return;
+  if (isRotation()) {
+    e.preventDefault(); stopAnimation(); e.currentTarget.focus({preventScroll:true});
+    rotationScrub = { start:lesson.angle, snap:new RotationSnap(lesson.angle) }; scrubPointer = e.pointerId;
+    e.currentTarget.setPointerCapture(e.pointerId); moveRotationScrub(e); return;
+  }
   if (!isReflection()) return;
   stopAnimation(); ensureTrialVisible(); reflectionScrub = new ReflectionScrub(lesson.progress); scrubPointer = e.pointerId;
   e.currentTarget.setPointerCapture(e.pointerId);
 };
+$('progress').onpointermove = moveRotationScrub;
 $('progress').oninput = e => {
+  if (rotationScrub) return;
   stopAnimation(); const value = Number(e.target.value);
   if (isReflection()) { ensureTrialVisible(); reflectionScrub?.move(value); }
   lesson.scrub(value); sync();
 };
 $('progress').onpointerup = e => {
-  if (e.pointerId !== scrubPointer || !reflectionScrub) return;
-  const target = reflectionScrub.target(); reflectionScrub = null; scrubPointer = null; reflectTo(target);
+  if (e.pointerId !== scrubPointer) return;
+  if (rotationScrub) { moveRotationScrub(e); clearScrub(); return; }
+  if (!reflectionScrub) return;
+  const target = reflectionScrub.target(); clearScrub(); reflectTo(target);
 };
-$('progress').onpointercancel = e => {
-  if (e.pointerId !== scrubPointer || !reflectionScrub) return;
-  const start = reflectionScrub.start; reflectionScrub = null; scrubPointer = null; stopAnimation(); lesson.scrub(start); sync();
+$('progress').onpointercancel = $('progress').onlostpointercapture = e => {
+  if (e.pointerId !== scrubPointer) return;
+  const start = rotationScrub?.start ?? reflectionScrub?.start;
+  clearScrub(); if (start !== undefined) { stopAnimation(); lesson.scrub(start); sync(); }
 };
-$('reset').onclick = () => { stopAnimation(); pointers.clear(); discard(); lesson.reset(); reflectionScrub = null; scrubPointer = null; inkStore.transact(d => { d.objects = []; }); setTool('pan'); fit(); sync(); };
+$('progress').onkeydown = e => {
+  if (!isRotation()) return;
+  const values = {ArrowRight:lesson.angle+1,ArrowUp:lesson.angle+1,ArrowLeft:lesson.angle-1,ArrowDown:lesson.angle-1,PageUp:lesson.angle+90,PageDown:lesson.angle-90,Home:0,End:360*lesson.direction};
+  if (Object.hasOwn(values,e.key)) { e.preventDefault(); changeRotation(() => lesson.scrub(values[e.key])); }
+};
+$('reset').onclick = () => { stopAnimation(); pointers.clear(); discard(); lesson.reset(); clearScrub(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); fit(); sync(); };
 for (const name of ['pan', 'pen', 'eraser']) $(name).onclick = () => setTool(name);
 $('undo').onclick = () => { discard(); inkStore.undo(); }; $('redo').onclick = () => { discard(); inkStore.redo(); };
 unsubscribeInk = inkStore.subscribe(sync);
 function selectQuestion(id, updateUrl = true) {
   const next = findModuleQuestion(id); if (!next) return;
   stopAnimation(); pointers.clear(); discard(); unsubscribeInk();
-  q = next; lesson = createModuleLesson(q); axisPulseUntil = 0; reflectionScrub = null; scrubPointer = null;
+  q = next; lesson = createModuleLesson(q); axisPulseUntil = 0; clearScrub();
   if (!questionInk.has(q.id)) questionInk.set(q.id, new DocumentStore());
   inkStore = questionInk.get(q.id); unsubscribeInk = inkStore.subscribe(sync);
   $('status').hidden = true;
@@ -484,7 +539,7 @@ const resize = new ResizeObserver(() => {
   previousSize = { width, height }; schedule();
 });
 resize.observe(board);
-window.addEventListener('pagehide', () => { stopAnimation(); pointers.clear(); drag = ink = erased = null; cancelAnimationFrame(frame); frame = 0; });
+window.addEventListener('pagehide', () => { clearScrub(); stopAnimation(); pointers.clear(); drag = ink = erased = null; cancelAnimationFrame(frame); frame = 0; });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) schedule(); });
 reducedMotion.addEventListener('change', sync);
 renderCopy(); setTool('pan');

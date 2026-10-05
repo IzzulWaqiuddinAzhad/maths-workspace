@@ -1,4 +1,4 @@
-import { translatePoint, reflectPoint, flipPoint, lineFoot, rotatePoint, GRID_UNIT } from './transform-model.js?v=29';
+import { translatePoint, reflectPoint, flipPoint, lineFoot, rotatePoint, snapRotation, GRID_UNIT } from './transform-model.js?v=29';
 
 // A1, printed page 1 (PDF page 2), BIJAK Transformasi Bengkel v4.2.
 // Read each given point from the original diagram, not from the answer scheme.
@@ -160,7 +160,7 @@ export class TranslationLesson extends PointLesson {
 // Signed offsets are essential when the point lies left of / below that centre.
 export class RotationLesson extends PointLesson {
   constructor(question = ROTATION_QUESTIONS[0]) { super(question); }
-  reset() { this.stage = 0; this.progress = 0; this.answerVisible = false; this.clockVisible = false; }
+  reset() { this.stage = 0; this.progress = 0; this.answerVisible = false; this.clockVisible = false; this.direction = Math.sign(this.movementDegrees) || 1; }
   get movementDegrees() { return this.question.degrees * (this.inverse ? -1 : 1); }
   get answer() { return rotatePoint(this.question.given, this.question.centre, this.movementDegrees); }
   get corner() { return { x: this.question.given.x, y: this.question.centre.y }; }
@@ -174,7 +174,23 @@ export class RotationLesson extends PointLesson {
   get armCount() { return Math.min(4, Math.max(0, this.stage - 1)); }
   get bendCount() { return Math.min(4, Math.max(0, this.stage - 5)); }
   get constructionComplete() { return this.stage >= 9; }
-  get targetProgress() { return this.stage >= 10 ? 1 : 0; }
+  // Shared animation progress is measured in signed degrees for this activity.
+  get angle() { return this.progress; }
+  get targetProgress() { return this.stage >= 10 ? this.movementDegrees : 0; }
+  get matchesQuestion() {
+    return Math.abs(this.question.degrees) === 180 ? Math.abs(this.angle) === 180 : this.angle === this.movementDegrees;
+  }
+  get canReveal() { return this.constructionComplete && this.matchesQuestion; }
+  get atStart() { return Math.abs(this.angle) === 360 || this.angle === 0; }
+  get equivalentAngle() { return this.angle === 0 ? 0 : this.angle - Math.sign(this.angle) * 360; }
+  reveal() {
+    if (!this.canReveal) return false;
+    this.stage = 11; this.answerVisible = true; return true;
+  }
+  setDirection(direction) {
+    if (!this.constructionComplete || ![-1, 1].includes(direction)) return;
+    this.direction = direction; this.scrub(Math.abs(this.angle) * direction);
+  }
   get bounds() {
     const b = this.question.bounds;
     if (!this.stage) return b;
@@ -185,23 +201,25 @@ export class RotationLesson extends PointLesson {
   goTo(value) {
     if (!Number.isFinite(value)) return;
     this.stage = Math.max(0, Math.min(11, Math.round(value)));
-    this.progress = this.targetProgress; this.answerVisible = this.stage === 11;
+    this.progress = this.targetProgress; this.direction = Math.sign(this.progress) || this.direction; this.answerVisible = this.stage === 11;
     if (!this.constructionComplete) this.clockVisible = false;
   }
   scrub(value) {
     if (!this.constructionComplete) return;
-    this.progress = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
-    this.stage = this.progress > 0 ? 10 : 9; this.answerVisible = false;
+    if (!Number.isFinite(value)) return;
+    this.progress = snapRotation(value, false);
+    this.direction = Math.sign(this.progress) || this.direction;
+    this.stage = this.progress !== 0 ? 10 : 9; this.answerVisible = false;
   }
   toggleClock() {
     if (!this.constructionComplete) return false;
     this.clockVisible = !this.clockVisible; return true;
   }
   pointAt(progress = this.progress) {
-    return rotatePoint(this.question.given, this.question.centre, this.movementDegrees * Math.max(0, Math.min(1, progress)));
+    return rotatePoint(this.question.given, this.question.centre, snapRotation(progress, false));
   }
   cornerAt(progress = this.progress) {
-    return rotatePoint(this.corner, this.question.centre, this.movementDegrees * Math.max(0, Math.min(1, progress)));
+    return rotatePoint(this.corner, this.question.centre, snapRotation(progress, false));
   }
 }
 
