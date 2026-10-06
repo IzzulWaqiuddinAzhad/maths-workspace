@@ -1,6 +1,6 @@
 import {NotebookLabels} from './notebook-labels.js?v=1';
 import {paintRotationLesson} from './module-rotation-render.js?v=11';
-import {paintReflectionLesson} from './module-reflection-render.js?v=7';
+import {paintReflectionLesson} from './module-reflection-render.js?v=8';
 import {paintEnlargementLesson,enlargementGuideSegment} from './module-enlargement-render.js?v=6';
 import {paintCoordinatePulse} from './module-coordinate-guide.js?v=4';
 import {graphToScreen,rotationGuide} from './transform-model.js?v=29';

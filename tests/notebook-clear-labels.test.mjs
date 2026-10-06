@@ -6,6 +6,7 @@ import {NotebookLabels} from '../dist/notebook-labels.js';
 import {paintNotebookGraph,graphViewport} from '../dist/notebook-render.js';
 import {LabelLayout} from '../dist/label-layout.js';
 import {paintCoordinateGuide} from '../dist/module-coordinate-guide.js';
+import {paintReflectionLesson} from '../dist/module-reflection-render.js';
 import {RotationSnap} from '../dist/transform-model.js';
 
 function canvas(){
@@ -65,4 +66,10 @@ test('printed polygon names avoid a reflection line through their original label
     s.lesson.setHandles([{x:-6,y:worldY},{x:6,y:worldY}]);
     const moved=inspect(g,s).find(p=>p.label===s.source.name);assert.notDeepEqual(moved.placement,initial.placement);
   }
+});
+
+test('reflection highlight stays finite when input arrives before the next animation frame',()=>{
+  const g=graph('5'),s=new NotebookSession(g);s.lesson.chooseOrientation('horizontal');
+  const {ctx}=canvas();ctx.arc=(x,y,r)=>{assert.ok(Number.isFinite(x+y+r));assert.ok(r>=0);};
+  for(const pulse of [-100,0,.5,1,100,NaN])paintReflectionLesson(ctx,{lesson:s.lesson,...graphViewport(g),bounds:g.bounds,pulse});
 });

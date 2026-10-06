@@ -15,6 +15,7 @@ export function reflectionSegment(choice, bounds) {
 
 // Canvas geometry participates in the existing renderer's label avoidance.
 export function paintReflectionLesson(ctx, { lesson, view, bounds, dark, pulse = 0, handlesActive=true }) {
+  pulse=Math.max(0,Math.min(1,Number.isFinite(pulse)?pulse:0));
   const segments = [], points = [], obstacles = [];
   if (!lesson.choice) return { segments, points, obstacles };
   const screen = p => graphToScreen(p, view), ends = reflectionSegment(lesson.choice, bounds).map(screen);
