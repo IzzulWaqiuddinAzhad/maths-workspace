@@ -111,7 +111,7 @@ export const createModuleLesson = q => q.type === 'combined' ? new CombinedLesso
 export class CombinedLesson {
   constructor(question=COMBINED_QUESTIONS[0]) { this.question=question;this.reset(); }
   reset() {
-    this.started=false;this.index=0;
+    this.introStage=0;this.index=0;
     let given=this.question.given;
     this.lessons=this.question.steps.map((operation,i)=>{
       const child=createModuleLesson({...this.question,...operation,find:'image',given,
@@ -124,10 +124,13 @@ export class CombinedLesson {
     });
   }
   get current() { return this.lessons[this.index]; }
+  get started() { return this.introStage>0; }
+  get teachingReady() { return this.introStage===3; }
   get intermediate() { return this.lessons[0].answer; }
   get answer() { return this.lessons[1].answer; }
   get answerLabel() { return this.question.label+'″'; }
-  get answerVisible() { return this.started && this.index===1 && this.lessons.every(l=>l.answerVisible); }
+  get answerVisible() { return this.teachingReady && this.lessons.every(l=>l.answerVisible); }
+  get overviewPoints() { return [this.question.given,this.teachingReady&&this.lessons[0].answerVisible?this.intermediate:null,this.answerVisible?this.answer:null]; }
   get focusBounds() {
     const points=[this.question.given,this.intermediate,this.answer];
     for(const child of this.lessons)if(child instanceof RotationLesson){
@@ -140,9 +143,11 @@ export class CombinedLesson {
     return {xmin:Math.floor(Math.min(0,...points.map(p=>p.x)))-1,xmax:Math.ceil(Math.max(0,...points.map(p=>p.x)))+1,
       ymin:Math.floor(Math.min(0,...points.map(p=>p.y)))-1,ymax:Math.ceil(Math.max(0,...points.map(p=>p.y)))+1};
   }
-  start() { this.started=true; }
+  start() { this.introStage=1; }
+  advanceIntro() { this.introStage=Math.min(3,this.introStage+1); }
+  previousIntro() { this.introStage=Math.max(0,this.introStage-1); }
   select(index) {
-    if(!this.started || ![0,1].includes(index) || (index===1&&!this.lessons[0].answerVisible))return false;
+    if(!this.teachingReady || ![0,1].includes(index) || (index===1&&!this.lessons[0].answerVisible))return false;
     this.index=index;return true;
   }
   reconcile() {

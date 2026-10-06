@@ -15,6 +15,8 @@ function reveal(l) {
   else {l.goTo(9);l.scrub(l.question.degrees);assert.equal(l.reveal(),true);}
 }
 
+function begin(s){s.start();s.advanceIntro();s.advanceIntro();}
+
 test('combined questions preserve the printed points, right-to-left order and both scheme answers',()=>{
   assert.equal(COMBINED_QUESTIONS.length,4);
   for(const [id,given,intermediate,answer,order] of expected){
@@ -24,14 +26,14 @@ test('combined questions preserve the printed points, right-to-left order and bo
     assert.deepEqual(s.lessons[1].question.given,intermediate,'second operation starts at the first image');
     assert.equal(s.lessons[0].givenLabel,q.label);assert.equal(s.lessons[0].answerLabel,q.label+'′');
     assert.equal(s.lessons[1].givenLabel,q.label+'′');assert.equal(s.lessons[1].answerLabel,q.label+'″');
-    assert.equal(s.answerVisible,false);s.start();reveal(s.current);assert.equal(s.answerVisible,false);
+    assert.equal(s.answerVisible,false);begin(s);reveal(s.current);assert.equal(s.answerVisible,false);
     assert.equal(s.select(1),true);reveal(s.current);assert.equal(s.answerVisible,true);
     assert.equal(JSON.stringify(q),before,'original question is immutable');
   }
 });
 
 test('combined sequence cannot skip the first transformation or accept a wrong trial',()=>{
-  const s=new CombinedLesson();assert.equal(s.select(1),false);assert.equal(s.select(0),false);s.start();
+  const s=new CombinedLesson();assert.equal(s.select(1),false);assert.equal(s.select(0),false);begin(s);
   const first=s.current;first.chooseOrientation('vertical');first.scrub(1);assert.equal(first.reveal(),false);assert.equal(s.select(1),false);
   first.chooseOrientation('horizontal');first.setPosition(1);first.scrub(.5);assert.equal(first.reveal(),false);assert.equal(s.select(1),false);
   first.scrub(1);assert.equal(first.reveal(),true);assert.equal(s.select(1),true);
@@ -51,8 +53,8 @@ test('reflection presets start on whole grid lines in fractional fitted viewport
 
 test('editing the first operation invalidates second-step work; merely reviewing it preserves work',()=>{
   for(const q of COMBINED_QUESTIONS){
-    const s=new CombinedLesson(q);s.start();reveal(s.current);s.select(1);reveal(s.current);
-    assert.equal(s.answerVisible,true);s.select(0);s.reconcile();assert.equal(s.answerVisible,false);
+    const s=new CombinedLesson(q);begin(s);reveal(s.current);s.select(1);reveal(s.current);
+    assert.equal(s.answerVisible,true);s.select(0);s.reconcile();assert.equal(s.answerVisible,true,'the completed overview stays visible while reviewing');
     assert.equal(s.lessons[1].answerVisible,true,'review alone does not lose a completed second operation');
     s.select(1);assert.equal(s.answerVisible,true);s.select(0);s.current.scrub(0);s.reconcile();
     assert.equal(s.lessons[1].stage,0);assert.equal(s.lessons[1].answerVisible,false);assert.equal(s.select(1),false);
@@ -76,7 +78,7 @@ test('combined camera bounds include both images and stay stable between correct
   for(const q of COMBINED_QUESTIONS){
     const s=new CombinedLesson(q),bounds=s.focusBounds;
     for(const p of [q.given,s.intermediate,s.answer])assert.ok(p.x>bounds.xmin&&p.x<bounds.xmax&&p.y>bounds.ymin&&p.y<bounds.ymax);
-    s.start();reveal(s.current);s.select(1);assert.deepEqual(s.focusBounds,bounds);
+    begin(s);reveal(s.current);s.select(1);assert.deepEqual(s.focusBounds,bounds);
     const second=s.current;
     if(second instanceof RotationLesson)for(const angle of [-360,-135,0,72,270,360]){
       const p=second.pointAt(angle);assert.ok(p.x>=bounds.xmin&&p.x<=bounds.xmax&&p.y>=bounds.ymin&&p.y<=bounds.ymax);
@@ -104,5 +106,26 @@ test('intermediate captions have a distinct colour without changing original/ima
   }finally{
     if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;
     if(oldDpr===undefined)delete globalThis.devicePixelRatio;else globalThis.devicePixelRatio=oldDpr;
+  }
+});
+
+
+test('combined overview advances arrows then letters before enabling either lesson',()=>{
+  const s=new CombinedLesson();assert.equal(s.introStage,0);assert.equal(s.started,false);
+  for(const stage of [1,2]){s.advanceIntro();assert.equal(s.introStage,stage);assert.equal(s.teachingReady,false);assert.equal(s.select(0),false);assert.deepEqual(s.overviewPoints,[s.question.given,null,null]);}
+  s.advanceIntro();assert.equal(s.teachingReady,true);assert.equal(s.select(0),true);
+  s.previousIntro();assert.equal(s.introStage,2);assert.equal(s.select(0),false);
+  s.previousIntro();s.previousIntro();s.previousIntro();assert.equal(s.introStage,0);
+  s.reset();assert.equal(s.introStage,0);
+});
+
+test('overview coordinates fill independently and clear immediately when a completed step changes',()=>{
+  for(const q of COMBINED_QUESTIONS){
+    const s=new CombinedLesson(q);begin(s);assert.deepEqual(s.overviewPoints,[q.given,null,null]);
+    reveal(s.current);assert.deepEqual(s.overviewPoints,[q.given,s.intermediate,null]);
+    s.select(1);assert.deepEqual(s.overviewPoints,[q.given,s.intermediate,null]);
+    reveal(s.current);assert.deepEqual(s.overviewPoints,[q.given,s.intermediate,s.answer]);
+    s.current.scrub(0);assert.deepEqual(s.overviewPoints,[q.given,s.intermediate,null]);
+    s.select(0);s.current.scrub(0);s.reconcile();assert.deepEqual(s.overviewPoints,[q.given,null,null]);
   }
 });

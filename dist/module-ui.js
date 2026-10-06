@@ -1,8 +1,9 @@
+import { createSequenceOverview } from './module-sequence-view.js?v=1';
 import { bindRepeatingButton } from './direction-pad.js?v=1';
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=12';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=13';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
 import { paintRotationLesson } from './module-rotation-render.js?v=3';
-import { paintReflectionLesson } from './module-reflection-render.js?v=4';
+import { paintReflectionLesson } from './module-reflection-render.js?v=5';
 import { createTransformationRenderer } from './transform-render.js?v=36';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
@@ -25,7 +26,8 @@ const countWords=(n,horizontal)=>{
 };
 const visibleBounds=()=>{const a=screenToGraph({x:50,y:65},view),b=screenToGraph({x:Math.max(100,canvas.clientWidth-90),y:Math.max(120,canvas.clientHeight-70)},view);return {xmin:a.x,xmax:b.x,ymin:b.y,ymax:a.y};};
 const stopCountPad=()=>countRepeats.forEach(control=>control.stop());
-let mappingReserved = false;
+const overview=createSequenceOverview($('combinedOverview'),{onBusyChange:()=>sync(),onCoordinateReveal:focusSequenceOverview});
+const busy=()=>!!animation||overview.busy;
 let fitted = true, previousSize, drag = null, ink = null, erased = null, frame = 0, animation = 0, statusTimer;
 try { language = JSON.parse(localStorage.getItem('maths-workspace:language')) === 'bm' ? 'bm' : 'en'; dark = (localStorage.getItem('maths-workspace:theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'; } catch {}
 const tr = (en, bm) => language === 'bm' ? bm : en;
@@ -322,47 +324,50 @@ function renderSequenceCopy() {
   $('sequenceSecondName').textContent=`${second.symbol} · ${operationName(second)}`;
   $('sequenceOrder').textContent=q.composition==='K²'?'K² = K K':q.composition;
   text('sequenceRule',q.composition==='K²'?'Apply K twice.':'Apply the right-hand transformation first.',q.composition==='K²'?'Lakukan K dua kali.':'Lakukan transformasi di sebelah kanan dahulu.');
-  const labels=[q.label,q.label+'′',sequence.answerLabel],points=[q.given,sequence.intermediate,sequence.answer];
-  $('combinedMapping').innerHTML=q.steps.map((operation,i)=>`<div class="chain-row"><span class="mapping-point ${i?'chain-repeat intermediate':''}">${labels[i]}${coord(points[i])}</span><span class="mapping-transform">${operationHTML(operation)}<svg class="mapping-arrow" viewBox="0 0 160 20" preserveAspectRatio="none" aria-hidden="true"><path d="M2 10H156M146 2L156 10L146 18"/></svg></span><span class="mapping-point ${i?'mapping-image':'intermediate'}">${labels[i+1]}${coord(points[i+1])}</span></div>`).join('');
-  $('combinedMapping').setAttribute('aria-label',q.steps.map((op,i)=>`${labels[i]} ${coord(points[i])} → ${labels[i+1]} ${coord(points[i+1])}: ${op.symbol}, ${operationName(op)}, ${operationDetail(op)}.`).join(' '));
 }
 function syncSequence() {
   $('combinedControls').hidden=!sequence?.started;
-  $('combinedMapping').hidden=!sequence?.answerVisible;
+  overview.update({sequence,language,reducedMotion:reducedMotion.matches,describe:op=>`${operationName(op)} · ${operationDetail(op)}`});
+  document.body.classList.toggle('combined-intro',!!sequence?.started&&!sequence.teachingReady);
   $('finalMapping').classList.toggle('intermediate-mapping',!!sequence&&sequence.index===0);
   if(!sequence)return;
+  $('finalMapping').hidden=true;
   const {index,started}=sequence,firstDone=sequence.lessons[0].answerVisible;
   $('sequenceStep0').setAttribute('aria-pressed',String(index===0));
   $('sequenceStep1').setAttribute('aria-pressed',String(index===1));
-  $('sequenceStep0').disabled=!!animation;$('sequenceStep1').disabled=!!animation||!firstDone;
+  $('sequenceStep0').disabled=busy()||!sequence.teachingReady;$('sequenceStep1').disabled=busy()||!sequence.teachingReady||!firstDone;
   $('sequencePoint0').textContent=firstDone?`${q.label}′ ${coord(sequence.intermediate)}`:tr('Intermediate image','Imej perantaraan');
   $('sequencePoint1').textContent=sequence.answerVisible?`${sequence.answerLabel} ${coord(sequence.answer)}`:tr('Final image','Imej akhir');
   text('answerHeading','Final image','Imej akhir');
   $('answer').textContent=`${sequence.answerLabel} = ${sequence.answerVisible?coord(sequence.answer):'(      ,      )'}`;
   $('answerBox').classList.toggle('revealed',sequence.answerVisible);
-  if(sequence.answerVisible)$('finalMapping').hidden=true;
-  if(!started) {
+  if(!sequence.teachingReady) {
     for(const id of ['reflectionControls','rotationControls','enlargementControls','countControls','scrubber','mirrorHint'])$(id).hidden=true;
     text('stepNumber',`QUESTION ${q.number}`,`SOALAN ${q.number}`);
-    text('stepTitle','Which transformation comes first?','Transformasi manakah dilakukan dahulu?');
-    text('stepDetail',q.composition==='K²'?'What does K² mean?':'Read the combined transformation before moving the point.',q.composition==='K²'?'Apakah maksud K²?':'Baca gabungan transformasi sebelum menggerakkan titik.');
-    text('next','Show order →','Tunjukkan urutan →');$('next').disabled=false;$('previous').disabled=true;
+    const intro=[
+      ['Which transformation comes first?','Transformasi manakah dilakukan dahulu?','First see the complete journey.','Lihat keseluruhan perjalanan dahulu.','Draw the two arrows →','Lukis dua anak panah →'],
+      ['Two transformations, one journey','Dua transformasi, satu perjalanan','The middle and final coordinates stay blank until we find them.', 'Koordinat perantaraan dan akhir kekal kosong sehingga kita menentukannya.','Place the letters →','Letakkan huruf →'],
+      [`${q.steps[0].symbol} first, then ${q.steps[1].symbol}`,`${q.steps[0].symbol} dahulu, kemudian ${q.steps[1].symbol}`,q.composition==='K²'?'Apply K twice, one step at a time.':'Read from the right: the right-hand letter belongs on the first arrow.',q.composition==='K²'?'Lakukan K dua kali, satu langkah pada satu masa.':'Baca dari kanan: huruf sebelah kanan berada pada anak panah pertama.',`Begin ${q.steps[0].symbol} →`,`Mulakan ${q.steps[0].symbol} →`],
+    ][sequence.introStage];
+    text('stepTitle',intro[0],intro[1]);text('stepDetail',intro[2],intro[3]);text('next',intro[4],intro[5]);
+    $('next').disabled=busy();$('previous').disabled=!started||busy();
   } else {
-    if(!lesson.stage)$('previous').disabled=!!animation;
+    if(!lesson.stage)$('previous').disabled=busy();
     if(lesson.answerVisible) {
       text('stepNumber',index===0?'FIRST TRANSFORMATION COMPLETE':'FINAL ANSWER',index===0?'TRANSFORMASI PERTAMA SELESAI':'JAWAPAN AKHIR');
-      if(index===0){text('next',`Apply ${q.steps[1].symbol} next →`,`Lakukan ${q.steps[1].symbol} pula →`);$('next').disabled=!!animation;}
+      if(index===0){text('next',`Apply ${q.steps[1].symbol} next →`,`Lakukan ${q.steps[1].symbol} pula →`);$('next').disabled=busy();}
     } else if(lesson.canReveal || (!isReflection()&&!isRotation()&&lesson.stage===3&&lesson.progress===2)) {
       text('next',index===0?'Reveal intermediate point':'Reveal final answer',index===0?'Dedahkan titik perantaraan':'Dedahkan jawapan akhir');
     }
     text('canvasCaption',index===0?`ORIGINAL ${q.label} STAYS IN PLACE`:`${q.label} → ${q.label}′ → ${sequence.answerLabel} · USE ${q.label}′ AS THE NEW OBJECT`,index===0?`TITIK ASAL ${q.label} DIKEKALKAN`:`${q.label} → ${q.label}′ → ${sequence.answerLabel} · GUNA ${q.label}′ SEBAGAI OBJEK BAHARU`);
     if(index===1)$('diagramDescription').textContent+=tr(` Original ${q.label} ${coord(q.given)} is preserved. First transformation ${q.steps[0].symbol} produced ${q.label}′ ${coord(sequence.intermediate)}.`,` Titik asal ${q.label} ${coord(q.given)} dikekalkan. Transformasi pertama ${q.steps[0].symbol} menghasilkan ${q.label}′ ${coord(sequence.intermediate)}.`);
   }
+  if(busy()){$('next').disabled=true;$('previous').disabled=true;}
 }
 function selectSequenceStep(index) {
-  if(!sequence || animation || !sequence.select(index))return;
+  if(!sequence || busy() || !sequence.select(index))return;
   stopCountPad();stopAnimation();pointers.clear();discard();clearScrub();
-  lesson=sequence.current;axisPulseUntil=0;setTool('pan');renderCopy();fit();
+  lesson=sequence.current;axisPulseUntil=0;setTool('pan');renderCopy();fit();focusSequenceOverview();
 }
 $('sequenceStep0').onclick=()=>selectSequenceStep(0);
 $('sequenceStep1').onclick=()=>selectSequenceStep(1);
@@ -396,8 +401,6 @@ function sync() {
   const b=graphBounds();
   $('diagramDescription').textContent = tr(`Grid: x from ${fmt(b.xmin)} to ${fmt(b.xmax)}, y from ${fmt(b.ymin)} to ${fmt(b.ymax)}. Given point ${lesson.givenLabel} at ${coord(activity().given)}.`, `Graf: x dari ${fmt(b.xmin)} hingga ${fmt(b.xmax)}, y dari ${fmt(b.ymin)} hingga ${fmt(b.ymax)}. Titik diberi ${lesson.givenLabel} pada ${coord(activity().given)}.`) + (lesson.answerVisible ? ` ${lesson.answerLabel} = ${coord(lesson.answer)}.` : '');
   syncSequence();
-  const reserve=!!sequence?.answerVisible;
-  if(reserve!==mappingReserved){mappingReserved=reserve;if(fitted)fit();}
   schedule();
 }
 
@@ -488,7 +491,7 @@ function draw() {
   const a = graphToScreen(activity().given, view), corner = graphToScreen({ x: activity().given.x + v.x, y: activity().given.y }, view), p = graphToScreen(image, view);
   const obstacles = [...board.querySelectorAll('button:not([hidden]),.ink-tools,.view-tools,.canvas-caption,.mirror-hint')].filter(el => el.getClientRects().length).map(el => { const r = el.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; });
   if(sequence?.index===1){const original=graphToScreen(q.given,view);obstacles.push({x:original.x-10,y:original.y-10,w:20,h:20});}
-  if (lesson.answerVisible) obstacles.push(positionMapping(sequence?.answerVisible ? [graphToScreen(q.given,view),a,p] : [a,p], obstacles));
+  if (lesson.answerVisible&&!sequence) obstacles.push(positionMapping([a,p], obstacles));
   if (!reflection && !rotation && !enlargement && lesson.progress >= 1) obstacles.push({ x: (a.x + corner.x) / 2 - 23, y: a.y - 32, w: 46, h: 28 });
   if (!reflection && !rotation && !enlargement && lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
   const complete = rotation || enlargement ? true : lesson.progress === (reflection ? 1 : 2);
@@ -514,12 +517,8 @@ function draw() {
 }
 
 function positionMapping(points, controls) {
-  const el = sequence?.answerVisible ? $('combinedMapping') : $('finalMapping'), w = el.offsetWidth, h = el.offsetHeight;
+  const el = $('finalMapping'), w = el.offsetWidth, h = el.offsetHeight;
   const width = canvas.clientWidth, height = canvas.clientHeight;
-  if(sequence?.answerVisible){
-    const side=width>=740,best={x:side?width-w-100:(width-w)/2,y:side?Math.max(12,(height-h-60)/2):height-h-70,w,h};
-    el.style.left=`${best.x}px`;el.style.top=`${best.y}px`;return best;
-  }
   const origin = graphToScreen({ x: 0, y: 0 }, view);
   const midX = (points[0].x + points[1].x) / 2;
   // Prefer the empty area below the construction and horizontal axis. If the
@@ -560,11 +559,6 @@ function positionMapping(points, controls) {
 }
 
 function fittedView(width=canvas.clientWidth,height=canvas.clientHeight) {
-  if(sequence?.answerVisible){
-    const card=$('combinedMapping');
-    if(width>=740)width-=card.offsetWidth+110;
-    else height-=card.offsetHeight+80;
-  }
   return fitQuestion(cameraBounds(),Math.max(180,width),Math.max(180,height));
 }
 function fit() { fitted = true; view = fittedView(); schedule(); }
@@ -642,10 +636,15 @@ canvas.onkeydown = e => {
   else if (e.key === 'ArrowLeft' && !animation && (lesson.stage > 0 || sequence?.started)) { e.preventDefault(); previousStep(); }
 };
 
+function focusSequenceOverview() {
+  // On a narrow screen Next can be below the graph. Bring the introduction
+  // into view before its animation rather than leaving it above the viewport.
+  if(sequence?.started&&matchMedia('(max-width:760px)').matches)$('combinedControls').scrollIntoView({block:'start'});
+}
 function advance() {
-  if(animation) return;
+  if(busy()) return;
   stopCountPad();
-  if(sequence&&!sequence.started){sequence.start();renderCopy();fit();return;}
+  if(sequence&&!sequence.teachingReady){sequence.advanceIntro();renderCopy();fit();focusSequenceOverview();return;}
   if (lesson.answerVisible) {
     if(sequence&&sequence.index===0){selectSequenceStep(1);return;}
     if (nextQuestion()) selectQuestion(nextQuestion().id); return;
@@ -676,11 +675,12 @@ function advance() {
   goTo(lesson.progress < lesson.targetProgress ? lesson.stage : lesson.stage + 1);
 }
 function previousStep() {
-  if(animation) return;
+  if(busy()) return;
   stopCountPad();
+  if(sequence&&!sequence.teachingReady){sequence.previousIntro();renderCopy();fit();focusSequenceOverview();return;}
   if(sequence&&lesson.stage===0){
     if(sequence.index===1)selectSequenceStep(0);
-    else {sequence.started=false;renderCopy();}
+    else {sequence.previousIntro();renderCopy();fit();focusSequenceOverview();}
     return;
   }
   if (isEnlargement()) {
@@ -798,13 +798,13 @@ $('progress').onkeydown = e => {
   const values = {ArrowRight:lesson.angle+1,ArrowUp:lesson.angle+1,ArrowLeft:lesson.angle-1,ArrowDown:lesson.angle-1,PageUp:lesson.angle+90,PageDown:lesson.angle-90,Home:0,End:360*lesson.direction};
   if (Object.hasOwn(values,e.key)) { e.preventDefault(); changeFreeTransform(() => lesson.scrub(values[e.key])); }
 };
-$('reset').onclick = () => { stopCountPad();stopAnimation(); pointers.clear(); discard(); if(sequence){sequence.reset();lesson=sequence.current;}else lesson.reset(); clearScrub(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); renderCopy(); fit(); };
+$('reset').onclick = () => { overview.cancel();stopCountPad();stopAnimation(); pointers.clear(); discard(); if(sequence){sequence.reset();lesson=sequence.current;}else lesson.reset(); clearScrub(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); renderCopy(); fit(); };
 for (const name of ['pan', 'pen', 'eraser']) $(name).onclick = () => setTool(name);
 $('undo').onclick = () => { discard(); inkStore.undo(); }; $('redo').onclick = () => { discard(); inkStore.redo(); };
 unsubscribeInk = inkStore.subscribe(sync);
 function selectQuestion(id, updateUrl = true) {
   const next = findModuleQuestion(id); if (!next) return;
-  stopCountPad();stopAnimation(); pointers.clear(); discard(); unsubscribeInk();
+  overview.cancel();stopCountPad();stopAnimation(); pointers.clear(); discard(); unsubscribeInk();
   q = next; rootLesson = createModuleLesson(q);sequence=q.type==='combined'?rootLesson:null;lesson=sequence?.current||rootLesson; axisPulseUntil = 0; clearScrub();
   if (!questionInk.has(q.id)) questionInk.set(q.id, new DocumentStore());
   inkStore = questionInk.get(q.id); unsubscribeInk = inkStore.subscribe(sync);
@@ -838,8 +838,8 @@ const resize = new ResizeObserver(() => {
   previousSize = { width, height }; schedule();
 });
 resize.observe(board);
-window.addEventListener('pagehide', () => { clearScrub(); stopAnimation(); pointers.clear(); drag = ink = erased = null; cancelAnimationFrame(frame); frame = 0; });
-document.addEventListener('visibilitychange', () => { if(document.hidden){stopCountPad();stopAnimation();}else sync(); });
+window.addEventListener('pagehide', () => { overview.cancel();clearScrub(); stopAnimation(); pointers.clear(); drag = ink = erased = null; cancelAnimationFrame(frame); frame = 0; });
+document.addEventListener('visibilitychange', () => { if(document.hidden){overview.cancel();stopCountPad();stopAnimation();}else sync(); });
 window.addEventListener('pageshow',e=>{if(e.persisted)sync();});
 reducedMotion.addEventListener('change', sync);
 renderCopy(); setTool('pan');

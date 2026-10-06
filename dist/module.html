@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
-  <link rel="stylesheet" href="module.css?v=11">
+  <link rel="stylesheet" href="module.css?v=12">
   <link rel="stylesheet" href="direction-pad.css?v=1">
 </head>
 <body>
@@ -42,6 +42,7 @@
       <section id="combinedControls" class="sequence-controls" hidden>
         <div class="sequence-order"><strong id="sequenceOrder"></strong><span id="sequenceRule"></span></div>
         <div class="sequence-steps"><button id="sequenceStep0"><small id="sequenceFirst"></small><strong id="sequenceFirstName"></strong><span id="sequencePoint0"></span></button><span class="sequence-arrow" aria-hidden="true">→</span><button id="sequenceStep1"><small id="sequenceSecond"></small><strong id="sequenceSecondName"></strong><span id="sequencePoint1"></span></button></div>
+        <div id="combinedOverview" class="combined-overview" hidden></div>
       </section>
       <section id="reflectionControls" class="reflection-controls" aria-label="Try a reflection line" hidden>
         <div class="prediction-row"><strong id="predictionPrompt">What kind of line is it?</strong><div class="orientation-buttons" role="group" aria-label="Line orientation">
@@ -70,7 +71,6 @@
           </span>
           <span id="mappingImage" class="mapping-point mapping-image" aria-hidden="true"></span>
         </div>
-        <div id="combinedMapping" class="final-mapping combined-mapping" role="img" hidden></div>
         <button id="expand" class="expand-question" aria-controls="questionPanel" aria-expanded="false" hidden>Question ›</button>
         <div class="ink-tools" role="toolbar" aria-label="Canvas tools">
           <button id="pan" aria-pressed="true" title="Move graph"><span aria-hidden="true">✥</span><small id="panText">Move</small></button>
@@ -111,6 +111,6 @@
     </section>
   </main>
   <p class="status" id="status" role="status" hidden></p>
-  <script type="module" src="module-ui.js?v=14"></script>
+  <script type="module" src="module-ui.js?v=15"></script>
 </body>
 </html>
