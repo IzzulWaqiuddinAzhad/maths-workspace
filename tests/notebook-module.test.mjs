@@ -74,9 +74,9 @@ test('moving the rotation centre resets its construction; reading labels survive
   assert.equal(s.lesson.angle,0);assert.equal(s.lesson.constructionComplete,false);assert.deepEqual(s.lesson.constructionCursor,{x:7,y:2});assert.equal(s.lesson.readPoints.image,false);
 });
 test('legacy A3 writing and camera migrate to the same screen position without mutating the old save',()=>{
-  const old={document:{objects:[{position:{x:200,y:310}}]},view:{x:20,y:-15,zoom:2}},before=structuredClone(old),page=NOTEBOOK_PAGES[3];
+  const old={document:{objects:[{position:{x:200,y:310}},{position:{x:1400,y:1600}}]},view:{x:20,y:-15,zoom:2}},before=structuredClone(old),page=NOTEBOOK_PAGES[3];
   const next=migrateNotebookDocument(old,page);
-  assert.deepEqual(worldToScreen(old.document.objects[0].position,old.view),worldToScreen(next.document.objects[0].position,next.view));assert.deepEqual(old,before);
+  assert.deepEqual(worldToScreen(old.document.objects[0].position,old.view),worldToScreen(next.document.objects[0].position,next.view));assert.deepEqual(worldToScreen(old.document.objects[1].position,old.view),worldToScreen(next.document.objects[1].position,next.view));assert.deepEqual(old,before);
   assert.equal(migrateNotebookDocument({},page),null);assert.equal(migrateNotebookDocument({document:{objects:[{}]},view:old.view},page),null);
 });
 test('rendering every graph and transformation produces finite drawing coordinates',()=>{

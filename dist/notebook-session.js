@@ -111,7 +111,7 @@ export class NotebookSession {
 }
 // One-time migration keeps earlier A3 writing in its exact position on that page.
 export function migrateNotebookDocument(saved,page){
-  if(!Array.isArray(saved?.document?.objects)||!saved?.view||!Number.isFinite(saved.view.x)||!Number.isFinite(saved.view.y)||!Number.isFinite(saved.view.zoom)||!saved.document.objects.every(o=>finitePoint(o.position)))return null;
+  if(!Array.isArray(saved?.document?.objects)||!saved?.view||!Number.isFinite(saved.view.x)||!Number.isFinite(saved.view.y)||!Number.isFinite(saved.view.zoom)||saved.view.zoom<=0||!saved.document.objects.every(o=>Number.isFinite(o.position?.x)&&Number.isFinite(o.position?.y)))return null;
   const next=structuredClone(saved);
   for(const o of next.document.objects){o.position.x+=page.x;o.position.y+=page.y;}
   next.view.x-=page.x*next.view.zoom;next.view.y-=page.y*next.view.zoom;return next;
