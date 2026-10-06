@@ -44,8 +44,8 @@ test('construction is paced, clock is gated, scrubbing and backtracking hide ans
   assert.equal(lesson.toggleClock(),false);lesson.scrub(1);assert.equal(lesson.progress,0);
   for(let stage=0;stage<=9;stage++) {
     lesson.goTo(stage); assert.equal(lesson.answerVisible,false);assert.equal(lesson.progress,0);
-    assert.equal(lesson.armCount,Math.ceil(Math.min(8,Math.max(0,stage-1))/2));
-    assert.equal(lesson.bendCount,Math.floor(Math.min(8,Math.max(0,stage-1))/2));
+    assert.equal(lesson.armCount,Math.min(4,Math.max(0,stage-1)));
+    assert.equal(lesson.bendCount,Math.min(4,Math.max(0,stage-5)));
   }
   lesson.toggleClock();assert.equal(lesson.clockVisible,true);
   lesson.goTo(10);assert.deepEqual(lesson.pointAt(),lesson.answer);assert.equal(lesson.answerVisible,false);
@@ -128,7 +128,8 @@ test('both counting orders build the same four endpoints from every non-origin c
       assert.equal(l.constructionComplete,false);assert.equal(l.reveal(),false);
       l.setBuildCount(axis,target+1);assert.equal(l.segmentMatches,false);
       l.setBuildCount(axis,target);assert.equal(l.segmentMatches,true);
-      if(i%2)assert.deepEqual(l.constructionPaths[Math.floor(i/2)].end,rotatePoint(q.given,q.centre,Math.floor(i/2)*90));
+      if(i>=4)assert.deepEqual(l.constructionPaths[i-4].end,rotatePoint(q.given,q.centre,(i-4)*90));
+      else assert.ok(l.constructionPaths.every(p=>length(p.corner,p.end)===0),'no bent ends before the full cross');
       l.advanceConstruction();
     }
     assert.equal(l.constructionComplete,true);assert.equal(l.answerVisible,false);
@@ -145,10 +146,24 @@ test('manual first direction chooses order, corrections preserve earlier segment
   l.setBuildCount('x',NaN);assert.equal(l.buildCounts[1],0);l.reset();assert.equal(l.firstAxis,'x');assert.equal(l.stage,0);
 });
 
-test('the pad can turn directly into the second leg and cannot accidentally advance on a disabled direction',()=>{
+test('only Next changes direction; free counts are retained while all four straight arms are built first',()=>{
   const l=new RotationLesson();l.advanceConstruction();l.nudgeConstruction('y',1);l.nudgeConstruction('y',1);
-  for(let i=0;i<3;i++)l.nudgeConstruction('x',1);
-  assert.equal(l.firstAxis,'y');assert.deepEqual(l.constructionPaths[0].end,l.question.given);
-  assert.equal(l.buildIndex,1);assert.equal(l.nudgeConstruction('y',1),false);assert.equal(l.buildIndex,1);
-  l.nudgeConstruction('x',-1);assert.equal(l.buildCounts[1],2,'opposite arrow corrects the active count');
+  assert.equal(l.firstAxis,'y');assert.equal(l.nudgeConstruction('x',1),false);
+  assert.equal(l.buildIndex,0);assert.deepEqual(l.constructionPaths[0].corner,{x:0,y:2});
+  l.advanceConstruction();assert.equal(l.buildIndex,1);assert.deepEqual(l.buildCounts,[2,0,0,0,0,0,0,0]);
+  l.nudgeConstruction('x',-1);l.advanceConstruction();assert.equal(l.buildCounts[1],-1,'a trial count is kept without snapping to the answer');
+  for(let i=2;i<4;i++){const {axis,target}=l.segmentInfo();l.setBuildCount(axis,target);l.advanceConstruction();}
+  assert.equal(l.armCount,4);assert.equal(l.bendCount,0);assert.equal(l.buildIndex,4);
+  assert.ok(l.constructionPaths.every(p=>length(p.corner,p.end)===0));
+  l.nudgeConstruction('x',1);assert.equal(l.bendCount,1);assert.equal(l.buildIndex,4);
+});
+
+test('incorrect trial lengths cannot reveal a correct answer, and completing twice cannot add a ninth segment',()=>{
+  const l=new RotationLesson();l.advanceConstruction();
+  for(let i=0;i<8;i++){const {axis,target}=l.segmentInfo();l.setBuildCount(axis,target+(i===7?1:0));l.advanceConstruction();}
+  assert.equal(l.constructionComplete,true);assert.equal(l.constructionMatches,false);
+  l.scrub(l.movementDegrees);assert.equal(l.reveal(),false);
+  l.advanceConstruction();assert.equal(l.buildIndex,8);
+  l.previousConstruction();const {axis,target}=l.segmentInfo();l.setBuildCount(axis,target);l.advanceConstruction();
+  assert.equal(l.constructionMatches,true);l.scrub(l.movementDegrees);assert.equal(l.reveal(),true);
 });

@@ -35,15 +35,15 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
       ctx.beginPath();ctx.moveTo(p.x+(dy?-3:0),p.y+(dx?-3:0));ctx.lineTo(p.x+(dy?3:0),p.y+(dx?3:0));ctx.stroke();
     }
     const n=index===lesson.buildIndex?lesson.displayedBuildCount():lesson.buildCounts[index];
-    requests.push({id:`count-${index}`,text:String(Math.abs(Number(n.toFixed(2)))),colour,candidates:edgeCandidates(a,b,index%2?1:-1)});
+    requests.push({id:`count-${index}`,text:String(Math.abs(Number(n.toFixed(2)))),colour,candidates:edgeCandidates(a,b,index>=4?1:-1)});
   };
   for(const [i,path] of lesson.constructionPaths.entries()) {
-    countSegment(path.centre,path.corner,i*2,orange);
-    countSegment(path.corner,path.end,i*2+1,blue);
+    countSegment(path.centre,path.corner,i,orange);
+    countSegment(path.corner,path.end,i+4,blue);
   }
   if(!lesson.constructionComplete && lesson.stage) {
-    const path=lesson.constructionPaths[Math.floor(lesson.buildIndex/2)],p=screen(lesson.buildIndex%2?path.end:path.corner);
-    ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=lesson.buildIndex%2?blue:orange;ctx.lineWidth=2;ctx.stroke();points.push(p);
+    const info=lesson.segmentInfo(),path=lesson.constructionPaths[info.arm],p=screen(info.part?path.end:path.corner);
+    ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=lesson.segmentInfo().part?blue:orange;ctx.lineWidth=2;ctx.stroke();points.push(p);
   }
   countLabels.begin({bounds:width&&height?{x:8,y:8,w:width-16,h:height-62}:undefined,points:[c,source],segments,labelOverlapPenalty:2000});
   countLabels.placed.push(...overlays);

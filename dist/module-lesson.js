@@ -296,17 +296,18 @@ export class RotationLesson extends PointLesson {
   }
   get offset() { return {x:this.question.given.x-this.question.centre.x,y:this.question.given.y-this.question.centre.y}; }
   segmentInfo(index=this.buildIndex) {
-    const axis=index%2 ? (this.firstAxis==='x'?'y':'x') : this.firstAxis;
-    const basis=rotatePoint(axis==='x'?{x:1,y:0}:{x:0,y:1},{x:0,y:0},Math.floor(index/2)*90);
+    const part=index<4?0:1,arm=index%4;
+    const axis=part ? (this.firstAxis==='x'?'y':'x') : this.firstAxis;
+    const basis=rotatePoint(axis==='x'?{x:1,y:0}:{x:0,y:1},{x:0,y:0},arm*90);
     const worldAxis=Math.abs(basis.x)>.5?'x':'y';
-    return {axis:worldAxis,target:this.offset[axis]*basis[worldAxis],part:index%2,arm:Math.floor(index/2)};
+    return {axis:worldAxis,target:this.offset[axis]*basis[worldAxis],part,arm};
   }
   get segmentMatches() { return this.buildIndex<8 && Math.abs(this.buildCounts[this.buildIndex]-this.segmentInfo().target)<1e-8; }
   get constructionPaths() {
     return Array.from({length:4},(_,arm)=>{
-      const centre=this.question.centre, first=this.segmentInfo(arm*2),second=this.segmentInfo(arm*2+1);
-      const corner={...centre,[first.axis]:centre[first.axis]+this.buildCounts[arm*2]};
-      const end={...corner,[second.axis]:corner[second.axis]+this.buildCounts[arm*2+1]};
+      const centre=this.question.centre, first=this.segmentInfo(arm),second=this.segmentInfo(arm+4);
+      const corner={...centre,[first.axis]:centre[first.axis]+this.buildCounts[arm]};
+      const end={...corner,[second.axis]:corner[second.axis]+this.buildCounts[arm+4]};
       return {centre,corner,end};
     });
   }
@@ -324,14 +325,13 @@ export class RotationLesson extends PointLesson {
   }
   nudgeConstruction(axis,delta) {
     if(!this.stage || this.constructionComplete || this.counting || !['x','y'].includes(axis)||!Number.isFinite(delta))return false;
-    if(axis!==this.segmentInfo().axis && this.segmentMatches && this.buildIndex<7 && axis===this.segmentInfo(this.buildIndex+1).axis)this.advanceConstruction();
     const current=axis===this.segmentInfo().axis?this.buildCounts[this.buildIndex]:0;
     return this.setBuildCount(axis,current+delta);
   }
   advanceConstruction() {
-    if(this.counting)return;
+    if(this.counting||this.constructionComplete)return;
     if(!this.stage) {this.stage=1;return;}
-    if(this.segmentMatches) {
+    if(this.buildCounts[this.buildIndex]!==0 || this.segmentInfo().target===0) {
       this.buildIndex++;
       if(this.buildIndex===8){this.stage=9;return;}
     }
@@ -362,16 +362,17 @@ export class RotationLesson extends PointLesson {
       end: rotatePoint(this.question.given, this.question.centre, degrees),
     }));
   }
-  get armCount() { return this.buildCounts.filter((n,i)=>i%2===0 && n!==0).length; }
-  get bendCount() { return this.buildCounts.filter((n,i)=>i%2===1 && n!==0).length; }
+  get armCount() { return this.buildCounts.slice(0,4).filter(n=>n!==0).length; }
+  get bendCount() { return this.buildCounts.slice(4).filter(n=>n!==0).length; }
   get constructionComplete() { return this.buildIndex===8; }
+  get constructionMatches() { return this.buildCounts.every((n,i)=>Math.abs(n-this.segmentInfo(i).target)<1e-8); }
   // Shared animation progress is measured in signed degrees for this activity.
   get angle() { return this.progress; }
   get targetProgress() { return this.stage >= 10 ? this.movementDegrees : 0; }
   get matchesQuestion() {
     return Math.abs(this.question.degrees) === 180 ? Math.abs(this.angle) === 180 : this.angle === this.movementDegrees;
   }
-  get canReveal() { return this.constructionComplete && this.matchesQuestion; }
+  get canReveal() { return this.constructionComplete && this.constructionMatches && this.matchesQuestion; }
   get atStart() { return Math.abs(this.angle) === 360 || this.angle === 0; }
   get equivalentAngle() { return this.angle === 0 ? 0 : this.angle - Math.sign(this.angle) * 360; }
   reveal() {
