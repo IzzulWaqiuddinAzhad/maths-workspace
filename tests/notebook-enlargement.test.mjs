@@ -66,3 +66,39 @@ test('uniform negative scale pairs are accepted without accepting rotations or r
   const a={name:'A',points:[{x:1,y:1},{x:3,y:1},{x:2,y:4}]},scaled={name:'B',points:a.points.map(p=>({x:2-2*(p.x-2),y:3-2*(p.y-3)}))},plans=[{steps:[{describe:true,type:'enlargement',sourceName:'A',targetName:'B'}]}];
   assert.ok(givenEnlargementPair([a,scaled],plans));const reflected={...scaled,points:a.points.map(p=>({x:-p.x,y:p.y}))};assert.equal(givenEnlargementPair([a,reflected],plans),null);
 });
+
+test('Reveal centre waits for two completed intersecting lines and never reveals automatically',()=>{
+  const f=study(41);assert.equal(f.revealCentre(),false);assert.equal(f.centreVisible,false);
+  f.selectPair(3);f.addLine();f.finishLine();assert.equal(f.canRevealCentre,false);
+  f.selectPair(0);f.addLine();f.progress=.7;assert.equal(f.canRevealCentre,false);assert.equal(f.revealCentre(),false);
+  f.finishLine();assert.ok(f.canRevealCentre);assert.equal(f.centreVisible,false);near(f.centre,{x:-2,y:-1});
+  assert.ok(f.revealCentre());assert.ok(f.centreVisible);f.selectPair(1);assert.ok(f.centreVisible);
+});
+test('coincident or parallel lines cannot unlock the centre reveal',()=>{
+  for(const target of [[{x:2,y:0},{x:4,y:0},{x:6,y:0}],[{x:2,y:0},{x:2,y:1},{x:2,y:2}]]){
+    const source=target[0].y===target[1].y?[{x:1,y:0},{x:2,y:0},{x:3,y:0}]:[{x:0,y:0},{x:0,y:1},{x:0,y:2}];
+    const f=new EnlargementFinding([{name:'P',points:source},{name:'Q',points:target}]);
+    for(const i of [0,1]){f.selectPair(i);f.addLine();f.finishLine();}assert.equal(f.centre,null);assert.equal(f.canRevealCentre,false);
+  }
+});
+test('centre reveal persists but Undo and Reset remove a reveal that no longer has two lines',()=>{
+  const f=study(41);for(const i of [3,0,1]){f.selectPair(i);f.addLine();f.finishLine();}f.revealCentre();
+  const copy=new EnlargementFinding(f.objects,f.save());assert.ok(copy.centreVisible);near(copy.centre,{x:-2,y:-1});
+  copy.undoLine();assert.ok(copy.centreVisible);copy.undoLine();assert.equal(copy.centreVisible,false);assert.equal(copy.canRevealCentre,false);
+  const invalid=new EnlargementFinding(f.objects,{index:0,lines:[3],centreVisible:true});assert.equal(invalid.centreVisible,false);
+  f.reset();assert.equal(f.centreVisible,false);assert.equal(f.centre,null);
+});
+test('every supported enlargement reveals the constructed intersection, including Q60 and the origin',()=>{
+  for(const g of NOTEBOOK_GRAPHS){const f=new NotebookSession(g).enlargementFinding;if(!f)continue;
+    f.source.forEach((p,i)=>{f.selectPair(i);if(f.addLine())f.finishLine();});assert.ok(f.canRevealCentre,g.id);assert.ok(f.revealCentre());
+    assert.ok(Number.isFinite(f.centre.x)&&Number.isFinite(f.centre.y));
+    if(g.id==='60')near(f.centre,{x:1,y:1});if(g.id==='55')near(f.centre,{x:0,y:0});
+  }
+});
+test('the centre marker is drawn at the intersection only after pressing Reveal centre',()=>{
+  const s=new NotebookSession(graph(41)),g={...graph(41),session:s},f=s.enlargementFinding;
+  for(const i of [3,0]){f.selectPair(i);f.addLine();f.finishLine();}
+  const ctx=new Proxy({measureText:t=>({width:String(t).length*12})},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
+  assert.equal(paintNotebookGraph(ctx,g).some(r=>r.id==='enlargement-centre'),false);f.revealCentre();
+  const label=paintNotebookGraph(ctx,g).find(r=>r.id==='enlargement-centre');assert.ok(label.coordinates);near(label.point,{x:-2,y:-1});
+});

@@ -13,21 +13,39 @@ export function givenEnlargementPair(objects,plans){
   }
   return null;
 }
+// Derive the reveal from the lines the teacher has actually added.
+export function pairLineIntersection(a,b,c,d){
+  const u={x:b.x-a.x,y:b.y-a.y},v={x:d.x-c.x,y:d.y-c.y},det=u.x*v.y-u.y*v.x;
+  if(Math.abs(det)<=1e-9*Math.hypot(u.x,u.y)*Math.hypot(v.x,v.y))return null;
+  const t=((c.x-a.x)*v.y-(c.y-a.y)*v.x)/det,p={x:a.x+t*u.x,y:a.y+t*u.y};
+  return Number.isFinite(p.x)&&Number.isFinite(p.y)?p:null;
+}
 export class EnlargementFinding {
   constructor(objects,saved){
     this.objects=objects;this.reset();
     if(!saved)return;
     if(Number.isInteger(saved.index)&&this.source[saved.index])this.index=saved.index;
     if(Array.isArray(saved.lines))this.lines=[...new Set(saved.lines.filter(i=>this.distinctPair(i)))];
+    this.centreVisible=saved.centreVisible===true&&this.canRevealCentre;
   }
   get source(){return this.objects[0].points;}
   get target(){return this.objects[1].points;}
-  reset(){this.index=null;this.lines=[];this.drawingIndex=null;this.progress=1;}
+  reset(){this.centreVisible=false;this.index=null;this.lines=[];this.drawingIndex=null;this.progress=1;}
   distinctPair(i){return Number.isInteger(i)&&!!this.source[i]&&Math.hypot(this.source[i].x-this.target[i].x,this.source[i].y-this.target[i].y)>1e-8;}
   selectPair(i){if(!Number.isInteger(i)||!this.source[i])return false;this.finishLine();this.index=i;return true;}
   get canAddLine(){return this.distinctPair(this.index)&&!this.lines.includes(this.index)&&this.drawingIndex===null;}
   addLine(){if(!this.canAddLine)return false;this.lines.push(this.index);this.drawingIndex=this.index;this.progress=0;return true;}
   finishLine(){this.drawingIndex=null;this.progress=1;}
-  undoLine(){this.finishLine();return this.lines.pop();}
-  save(){return {index:this.index,lines:[...this.lines]};}
+  get centre(){
+    const completed=this.lines.filter(i=>i!==this.drawingIndex);
+    for(let i=0;i<completed.length;i++)for(let j=i+1;j<completed.length;j++){
+      const a=completed[i],b=completed[j],c=pairLineIntersection(this.source[a],this.target[a],this.source[b],this.target[b]);
+      if(c)return c;
+    }
+    return null;
+  }
+  get canRevealCentre(){return this.drawingIndex===null&&!!this.centre;}
+  revealCentre(){if(!this.canRevealCentre)return false;this.centreVisible=true;return true;}
+  undoLine(){this.finishLine();const removed=this.lines.pop();if(!this.centre)this.centreVisible=false;return removed;}
+  save(){return {index:this.index,lines:[...this.lines],centreVisible:this.centreVisible};}
 }

@@ -1,4 +1,4 @@
-import {EnlargementFinding,givenEnlargementPair} from './notebook-enlargement.js?v=1';
+import {EnlargementFinding,givenEnlargementPair} from './notebook-enlargement.js?v=2';
 import {CentreFinding,givenRotationPair} from './notebook-centre.js?v=3';
 import {notebookQuestionPlans} from './notebook-questions.js';
 import {findModuleQuestion,TranslationLesson,ReflectionLesson,EnlargementLesson} from './module-lesson.js?v=15';

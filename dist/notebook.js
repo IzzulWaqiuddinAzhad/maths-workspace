@@ -2,8 +2,8 @@ import {transformationText} from './notebook-questions.js';
 import {bindLineEquationInput} from './line-equation-input.js';
 import {workspaceHost as host} from './workspace-host.js';
 import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,rotationFromSlider,rotationToSlider,constrainPage} from './notebook-model.js?v=6';
-import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=9';
-import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=11';
+import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=10';
+import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=12';
 import {coordinateGuideDuration} from './module-coordinate-guide.js?v=4';
 import {RotationSnap,ReflectionScrub,lineFoot,objectHit,parseMirrorEquation,lineHandles} from './transform-model.js?v=29';
 import {EnlargementSnap,squareCountAt} from './module-lesson.js?v=15';
@@ -127,7 +127,7 @@ function syncSummary(){
   if(s.findingEnlargement){
     const f=s.enlargementFinding,row=document.createElement('div');row.className='summary-row';
     button(row,`${f.objects[0].name} → ${f.objects[1].name}`,selectEnlargementPair);
-    const title=document.createElement('span');title.textContent='Find centre';row.append(title);button(row,'Add line',addPairLine,!!animation||!f.canAddLine);root.append(row);
+    const title=document.createElement('span');title.textContent='Find centre';row.append(title);button(row,'Add line',addPairLine,!!animation||!f.canAddLine);button(row,f.centreVisible?'Hide centre':'Reveal centre',revealEnlargementCentre,!!animation||!f.canRevealCentre);root.append(row);
     const instruction=document.createElement('p');instruction.className='summary-construction';instruction.textContent=enlargementInstruction(f);root.append(instruction);return;
   }
   if(s.findingCentre){
@@ -183,10 +183,11 @@ function sync(){
   syncCentreFinding(busy);syncEnlargementFinding(busy);
 }
 function enlargementInstruction(f){
+  if(f.centreVisible&&f.centre)return `Centre (${fmt(f.centre.x)}, ${fmt(f.centre.y)}). The added lines meet here.`;
   if(f.index===null)return 'Tap a vertex. Its matching vertex will pulse too.';
   if(!f.distinctPair(f.index))return 'These vertices coincide. Choose another pair to draw a line.';
   if(f.drawingIndex!==null)return 'Drawing through the matching vertices…';
-  if(f.lines.includes(f.index))return f.lines.length<2?'Line added. Tap another vertex, then Add line.':'Tap another vertex to check where the lines meet.';
+  if(f.lines.includes(f.index))return f.canRevealCentre?'The lines intersect. Press Reveal centre when ready.':f.lines.length<2?'Line added. Tap another vertex, then Add line.':'These lines do not give a unique intersection. Add a line through another pair.';
   return 'Matching pair selected. Press Add line to join and extend through them.';
 }
 function syncEnlargementFinding(busy){
@@ -198,9 +199,12 @@ function syncEnlargementFinding(busy){
   for(const id of ['objectControls','stepControls','centreControls','reflectionControls','rotationControls','enlargementControls','constructionControls','readVertex','showCentre','showPoint','showImage','clockToggle'])$(id).hidden=true;
   document.querySelector('.transformation-types').hidden=false;
   $('chooseEnlargementPair').disabled=busy;$('chooseEnlargementPair').setAttribute('aria-pressed',String(intent==='enlargement-pair'));
+  $('revealEnlargementCentre').disabled=busy||!f.canRevealCentre;$('revealEnlargementCentre').textContent=f.centreVisible?'Hide centre':'Reveal centre';
   $('addPairLine').disabled=busy||!f.canAddLine;$('undoPairLine').disabled=busy||!f.lines.length;
   $('demoStatus').textContent=enlargementInstruction(f);
 }
+function revealEnlargementCentre(){const f=active.session.enlargementFinding;if(animation||!f.canRevealCentre)return;if(f.centreVisible)f.centreVisible=false;else f.revealCentre();changed();}
+$('revealEnlargementCentre').onclick=revealEnlargementCentre;
 function selectEnlargementPair(){stopAnimation();intent='enlargement-pair';sync();animate();}
 function addPairLine(){
   const f=active.session.enlargementFinding;if(animation||!f?.canAddLine)return;

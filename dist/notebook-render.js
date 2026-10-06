@@ -1,4 +1,4 @@
-import {paintEnlargementFinding} from './notebook-enlargement-render.js?v=1';
+import {paintEnlargementFinding} from './notebook-enlargement-render.js?v=2';
 import {paintCentreFinding} from './notebook-centre-render.js?v=2';
 import {NotebookLabels} from './notebook-labels.js?v=2';
 import {paintRotationLesson} from './module-rotation-render.js?v=11';

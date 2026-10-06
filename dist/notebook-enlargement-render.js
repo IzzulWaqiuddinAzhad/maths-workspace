@@ -17,6 +17,11 @@ export function paintEnlargementFinding(ctx,{study:f,labels,view,width,height,no
     labels.collect({segments:[ends]});ctx.beginPath();ctx.moveTo(ends[0].x,ends[0].y);ctx.lineTo(ends[1].x,ends[1].y);ctx.stroke();
   }
   ctx.restore();
+  if(f.centreVisible&&f.centre){
+    const point=f.centre,colour='#803daa';
+    paintCoordinatePulse(ctx,{point,view,now,active,colour});
+    labels.queue(point,'C',{id:'enlargement-centre',coordinates:true,colour,leader:true});
+  }
   if(f.index===null)return;
   f.objects.forEach((o,side)=>{
     const p=o.points[f.index],colour=side?'#276dc3':'#ac5d13';
