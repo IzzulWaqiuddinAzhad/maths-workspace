@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
-  <link rel="stylesheet" href="module.css?v=9">
+  <link rel="stylesheet" href="module.css?v=10">
   <link rel="stylesheet" href="direction-pad.css?v=1">
 </head>
 <body>
@@ -44,13 +44,13 @@
         </div></div>
         <div id="trialControls" class="trial-controls" hidden>
           <div class="trial-equation"><span id="trialHeading">Trying</span><strong id="trialEquation" aria-live="polite"></strong><small id="axisRule"></small></div>
-          <div id="positionControls" class="line-position"><button id="lineDecrease" aria-label="Move line down">↓</button><button id="lineIncrease" aria-label="Move line up">↑</button></div>
           <div id="slopeControls" class="slope-controls" hidden><button id="slopePositive">y = x</button><button id="slopeNegative">y = −x</button></div>
           <button id="guides" aria-pressed="false">Guide</button>
         </div>
       </section>
       <section id="rotationControls" class="rotation-controls" aria-label="Rotation guide" hidden>
         <div><strong id="rotationCentre"></strong><span id="clockHint"></span></div>
+        <div class="rotation-order" role="group" aria-label="Counting order"><button id="orderX">Horizontal first</button><button id="orderY">Vertical first</button></div>
         <button id="clockGuide" aria-pressed="false" disabled>Clock guide</button>
       </section>
       <section id="enlargementControls" class="rotation-controls" aria-label="Enlargement guide" hidden><div><strong id="enlargementCentre"></strong><span id="enlargementHint"></span></div><button id="enlargementMode" hidden>Explore scale factor</button></section>
@@ -75,6 +75,7 @@
           <button id="redo" aria-label="Redo ink" title="Redo ink">↷</button>
         </div>
         <div class="view-tools" aria-label="Graph view"><button id="zoomOut" aria-label="Zoom out">−</button><button id="fit">Fit graph</button><button id="zoomIn" aria-label="Zoom in">+</button></div>
+        <span id="mirrorHint" class="mirror-hint" hidden></span>
         <span class="canvas-caption" id="canvasCaption">GIVEN DIAGRAM</span>
       </div>
       <footer class="lesson-controls">
@@ -87,7 +88,7 @@
             <button id="countRight" data-direction="right" aria-label="One unit right">▶</button>
             <button id="countDown" data-direction="down" aria-label="One unit down">▼</button>
           </div>
-          <div class="count-readouts">
+          <div class="count-readouts" id="countReadouts">
             <div class="count-row"><button id="countAxisx" aria-pressed="true">Horizontal ↔</button><output id="countValuex">0 units</output></div>
             <div class="count-row"><button id="countAxisy" aria-pressed="false">Vertical ↕</button><output id="countValuey">0 units</output></div>
             <div class="count-options"><button id="countAuto">Auto horizontal</button></div>
@@ -104,6 +105,6 @@
     </section>
   </main>
   <p class="status" id="status" role="status" hidden></p>
-  <script type="module" src="module-ui.js?v=11"></script>
+  <script type="module" src="module-ui.js?v=12"></script>
 </body>
 </html>

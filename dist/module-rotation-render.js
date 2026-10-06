@@ -1,3 +1,5 @@
+import { LabelLayout, edgeCandidates, paintLabel } from './label-layout.js?v=13';
+const countLabels=new LabelLayout();
 import { graphToScreen } from './transform-model.js?v=29';
 
 // Screen y increases downwards: this hand travels 12 → 3 → 6 → 9.
@@ -6,14 +8,16 @@ export function clockHandAt(elapsed, radius = 1) {
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
 }
 
-export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0 }) {
+export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, width, height, overlays=[] }) {
   const segments = [], points = [], obstacles = [];
   if (!lesson.stage) return { segments, points, obstacles };
   const screen = p => graphToScreen(p, view), c = screen(lesson.question.centre);
   const red = dark ? '#ff8991' : '#c23246', blue = dark ? '#91beff' : '#2468c4';
   const ink = dark ? '#edf0f5' : '#20242c', paper = dark ? '#15181d' : '#fff';
   const source = screen(lesson.question.given), distance = Math.hypot(source.x-c.x, source.y-c.y);
-  const clockRadius = Math.min(33, Math.max(12, distance * .34));
+  const corner = screen(lesson.corner);
+  const shortLeg = Math.min(...[Math.hypot(corner.x-c.x,corner.y-c.y),Math.hypot(source.x-corner.x,source.y-corner.y)].filter(n=>n>1e-8));
+  const clockRadius = Math.min(33, Math.max(12, Math.min(distance * .34, shortLeg * .65)));
   const line = (ps, colour, width = 3) => {
     const vertices = ps.map(screen);
     ctx.beginPath(); vertices.forEach((p,i) => i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y));
@@ -21,9 +25,41 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0 }) 
     for (let i=1; i<vertices.length; i++) segments.push([vertices[i-1],vertices[i]]);
   };
   ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  const arms = lesson.arms;
-  for (let i=0; i<lesson.armCount; i++) line([arms[i].centre,arms[i].corner],red);
-  for (let i=0; i<lesson.bendCount; i++) line([arms[i].corner,arms[i].end],red);
+  const orange=dark?'#f9bd77':'#a95c14', requests=[];
+  const countSegment=(from,to,index,colour)=>{
+    if(Math.hypot(to.x-from.x,to.y-from.y)<1e-8)return;
+    line([from,to],colour,3.2);
+    const a=screen(from),b=screen(to),dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy);
+    for(let i=1;i<len-1e-8;i++) {
+      const p=screen({x:from.x+dx*i/len,y:from.y+dy*i/len});
+      ctx.beginPath();ctx.moveTo(p.x+(dy?-3:0),p.y+(dx?-3:0));ctx.lineTo(p.x+(dy?3:0),p.y+(dx?3:0));ctx.stroke();
+    }
+    const n=index===lesson.buildIndex?lesson.displayedBuildCount():lesson.buildCounts[index];
+    requests.push({id:`count-${index}`,text:String(Math.abs(Number(n.toFixed(2)))),colour,candidates:edgeCandidates(a,b,index%2?1:-1)});
+  };
+  for(const [i,path] of lesson.constructionPaths.entries()) {
+    countSegment(path.centre,path.corner,i*2,orange);
+    countSegment(path.corner,path.end,i*2+1,blue);
+  }
+  if(!lesson.constructionComplete && lesson.stage) {
+    const path=lesson.constructionPaths[Math.floor(lesson.buildIndex/2)],p=screen(lesson.buildIndex%2?path.end:path.corner);
+    ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=lesson.buildIndex%2?blue:orange;ctx.lineWidth=2;ctx.stroke();points.push(p);
+  }
+  countLabels.begin({bounds:width&&height?{x:8,y:8,w:width-16,h:height-62}:undefined,points:[c,source],segments,labelOverlapPenalty:2000});
+  countLabels.placed.push(...overlays);
+  if(lesson.clockVisible)countLabels.placed.push({x:c.x-clockRadius-7,y:c.y-clockRadius-7,w:clockRadius*2+14,h:clockRadius*2+14});
+  for(const request of requests) {
+    ctx.font='700 20px system-ui';const w=ctx.measureText(request.text).width;
+    // Offer positions beyond the clock for short segments close to the centre.
+    const candidates=lesson.clockVisible ? [...request.candidates,...request.candidates.map(p=>{
+      const dx=p.x-c.x,dy=p.y-c.y,d=Math.hypot(dx,dy)||1,r=Math.max(d,clockRadius+30);
+      return {x:c.x+dx*r/d,y:c.y+dy*r/d};
+    })] : request.candidates;
+    const label=countLabels.place({...request,candidates,width:w,height:24});
+    paintLabel(ctx,label,{ink:request.colour,background:paper});
+    obstacles.push({x:label.x-w/2-4,y:label.y-14,w:w+8,h:28});
+  }
+  countLabels.end();
   if (lesson.angle !== 0) {
     line([lesson.question.centre, lesson.cornerAt(), lesson.pointAt()], blue, 3.5);
     const start = Math.atan2(source.y-c.y,source.x-c.x), sweep = -lesson.angle * Math.PI / 180;

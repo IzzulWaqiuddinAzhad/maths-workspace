@@ -85,3 +85,38 @@ test('reflection guides show equality only at completion and no square for a poi
   const scrub = new ReflectionScrub(); scrub.move(.7); scrub.move(.3); assert.equal(scrub.target(),0);
   const forward = new ReflectionScrub(); forward.move(.2); assert.equal(forward.target(),1);
 });
+
+test('trial lines start off the axes and inside the visible camera bounds',()=>{
+  for(const bounds of [{xmin:-8,xmax:8,ymin:-8,ymax:8},{xmin:10,xmax:18,ymin:-18,ymax:-10}])for(const kind of ['horizontal','vertical']) {
+    const l=new ReflectionLesson();l.chooseOrientation(kind,bounds);assert.notEqual(l.choice.k,0);
+    for(const p of l.handles)assert.ok(p.x>bounds.xmin&&p.x<bounds.xmax&&p.y>bounds.ymin&&p.y<bounds.ymax);
+    assert.equal(l.progress,0);assert.equal(l.answerVisible,false);
+  }
+});
+test('mirror pad moves both pivots in parallel and either pivot can change arbitrary steepness',()=>{
+  const l=new ReflectionLesson();l.chooseOrientation('slanted');
+  l.shift(2,3);assert.equal(l.equation,'y = x + 1');
+  l.shift(-1,0);assert.equal(l.equation,'y = x + 2');
+  const saved=structuredClone(l.handles);l.shift(3,-2,saved);l.shift(3,-2,saved);
+  assert.deepEqual(l.handles,saved.map(p=>({x:p.x+3,y:p.y-2})),'drag is relative to its fixed baseline, not cumulative');
+  l.setHandles([{x:0,y:1},{x:2,y:5}]);assert.equal(l.equation,'y = 2x + 1');
+  l.scrub(1);const before=l.trialAnswer;l.setHandles([{x:0,y:1},{x:0,y:5}]);
+  assert.equal(l.equation,'x = 0');assert.equal(l.progress,0);assert.notDeepEqual(l.trialAnswer,before);
+  assert.equal(l.setHandles([{x:0,y:1},{x:0,y:1}]),false);
+  l.setHandles([{x:-2,y:1},{x:3,y:1}]);assert.equal(l.equation,'y = 1');
+});
+test('shifted and steep mirror geometry matches its exact equation and clips safely',()=>{
+  for(const [a,b] of [[{x:-2,y:0},{x:2,y:2}],[{x:1,y:-4},{x:2,y:5}],[{x:0,y:2},{x:4,y:-2}],[{x:50,y:0},{x:50,y:3}]]) {
+    const l=new ReflectionLesson();l.setHandles([a,b]);const line=l.line,f=l.foot,p=l.trialAnswer;
+    assert.ok(Math.abs(line.a*f.x+line.b*f.y+line.c)<1e-8);
+    assert.deepEqual(reflectPoint(p,line),l.question.given);
+    for(const end of reflectionSegment(l.choice,l.question.bounds))assert.ok(Math.abs(line.a*end.x+line.b*end.y+line.c)<1e-8);
+    if(a.x===50)assert.deepEqual(reflectionSegment(l.choice,l.question.bounds),[]);
+  }
+  const l=new ReflectionLesson(REFLECTION_QUESTIONS[2]);l.setHandles([{x:1,y:1},{x:4,y:4}]);assert.equal(l.matchesQuestion,true);
+  l.shift(0,1);assert.equal(l.matchesQuestion,false);l.scrub(1);assert.equal(l.reveal(),false);
+});
+
+test('non-terminating grid slopes display exact fractions instead of rounded equations',()=>{
+  const l=new ReflectionLesson();l.setHandles([{x:0,y:1},{x:3,y:2}]);assert.equal(l.equation,'y = (1/3)x + 1');
+});

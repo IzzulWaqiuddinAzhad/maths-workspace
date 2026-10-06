@@ -1,4 +1,4 @@
-import { translatePoint, reflectPoint, flipPoint, lineFoot, rotatePoint, snapRotation, tidyPoint, GRID_UNIT } from './transform-model.js?v=29';
+import { translatePoint, reflectPoint, flipPoint, lineFoot, rotatePoint, snapRotation, tidyPoint, GRID_UNIT, normaliseLine, moveMirror } from './transform-model.js?v=29';
 
 // A1, printed page 1 (PDF page 2), BIJAK Transformasi Bengkel v4.2.
 // Read each given point from the original diagram, not from the answer scheme.
@@ -75,14 +75,29 @@ export const findModuleQuestion = id => MODULE_QUESTIONS.find(q => q.id === id);
 export const createModuleLesson = q => q.type === 'enlargement' ? new EnlargementLesson(q) : q.type === 'rotation' ? new RotationLesson(q) : q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
 
 export function reflectionEquation(choice) {
-  if (!choice) return '';
-  if (choice.kind === 'slanted') return choice.slope === -1 ? 'y = −x' : 'y = x';
-  return `${choice.kind === 'horizontal' ? 'y' : 'x'} = ${String(choice.k).replace('-', '−')}`;
+  if(!choice)return '';
+  const number=n=>{
+    if(Math.abs(n-Number(n.toFixed(3)))<1e-10)return String(Number(n.toFixed(3))).replace(/-/g,'−');
+    for(let d=2;d<=1000;d++){const top=Math.round(n*d);if(Math.abs(n-top/d)<1e-10)return `${top}/${d}`.replace(/-/g,'−');}
+    return String(Number(n.toFixed(6))).replace(/-/g,'−');
+  };
+  if(choice.kind!=='slanted')return `${choice.kind==='horizontal'?'y':'x'} = ${number(choice.k)}`;
+  const m=choice.slope,c=choice.intercept||0,coefficient=Math.abs(m-1)<1e-9?'':Math.abs(m+1)<1e-9?'−':number(m);
+  return `y = ${coefficient.includes('/')?'('+coefficient+')':coefficient}x${Math.abs(c)<1e-9?'':` ${c<0?'−':'+'} ${number(Math.abs(c))}`}`;
 }
 export function reflectionLine(choice) {
   if (!choice) return null;
-  if (choice.kind === 'slanted') return { a: -choice.slope, b: 1, c: 0 };
+  if (choice.kind === 'slanted') return { a: -choice.slope, b: 1, c: -(choice.intercept || 0) };
   return { a: choice.kind === 'vertical' ? 1 : 0, b: choice.kind === 'horizontal' ? 1 : 0, c: -choice.k };
+}
+export function mirrorChoiceFromHandles(handles) {
+  if (!Array.isArray(handles) || handles.length!==2 || !handles.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))) return null;
+  const [p,q]=handles.map(tidyPoint),dx=q.x-p.x,dy=q.y-p.y;
+  if(Math.hypot(dx,dy)<.25) return null;
+  const saved=[p,q];
+  if(Math.abs(dx)<1e-9) return {kind:'vertical',k:p.x,handles:saved};
+  if(Math.abs(dy)<1e-9) return {kind:'horizontal',k:p.y,handles:saved};
+  return {kind:'slanted',slope:dy/dx,intercept:p.y-dy/dx*p.x,handles:saved};
 }
 
 class PointLesson {
@@ -107,29 +122,44 @@ export class ReflectionLesson extends PointLesson {
   }
   get foot() { return this.line ? lineFoot(this.question.given, this.line) : null; }
   get matchesQuestion() {
-    const wanted = this.question.mirror, choice = this.choice;
-    return !!choice && choice.kind === wanted.kind && (choice.kind === 'slanted' ? choice.slope === wanted.slope : choice.k === wanted.k);
+    if(!this.choice) return false;
+    const a=normaliseLine(this.line),b=normaliseLine(reflectionLine(this.question.mirror));
+    return [1,-1].some(sign=>['a','b','c'].every(key=>Math.abs(a[key]-sign*b[key])<1e-8));
   }
   get canReveal() { return this.matchesQuestion && this.progress === 1; }
+  get handles() { return this.choice?.handles || []; }
   changeLine(choice) {
-    if (JSON.stringify(choice) === JSON.stringify(this.choice)) return false;
-    this.choice = choice; this.progress = 0; this.answerVisible = false;
+    if (!choice || JSON.stringify(choice) === JSON.stringify(this.choice)) return false;
+    this.choice = structuredClone(choice); this.progress = 0; this.answerVisible = false;
     this.stage = this.guideVisible ? 2 : 1;
     return true;
   }
-  chooseOrientation(kind) {
+  chooseOrientation(kind, bounds=this.question.bounds) {
     if (!['horizontal', 'vertical', 'slanted'].includes(kind) || this.choice?.kind === kind) return false;
-    return this.changeLine(kind === 'slanted' ? { kind, slope: 1 } : { kind, k: 0 });
+    const cx=Math.round((bounds.xmin+bounds.xmax)/2),cy=Math.round((bounds.ymin+bounds.ymax)/2);
+    const offset=(mid,min,max)=>Math.max(min+.5,Math.min(max-.5,mid+2)) || 1;
+    const x=offset(cx,bounds.xmin,bounds.xmax),y=offset(cy,bounds.ymin,bounds.ymax);
+    const span=Math.max(.5,Math.min(2,(bounds.xmax-bounds.xmin)/4,(bounds.ymax-bounds.ymin)/4));
+    const handles=kind==='horizontal'?[{x:cx-span,y},{x:cx+span,y}]:kind==='vertical'?[{x,y:cy-span},{x,y:cy+span}]:[{x:cx-span,y:cy-span},{x:cx+span,y:cy+span}];
+    return this.setHandles(handles);
   }
+  resetLine(bounds=this.question.bounds) { if(!this.choice)return false;const kind=this.choice.kind;this.choice=null;return this.chooseOrientation(kind,bounds); }
+  setHandles(handles) { const choice=mirrorChoiceFromHandles(handles); return choice ? this.changeLine(choice) : false; }
   setPosition(value) {
     if (!this.choice || this.choice.kind === 'slanted' || !Number.isFinite(value)) return false;
     const { kind } = this.choice, bounds = this.question.bounds;
     const min = kind === 'horizontal' ? bounds.ymin : bounds.xmin, max = kind === 'horizontal' ? bounds.ymax : bounds.xmax;
-    return this.changeLine({ kind, k: Math.max(min, Math.min(max, Math.round(value))) });
+    const k=Math.max(min,Math.min(max,Math.round(value))),axis=kind==='horizontal'?'y':'x';
+    return this.setHandles(moveMirror(this.handles,{x:axis==='x'?k-this.choice.k:0,y:axis==='y'?k-this.choice.k:0}));
+  }
+  shift(dx,dy,handles=this.handles) {
+    if(!this.choice || ![dx,dy].every(Number.isFinite)) return false;
+    return this.setHandles(moveMirror(handles,{x:dx,y:dy}));
   }
   setSlope(slope) {
-    return this.choice?.kind === 'slanted' && [1, -1].includes(slope) ? this.changeLine({ kind: 'slanted', slope }) : false;
+    return this.choice && [1,-1].includes(slope) ? this.setHandles([{x:-2,y:-2*slope},{x:2,y:2*slope}]) : false;
   }
+
   toggleGuides() {
     if (!this.choice) return;
     this.guideVisible = !this.guideVisible;
@@ -175,10 +205,72 @@ export class TranslationLesson extends PointLesson {
 // Signed offsets are essential when the point lies left of / below that centre.
 export class RotationLesson extends PointLesson {
   constructor(question = ROTATION_QUESTIONS[0]) { super(question); }
-  reset() { this.stage = 0; this.progress = 0; this.answerVisible = false; this.clockVisible = false; this.direction = Math.sign(this.movementDegrees) || 1; }
+  reset() {
+    this.stage=0;this.progress=0;this.answerVisible=false;this.clockVisible=false;
+    this.direction=Math.sign(this.movementDegrees)||1;
+    this.firstAxis='x';this.buildIndex=0;this.buildCounts=Array(8).fill(0);this.counting=false;this.countAnimation=null;
+  }
+  get offset() { return {x:this.question.given.x-this.question.centre.x,y:this.question.given.y-this.question.centre.y}; }
+  segmentInfo(index=this.buildIndex) {
+    const axis=index%2 ? (this.firstAxis==='x'?'y':'x') : this.firstAxis;
+    const basis=rotatePoint(axis==='x'?{x:1,y:0}:{x:0,y:1},{x:0,y:0},Math.floor(index/2)*90);
+    const worldAxis=Math.abs(basis.x)>.5?'x':'y';
+    return {axis:worldAxis,target:this.offset[axis]*basis[worldAxis],part:index%2,arm:Math.floor(index/2)};
+  }
+  get segmentMatches() { return this.buildIndex<8 && Math.abs(this.buildCounts[this.buildIndex]-this.segmentInfo().target)<1e-8; }
+  get constructionPaths() {
+    return Array.from({length:4},(_,arm)=>{
+      const centre=this.question.centre, first=this.segmentInfo(arm*2),second=this.segmentInfo(arm*2+1);
+      const corner={...centre,[first.axis]:centre[first.axis]+this.buildCounts[arm*2]};
+      const end={...corner,[second.axis]:corner[second.axis]+this.buildCounts[arm*2+1]};
+      return {centre,corner,end};
+    });
+  }
+  selectFirstAxis(axis) {
+    if(!['x','y'].includes(axis) || this.firstAxis===axis || this.counting)return false;
+    this.firstAxis=axis;this.buildCounts.fill(0);this.buildIndex=0;this.stage=this.stage?1:0;
+    this.progress=0;this.answerVisible=false;this.clockVisible=false;return true;
+  }
+  setBuildCount(axis,value) {
+    if(!this.stage || this.constructionComplete || this.counting || !Number.isFinite(value)) return false;
+    if(this.buildIndex===0 && this.buildCounts.every(n=>n===0))this.selectFirstAxis(axis);
+    if(axis!==this.segmentInfo().axis)return false;
+    this.buildCounts[this.buildIndex]=Math.max(-100,Math.min(100,value));
+    this.stage=Math.min(8,this.buildIndex+2);this.answerVisible=false;return true;
+  }
+  nudgeConstruction(axis,delta) {
+    if(!this.stage || this.constructionComplete || this.counting || !['x','y'].includes(axis)||!Number.isFinite(delta))return false;
+    if(axis!==this.segmentInfo().axis && this.segmentMatches && this.buildIndex<7 && axis===this.segmentInfo(this.buildIndex+1).axis)this.advanceConstruction();
+    const current=axis===this.segmentInfo().axis?this.buildCounts[this.buildIndex]:0;
+    return this.setBuildCount(axis,current+delta);
+  }
+  advanceConstruction() {
+    if(this.counting)return;
+    if(!this.stage) {this.stage=1;return;}
+    if(this.segmentMatches) {
+      this.buildIndex++;
+      if(this.buildIndex===8){this.stage=9;return;}
+    }
+    this.stage=Math.min(8,this.buildIndex+2);
+  }
+  previousConstruction() {
+    if(this.buildIndex===8)this.buildIndex=7;
+    else if(this.buildCounts[this.buildIndex]===0 && this.buildIndex>0)this.buildIndex--;
+    else if(this.buildIndex===0 && this.buildCounts[0]===0){this.stage=0;return;}
+    this.buildCounts.fill(0,this.buildIndex);this.stage=this.buildIndex?Math.min(8,this.buildIndex+2):1;
+    this.progress=0;this.answerVisible=false;this.clockVisible=false;
+  }
+  clearConstructionSegment() {
+    if(this.constructionComplete||this.counting)return;
+    this.buildCounts[this.buildIndex]=0;this.answerVisible=false;
+  }
+  displayedBuildCount() {
+    const n=this.buildCounts[this.buildIndex]||0,a=this.countAnimation;
+    return a ? a.from+Math.sign(a.to-a.from)*Math.floor(Math.abs(n-a.from)+1e-8) : n;
+  }
   get movementDegrees() { return this.question.degrees * (this.inverse ? -1 : 1); }
   get answer() { return rotatePoint(this.question.given, this.question.centre, this.movementDegrees); }
-  get corner() { return { x: this.question.given.x, y: this.question.centre.y }; }
+  get corner() { return this.firstAxis==='x'?{x:this.question.given.x,y:this.question.centre.y}:{x:this.question.centre.x,y:this.question.given.y}; }
   get arms() {
     return [0, 90, 180, 270].map(degrees => ({
       centre: this.question.centre,
@@ -186,9 +278,9 @@ export class RotationLesson extends PointLesson {
       end: rotatePoint(this.question.given, this.question.centre, degrees),
     }));
   }
-  get armCount() { return Math.min(4, Math.max(0, this.stage - 1)); }
-  get bendCount() { return Math.min(4, Math.max(0, this.stage - 5)); }
-  get constructionComplete() { return this.stage >= 9; }
+  get armCount() { return this.buildCounts.filter((n,i)=>i%2===0 && n!==0).length; }
+  get bendCount() { return this.buildCounts.filter((n,i)=>i%2===1 && n!==0).length; }
+  get constructionComplete() { return this.buildIndex===8; }
   // Shared animation progress is measured in signed degrees for this activity.
   get angle() { return this.progress; }
   get targetProgress() { return this.stage >= 10 ? this.movementDegrees : 0; }
@@ -210,12 +302,15 @@ export class RotationLesson extends PointLesson {
     const b = this.question.bounds;
     if (!this.stage) return b;
     const c = this.question.centre, r = Math.hypot(this.question.given.x - c.x, this.question.given.y - c.y);
-    return { xmin: Math.min(b.xmin, Math.floor(c.x-r)-1), xmax: Math.max(b.xmax, Math.ceil(c.x+r)+1),
-      ymin: Math.min(b.ymin, Math.floor(c.y-r)-1), ymax: Math.max(b.ymax, Math.ceil(c.y+r)+1) };
+    const points=this.constructionPaths.flatMap(p=>[p.corner,p.end]);
+    return { xmin: Math.min(b.xmin, Math.floor(c.x-r)-1,...points.map(p=>Math.floor(p.x)-1)), xmax: Math.max(b.xmax, Math.ceil(c.x+r)+1,...points.map(p=>Math.ceil(p.x)+1)),
+      ymin: Math.min(b.ymin, Math.floor(c.y-r)-1,...points.map(p=>Math.floor(p.y)-1)), ymax: Math.max(b.ymax, Math.ceil(c.y+r)+1,...points.map(p=>Math.ceil(p.y)+1)) };
   }
   goTo(value) {
     if (!Number.isFinite(value)) return;
     this.stage = Math.max(0, Math.min(11, Math.round(value)));
+    this.buildIndex=Math.min(8,Math.max(0,this.stage-1));
+    this.buildCounts=this.buildCounts.map((_,i)=>i<this.buildIndex?this.segmentInfo(i).target:0);
     this.progress = this.targetProgress; this.direction = Math.sign(this.progress) || this.direction; this.answerVisible = this.stage === 11;
     if (!this.constructionComplete) this.clockVisible = false;
   }

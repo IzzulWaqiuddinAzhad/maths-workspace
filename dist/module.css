@@ -40,3 +40,16 @@
 /* The familiar directional pad controls each component independently. */
 .count-controls{width:360px;flex-shrink:0;display:flex;align-items:center;gap:14px;--pad-key-size:44px}.count-readouts{flex:1;min-width:0;display:grid;gap:7px}.count-row{display:grid;gap:2px}.count-row button{padding:4px 7px;font-size:12px;min-height:34px}.count-row output{font-size:13px;font-weight:600;text-align:center;font-variant-numeric:tabular-nums;color:var(--accent)}.count-options{display:flex}.count-options button{width:100%;font-size:11px;padding:5px 8px;min-height:36px}.enlargement-lesson .lesson-controls{gap:16px;flex-wrap:wrap}.enlargement-lesson .step-copy{flex-basis:200px}.enlargement-lesson .step-actions{margin-left:auto}
 @media(max-width:760px){.count-controls{width:100%;flex-basis:100%;justify-content:center}.count-readouts{max-width:230px}.count-row button,.count-options button{min-height:44px}.enlargement-lesson .step-copy{flex-basis:100%}.enlargement-lesson .graph-section{flex-basis:auto;min-height:760px}.enlargement-lesson .rotation-controls{flex-wrap:wrap}.enlargement-lesson #enlargementMode{min-height:40px}}
+/* The same count pad serves enlargement, rotation construction and trial mirrors. */
+:is(.rotation-lesson,.reflection-lesson) .lesson-controls{gap:16px;flex-wrap:wrap}
+:is(.rotation-lesson,.reflection-lesson) .step-copy{flex-basis:200px}
+:is(.rotation-lesson,.reflection-lesson) .step-actions{margin-left:auto}
+.rotation-controls>.rotation-order{display:flex;flex:0 0 auto;gap:6px}
+.rotation-order button{font-size:12px;padding:8px 10px;white-space:normal}
+.rotation-lesson .count-row button:disabled{opacity:1;cursor:default}
+@media(max-width:1120px){.rotation-controls{flex-wrap:wrap}.rotation-controls>div:first-child{flex-basis:100%}.rotation-controls>.rotation-order{flex:1}.rotation-order button{flex:1}}
+@media(max-width:760px){:is(.rotation-lesson,.reflection-lesson) .step-copy{flex-basis:100%}.reflection-lesson .graph-section,.rotation-lesson .graph-section{flex-basis:auto;min-height:850px}.rotation-controls>.rotation-order{flex:1}.rotation-order button{font-size:11px}.reflection-lesson .trial-controls{flex-wrap:wrap}.reflection-lesson .trial-equation{flex-basis:100%}}
+.reflection-lesson .count-controls{width:132px;flex-basis:132px}
+.mirror-hint{position:absolute;top:12px;left:14px;max-width:calc(100% - 105px);padding:6px 9px;background:var(--paper);border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px;line-height:1.4;pointer-events:none;user-select:none}
+.question-collapsed .mirror-hint{top:65px}
+@media(max-width:760px){.reflection-lesson .count-controls{width:132px;flex-basis:132px}.reflection-lesson .scrubber{flex:1;width:auto;min-width:150px}.mirror-hint{top:68px;left:10px;max-width:calc(100% - 20px);font-size:11px}.question-collapsed .mirror-hint{top:68px}}

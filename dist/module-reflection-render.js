@@ -1,21 +1,20 @@
+import { reflectionLine } from './module-lesson.js?v=10';
 import { graphToScreen } from './transform-model.js?v=29';
 import { angleMark } from './angle-renderer.js';
 
 // Return the two intersections with the printed (or expanded trial) grid.
 export function reflectionSegment(choice, bounds) {
   if (!choice) return [];
-  const { xmin, xmax, ymin, ymax } = bounds;
-  if (choice.kind === 'horizontal') return [{ x: xmin, y: choice.k }, { x: xmax, y: choice.k }];
-  if (choice.kind === 'vertical') return [{ x: choice.k, y: ymin }, { x: choice.k, y: ymax }];
-  const m = choice.slope;
-  const points = [{ x: xmin, y: m * xmin }, { x: xmax, y: m * xmax }, { x: ymin / m, y: ymin }, { x: ymax / m, y: ymax }]
-    .filter(p => p.x >= xmin && p.x <= xmax && p.y >= ymin && p.y <= ymax);
-  const unique = points.filter((p, i) => points.findIndex(q => p.x === q.x && p.y === q.y) === i);
-  return [unique[0], unique.at(-1)];
+  const { xmin, xmax, ymin, ymax } = bounds, {a,b,c}=reflectionLine(choice),candidates=[];
+  if(Math.abs(b)>1e-9)for(const x of [xmin,xmax])candidates.push({x,y:-(a*x+c)/b});
+  if(Math.abs(a)>1e-9)for(const y of [ymin,ymax])candidates.push({x:-(b*y+c)/a,y});
+  const points=candidates.filter(p=>p.x>=xmin-1e-8&&p.x<=xmax+1e-8&&p.y>=ymin-1e-8&&p.y<=ymax+1e-8);
+  const unique=points.filter((p,i)=>points.findIndex(q=>Math.hypot(p.x-q.x,p.y-q.y)<1e-8)===i);
+  return unique.length>=2?[unique[0],unique.at(-1)]:[];
 }
 
 // Canvas geometry participates in the existing renderer's label avoidance.
-export function paintReflectionLesson(ctx, { lesson, view, bounds, dark, pulse = 0 }) {
+export function paintReflectionLesson(ctx, { lesson, view, bounds, dark, pulse = 0, handlesActive=true }) {
   const segments = [], points = [], obstacles = [];
   if (!lesson.choice) return { segments, points, obstacles };
   const screen = p => graphToScreen(p, view), ends = reflectionSegment(lesson.choice, bounds).map(screen);
@@ -25,7 +24,10 @@ export function paintReflectionLesson(ctx, { lesson, view, bounds, dark, pulse =
     ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]); segments.push([a, b]);
   };
   ctx.save();
-  line(ends[0], ends[1], amber, [9, 5], 2.5);
+  if(ends.length===2)line(ends[0], ends[1], amber, [9, 5], 3.5);
+  if(handlesActive)for(const p of lesson.handles.map(screen)) {
+    ctx.beginPath();ctx.arc(p.x,p.y,8,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=amber;ctx.lineWidth=3;ctx.stroke();points.push(p);
+  }
   const f = screen(lesson.foot), p = screen(lesson.question.given), target = screen(lesson.trialAnswer);
   if (lesson.guideVisible) {
     // Do not imply equal lengths during an unfinished flip.
