@@ -1,0 +1,54 @@
+/* The paper and ink share one camera. Controls always remain screen-sized. */
+body.module-notebook{background:#e9ebef;color-scheme:light;--panel:#fff;--text:#20242c;--muted:#687080;--line:#dce0e7;--hover:#f1f3f6;--active:#20242c;--inverse:#fff}
+.module-notebook [hidden]{display:none!important}
+.module-notebook header{height:58px;padding:5px 12px;gap:7px;background:#fafbfd;border-bottom:1px solid #dce0e7;overflow:visible}
+.module-notebook main{height:calc(100dvh - 58px);background:#e9ebef}
+.module-notebook .brand,.module-notebook header>.divider,.module-notebook #title,.module-notebook #save,.module-notebook .language,.module-notebook #theme,.module-notebook #exploreAngles,.module-notebook #welcome,.module-notebook #hint,.module-notebook .bottom-left,.module-notebook .credit{display:none!important}
+.module-notebook #tools{position:static;display:flex;flex-direction:row;gap:2px;padding:0;border:0;background:none;box-shadow:none;max-height:none;flex-shrink:1;overflow-x:auto;scrollbar-width:none;border-radius:0;min-width:0}
+.module-notebook #tools button{width:44px;height:44px;min-width:44px;flex-shrink:0}
+.module-notebook #tools hr{display:none}
+.module-notebook header>button{min-width:44px;min-height:44px;padding:7px}
+.module-notebook #historyControls{margin-left:auto;flex-shrink:0}
+.module-notebook .context{top:8px;left:12px;right:12px;padding:5px 9px;min-height:44px;width:max-content;max-width:calc(100% - 24px);flex-wrap:nowrap;overflow-x:auto;box-shadow:0 2px 9px #20242c12}
+.module-notebook .context label{white-space:nowrap}
+.module-notebook .context button{min-height:40px;flex-shrink:0}
+.module-notebook .properties{top:68px;right:12px;max-height:calc(100% - 130px)}
+.module-notebook .zoom{bottom:max(12px,env(safe-area-inset-bottom));right:12px;z-index:5}
+.module-notebook #overlay{outline:none}
+.demo-anchors{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.demo-anchor{position:absolute;min-height:44px;padding:6px 12px;pointer-events:auto;border:1px solid #bfd2ea;border-radius:22px;background:#f5f9ff;color:#244f89;font-weight:600;box-shadow:0 2px 5px #0001}
+.demo-anchor[aria-pressed=true]{background:#244f89;color:white}
+.demo-panel{position:absolute;right:12px;top:68px;width:260px;padding:12px;border:1px solid #dce0e7;border-radius:14px;background:#fff;box-shadow:0 6px 24px #17243d20;z-index:6;max-height:calc(100% - 132px);overflow:auto;overscroll-behavior:contain;user-select:none;-webkit-user-select:none}
+.demo-panel[hidden],.demo-panel [hidden]{display:none!important}
+.demo-panel button{min-height:44px;font-size:13px;padding:7px 10px;border:1px solid #e1e5ea;border-radius:9px}
+.demo-panel button:disabled{opacity:.4}
+.demo-heading{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:600;margin-bottom:7px}
+.demo-heading button{border:none;font-size:24px;padding:0;width:44px}
+.demo-row{display:flex;gap:6px;margin-top:7px}.demo-row>button{flex:1}
+.demo-panel [aria-pressed=true]{background:#e6effc;border-color:#6488d4;color:#214e8b}
+.count-controls{display:flex;align-items:center;gap:9px;margin:12px 0 2px}
+.notebook-pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:1px;flex-shrink:0;border-radius:14px}
+.notebook-pad button{background:#29313e;color:#fff;border:none;font-size:18px;padding:0;touch-action:none}
+.notebook-pad button:active{background:#426b9e}
+.notebook-pad [data-nudge=up]{grid-column:2;grid-row:1;border-radius:9px 9px 0 0}
+.notebook-pad [data-nudge=left]{grid-column:1;grid-row:2;border-radius:9px 0 0 9px}
+.notebook-pad [data-nudge=right]{grid-column:3;grid-row:2;border-radius:0 9px 9px 0}
+.notebook-pad [data-nudge=down]{grid-column:2;grid-row:3;border-radius:0 0 9px 9px}
+.notebook-pad span{grid-column:2;grid-row:2;display:grid;place-items:center;background:#29313e;color:#657083}
+.count-actions{display:flex;flex-direction:column;gap:10px;align-items:center;flex:1}.count-actions output{font-size:24px;font-weight:650}
+#demoStatus{font-size:12px;line-height:1.5;min-height:18px;color:#5e6877;margin:10px 0 3px}
+#rotationValue{display:block;text-align:center;font-size:20px;font-weight:650;margin-top:12px}
+#rotationSlider{width:100%;height:44px;accent-color:#2468c4;touch-action:none}
+.rotation-presets{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}.rotation-presets button{padding:3px;font-size:11px;min-width:0}
+.show-tools,.exit-clean{position:absolute;bottom:max(12px,env(safe-area-inset-bottom));z-index:10;min-height:44px;padding:9px 14px;background:#ffffffdd;border:1px solid #dce0e7;border-radius:24px;box-shadow:0 2px 8px #0001}
+.show-tools{left:12px}.exit-clean{right:12px}
+body.clean-view header{display:none}body.clean-view main{height:100dvh}body.clean-view .context,body.clean-view .properties,body.clean-view .point-editor,body.clean-view .zoom,body.clean-view .demo-anchors,body.clean-view .demo-panel{display:none!important}
+#pageLoading{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);padding:20px;background:#fff;border-radius:12px;box-shadow:0 3px 18px #0002;max-width:90%;text-align:center}
+@media(max-width:900px){.module-notebook header{padding:4px 7px;gap:4px}.module-notebook #menu{display:block}.module-notebook #tools{gap:0}.module-notebook #tools button{width:42px;min-width:42px}.module-notebook #historyControls button{width:42px;min-width:42px}}
+@media(max-width:700px){.module-notebook header{flex-wrap:wrap;height:104px;align-content:center}.module-notebook #tools{order:2;flex-basis:100%;justify-content:space-between}.module-notebook #historyControls{margin:0 auto 0 0}.module-notebook main{height:calc(100dvh - 104px)}.module-notebook #menu{display:block}.module-notebook .context{top:5px}.demo-panel{left:8px;right:8px;top:auto;bottom:64px;width:auto;max-height:48%;padding:8px 12px}.demo-heading{margin-bottom:0}.demo-panel .count-controls{justify-content:center}.demo-panel .count-actions{flex:0 0 110px}.demo-panel .demo-row{margin-top:4px}.demo-panel #demoStatus{margin:4px 0}.module-notebook .zoom{bottom:9px}body.clean-view main{height:100dvh}}
+
+.module-notebook .context .swatch{width:40px;min-width:40px;height:40px;min-height:40px;padding:0}
+
+@media(min-width:701px) and (max-width:900px){.module-notebook header{flex-wrap:wrap;height:104px;align-content:center}.module-notebook #tools{order:2;flex-basis:100%;justify-content:space-between}.module-notebook #historyControls{margin:0 auto 0 0}.module-notebook main{height:calc(100dvh - 104px)}body.clean-view main{height:100dvh}}
+
+.notebook-accessible{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;pointer-events:none}

@@ -1,5 +1,5 @@
 import { LabelLayout, edgeCandidates, paintLabel } from './label-layout.js?v=13';
-const countLabels=new LabelLayout();
+const defaultCountLabels=new LabelLayout();
 import { graphToScreen } from './transform-model.js?v=29';
 
 // Screen y increases downwards: this hand travels 12 → 3 → 6 → 9.
@@ -8,7 +8,7 @@ export function clockHandAt(elapsed, radius = 1) {
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
 }
 
-export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, width, height, overlays=[] }) {
+export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, width, height, overlays=[], countLabels=defaultCountLabels }) {
   const segments = [], points = [], obstacles = [];
   if (!lesson.stage) return { segments, points, obstacles };
   const screen = p => graphToScreen(p, view), c = screen(lesson.question.centre);
