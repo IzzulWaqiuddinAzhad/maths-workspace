@@ -22,6 +22,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Keep the classroom notebook isolated from the main workspace. Pin the
+      # tested prototype release so later experiments cannot change the site.
+      - name: Check out the notebook release
+        uses: actions/checkout@v4
+        with:
+          ref: d87a8ac57cc8de176df914a296f5a2c915f485ae
+          path: notebook-release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Test notebook release
+        run: npm test
+        working-directory: notebook-release
+      - name: Add the separate notebook page
+        run: |
+          mkdir -p dist/notebook
+          cp -R notebook-release/dist/. dist/notebook/
+          cp notebook-release/dist/notebook.html dist/notebook/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
