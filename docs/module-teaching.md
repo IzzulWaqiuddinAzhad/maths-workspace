@@ -100,11 +100,17 @@ Open `module.html?question=17`, choose Enlargement in the activity selector, or 
 
 1. Mark the stated centre, rather than defaulting to the origin.
 2. Draw the straight guide through the centre and given point.
-3. Count the two horizontal and three vertical squares from the centre. The original orange path remains visible.
-4. Demonstrate the question's factor, or explore using the slider from −3 to 3. Blue distances change live; negative factors put the image on the opposite side, 0 collapses to the centre and 1 leaves the original position unchanged. Shortcuts give −2, −1, 0, ½, 1, 2 and 3. Pointer dragging snaps near common factors; keyboard arrows adjust by 0.01, Page Up/Down by 0.5, Home resets to 1 and End selects 3.
-5. Reveal only when the factor matches the question. The graph displays A(3, 2) → A′(5, 5), with the centre and scale factor above the arrow. Any new trial hides this mapping and the answer. Show question’s scale restarts at 1 and demonstrates factor 2 again.
+3. Count the given horizontal distance one square at a time, then stop.
+4. Next counts the given vertical distance separately. The orange construction remains visible.
+5. Next counts the image's horizontal distance from the same centre (4 right in Q17), stopping at each square.
+6. Next counts the image's vertical distance (6 up in Q17). A hollow blue endpoint remains unlabelled until both distances match; merely reaching the guide at a different scale does not validate it.
+7. Reveal adds the final coordinate mapping. Changing either count hides the answer and mapping immediately.
 
-`EnlargementLesson` retains source coordinates, computes centre-relative scaling and controls reveal eligibility separately from the trial factor. The rotation range handler is shared with enlargement, including pointer capture, cancellation and the stable slider layout. Bounds expand once when free control becomes available to include the entire scale range; dragging does not continually refit the camera. Pan, zoom, annotation Undo/Redo, EN/BM, theme and question navigation remain shared. The enlargement overlay uses the existing `LabelLayout` to keep distance labels apart. The shared point renderer accepts optional wider label candidates for crowded diagrams while retaining its previous defaults.
+After step 4, each component has −1/+1 buttons and a live signed-direction count. Select Horizontal or Vertical to choose the component for Auto; Auto demonstrates only that component's required count. Next follows horizontal → vertical and returns to any component still incorrect. Clear blue path preserves the original orange measurement. Back removes the last construction step; Reset removes both. Counts use the question's direction, including downward movement in Q18 and the reciprocal return in Q20. Manual components are bounded to ±100 units.
+
+Explore scale factor retains the previous slider from −3 to 3, with its shortcuts, snapping and keyboard support. Back to counting restores the teacher's independent component counts. Free scale is optional and does not overwrite those counts. Source/image coordinates, final mappings and reveal validity remain determined by the question model.
+
+`EnlargementLesson` retains source coordinates, computes centre-relative scaling and controls reveal eligibility separately from the trial factor. The rotation range handler is shared with enlargement, including pointer capture, cancellation and the stable slider layout. Bounds expand once when free scale control is selected to include the entire scale range; dragging does not continually refit the camera. Pan, zoom, annotation Undo/Redo, EN/BM, theme and question navigation remain shared. The enlargement overlay uses the existing `LabelLayout` to keep distance labels apart. The shared point renderer accepts optional wider label candidates for crowded diagrams while retaining its previous defaults.
 
 Checks include exact source/answer data, positive/fractional/negative/zero factors, fixed-centre and collinearity properties, reveal protection, stable bounds, snapping and non-mutating rendering. Browser testing covers real pointer drags, keyboard entry, staged reveal/backtracking/reset, annotations, existing activities and desktop/phone/tablet layouts. An actual iPad/stylus remains a device check. Polygon lessons are not yet activated.
 
@@ -122,3 +128,9 @@ Q20 starts from the given image. Its slider explicitly measures the return scale
 All four share bold, viewport-spanning guides, 24px bold component counts (22px on narrow screens), vertical counts outside their own legs and lower image captions. Label avoidance reserves the actual larger text rectangles and axis numerals; the renderer keeps its original defaults for other activities. Image captions use width-aware candidates below the point, including the given image in Q20. The centre in Q19 is named Centre/Pusat to distinguish it from point C. Zoomed-out enlargement views reduce axis-number density to keep numbers readable.
 
 The regression checks cover all four source diagrams/answers, inverse recovery and reveal gating, image captions below their points, larger count labels and overlap checks on desktop and phone-size canvases.
+
+### Step-by-step counting verification
+
+The count model owns independent given/image x/y distances and the selected component. `squareCountAt` advances one unit, pauses at that square, then continues; reduced-motion preferences apply the chosen component immediately. Only one component animates at a time. Reset/question navigation cancels the animation. Controls are disabled during counting to prevent overlapping actions, while Reset remains available. Original and image paths reuse the existing enlargement overlay and world-coordinate camera.
+
+Regression checks cover all four staged constructions, no vertical path during a horizontal step, preserved original paths, wrong-scale collinear trials, live reveal invalidation, independent count restoration after free scale, and positive/negative/fractional animation endpoints. Browser verification covers Q17–20, manual corrections, reset during movement, backtracking, pan/zoom, EN/BM, light/dark and phone/tablet layouts. Physical iPad input remains a device check.

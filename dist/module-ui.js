@@ -1,8 +1,8 @@
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap } from './module-lesson.js?v=8';
-import { paintEnlargementLesson } from './module-enlargement-render.js?v=3';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=9';
+import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
 import { paintRotationLesson } from './module-rotation-render.js?v=2';
 import { paintReflectionLesson } from './module-reflection-render.js?v=1';
-import { createTransformationRenderer } from './transform-render.js?v=34';
+import { createTransformationRenderer } from './transform-render.js?v=35';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
 import { installCanvasOwnership } from './interaction.js?v=13';
@@ -47,6 +47,7 @@ function renderCopy() {
   document.body.classList.toggle('rotation-lesson', rotation);
   document.body.classList.toggle('enlargement-lesson', enlargement);
   $('enlargementControls').hidden = !enlargement;
+  $('countControls').hidden = !enlargement;
   $('enlargementShortcuts').hidden = !enlargement;
   $('rotationControls').hidden = !rotation;
   $('rotationShortcuts').hidden = !rotation;
@@ -213,25 +214,49 @@ function syncRotation() {
 }
 
 function syncEnlargement() {
-  const stage=lesson.stage, v=lesson.offset;
+  const stage=lesson.stage, counting=lesson.mode==='count';
   const direction=(n,horizontal)=> n<0 ? (horizontal?tr('left','kiri'):tr('down','bawah')) : (horizontal?tr('right','kanan'):tr('up','atas'));
+  const countWords=(n,horizontal)=>`${fmt(Math.abs(n))} ${tr(Math.abs(n)===1?'unit':'units','unit')}${n===0?'':` ${tr('','ke ')}${direction(n,horizontal)}`}`;
+  const imageName=lesson.inverse?tr('Object','Objek'):tr('Image','Imej');
   $('enlargementControls').setAttribute('aria-label',tr('Enlargement guide','Panduan pembesaran'));
   text('enlargementCentre',`Centre ${coord(q.centre)} · Question: k = ${fmt(q.factor)}`,`Pusat ${coord(q.centre)} · Soalan: k = ${fmt(q.factor)}`);
-  text('enlargementHint','Measure from the centre. Orange: original distances · Blue: scaled distances.','Ukur dari pusat. Jingga: jarak asal · Biru: jarak selepas pembesaran.');
-  if(lesson.inverse) text('enlargementHint',`The image is given. Recover ${q.label} by dividing its distances from the centre by ${fmt(q.factor)} (× ${fmt(lesson.requiredFactor)}). Orange: given distances · Blue: return distances.`,`Imej diberi. Cari ${q.label} dengan membahagi jarak dari pusat dengan ${fmt(q.factor)} (× ${fmt(lesson.requiredFactor)}). Jingga: jarak diberi · Biru: jarak songsang.`);
-  const titles=[['Where is the centre?','Di manakah pusat pembesaran?'],[`Centre ${coord(q.centre)}`,`Pusat ${coord(q.centre)}`],['Centre → given point','Pusat → titik diberi'],[`${Math.abs(v.x)} ${direction(v.x,true)} · ${Math.abs(v.y)} ${direction(v.y,false)}`,`${Math.abs(v.x)} ${direction(v.x,true)} · ${Math.abs(v.y)} ${direction(v.y,false)}`],[factorLabel(),factorLabel()],[`${lesson.answerLabel} = ${coord(lesson.answer)}`,`${lesson.answerLabel} = ${coord(lesson.answer)}`]];
-  text('stepTitle',...titles[stage]);
-  const k=Number(lesson.factor.toFixed(2)), dx=Number((v.x*k).toFixed(2)),dy=Number((v.y*k).toFixed(2));
-  const special=k===0?tr('At k = 0, the image collapses to the centre.','Apabila k = 0, imej menjadi titik pusat.') : k===1?tr('At k = 1, the point stays in its original position.','Apabila k = 1, titik kekal pada kedudukan asal.') : k<0?tr('Negative k: the image is on the opposite side of the centre.','k negatif: imej di sebelah bertentangan pusat.') : k<1?tr('Between 0 and 1: the image moves closer to the centre.','Antara 0 dengan 1: imej menghampiri pusat.') : tr('Multiply both distances from the centre.','Darabkan kedua-dua jarak dari pusat.');
-  const detail=stage<2?tr('Start at the stated centre, not the origin.','Mulakan di pusat yang diberi, bukan asalan.') : stage===2?tr('The centre, object and image lie on the same straight line.','Pusat, objek dan imej terletak pada garis lurus yang sama.') : stage===3?tr('Count the squares, then change the scale factor.','Kira petak, kemudian ubah faktor skala.') : `${special} ${fmt(v.x)} × ${fmt(k)} = ${fmt(dx)}; ${fmt(v.y)} × ${fmt(k)} = ${fmt(dy)}.`;
-  text('stepDetail',detail,detail);
-  if(lesson.inverse && stage>=3 && !lesson.answerVisible) text('stepDetail',`Work back from ${lesson.givenLabel}: ${fmt(v.x)} × ${fmt(k)} = ${fmt(dx)}; ${fmt(v.y)} × ${fmt(k)} = ${fmt(dy)}. To recover ${q.label}, use × ${fmt(lesson.requiredFactor)}.`,`Undur dari ${lesson.givenLabel}: ${fmt(v.x)} × ${fmt(k)} = ${fmt(dx)}; ${fmt(v.y)} × ${fmt(k)} = ${fmt(dy)}. Untuk mencari ${q.label}, guna × ${fmt(lesson.requiredFactor)}.`);
-  if(lesson.answerVisible) text('stepDetail',`x: ${calculation(q.centre.x,dx,lesson.answer.x)} · y: ${calculation(q.centre.y,dy,lesson.answer.y)}`,`x: ${calculation(q.centre.x,dx,lesson.answer.x)} · y: ${calculation(q.centre.y,dy,lesson.answer.y)}`);
-  text('stepNumber',stage?`STEP ${stage} / 5`:`QUESTION ${q.number}`,stage?`LANGKAH ${stage} / 5`:`SOALAN ${q.number}`);
-  const actions=[['Mark the centre →','Tandakan pusat →'],['Draw guide →','Lukis garis panduan →'],['Count squares →','Kira petak →']];
-  const action=lesson.answerVisible?['Answer revealed','Jawapan didedahkan']:lesson.ready?(lesson.canReveal?['Reveal answer','Dedahkan jawapan']:lesson.inverse?['Show inverse scale →','Tunjuk skala songsang →']:['Show question’s scale →','Tunjuk skala soalan →']):actions[stage];
+  text('enlargementHint','Orange: given distances · Blue: your construction. Start both paths at the centre.','Jingga: jarak diberi · Biru: binaan anda. Mulakan kedua-dua laluan di pusat.');
+  if(lesson.inverse) text('enlargementHint',`Work back from ${lesson.givenLabel}: divide both distances by ${fmt(q.factor)}.`,`Undur dari ${lesson.givenLabel}: bahagi kedua-dua jarak dengan ${fmt(q.factor)}.`);
+  $('enlargementMode').hidden=!lesson.ready;
+  text('enlargementMode',counting?'Explore scale factor':'Back to counting',counting?'Teroka faktor skala':'Kembali mengira');
+  $('countControls').hidden=!lesson.ready || !counting;
+  $('countControls').setAttribute('aria-label',tr('Count squares','Kira petak'));
+  const axis=lesson.countAxis, horizontal=axis==='x';
+  const titles=[tr('Where is the centre?','Di manakah pusat pembesaran?'),`${tr('Centre','Pusat')} ${coord(q.centre)}`,tr('Centre → given point','Pusat → titik diberi'),
+    `${lesson.givenLabel}: ${countWords(lesson.displayedCount('given','x'),true)}`,`${lesson.givenLabel}: ${countWords(lesson.displayedCount('given','y'),false)}`,
+    `${imageName}: ${countWords(lesson.displayedCount('image','x'),true)}`,`${imageName}: ${countWords(lesson.displayedCount('image','y'),false)}`,`${lesson.answerLabel} = ${coord(lesson.answer)}`];
+  $('stepTitle').textContent= counting ? titles[stage] : factorLabel();
+  let detail=stage<2?tr('Start at the stated centre, not the origin.','Mulakan di pusat yang diberi, bukan asalan.') : stage===2?tr('The centre, object and image lie on the same straight line.','Pusat, objek dan imej terletak pada garis lurus yang sama.') : stage===3?tr('First count horizontally. Keep the vertical count for the next step.','Kira mengufuk dahulu. Kiraan menegak pada langkah seterusnya.') : tr('Use Next for an automatic count, or adjust either direction yourself.','Guna Seterusnya untuk kiraan automatik, atau laraskan sendiri setiap arah.');
+  if(counting && lesson.imageStarted) detail=lesson.counting?tr('Count one square at a time…','Kira satu petak demi satu…') : lesson.canReveal?tr('Both distances match. The point meets the guide at the correct scale.','Kedua-dua jarak betul. Titik bertemu garis panduan pada skala yang betul.') : lesson.onGuide?tr('On the guide. Now check that both distances use the question’s scale.','Pada garis panduan. Semak kedua-dua jarak menggunakan skala soalan.') : tr('Adjust the horizontal and vertical counts until both distances match the scale.','Laraskan kiraan mengufuk dan menegak sehingga kedua-dua jarak mengikut skala.');
+  if(!counting) detail=tr('Change the factor freely. Return to counting to continue your construction.','Ubah faktor dengan bebas. Kembali mengira untuk menyambung binaan anda.');
+  if(lesson.answerVisible) { const d=lesson.requiredCounts; detail=`x: ${calculation(q.centre.x,d.x,lesson.answer.x)} · y: ${calculation(q.centre.y,d.y,lesson.answer.y)}`; }
+  $('stepDetail').textContent=detail;
+  text('stepNumber',stage?`STEP ${stage} / 7`:`QUESTION ${q.number}`,stage?`LANGKAH ${stage} / 7`:`SOALAN ${q.number}`);
+  const actions=[['Mark the centre →','Tandakan pusat →'],['Draw guide →','Lukis garis panduan →'],['Count horizontal →','Kira mengufuk →'],['Count vertical →','Kira menegak →'],['Count image horizontal →','Kira imej mengufuk →'],['Count image vertical →','Kira imej menegak →']];
+  let action=lesson.answerVisible?['Answer revealed','Jawapan didedahkan']:lesson.canReveal?['Reveal answer','Dedahkan jawapan']:stage<6?actions[stage]:[horizontal?'Auto horizontal →':'Auto vertical →',horizontal?'Auto mengufuk →':'Auto menegak →'];
+  if(lesson.inverse && stage===4) action=['Count object horizontal →','Kira objek mengufuk →'];
+  if(lesson.inverse && stage===5) action=['Count object vertical →','Kira objek menegak →'];
+  if(counting && stage>=4 && !lesson.canReveal && !lesson.answerVisible) action=lesson.nextCountAxis==='x'?['Count horizontal →','Kira mengufuk →']:['Count vertical →','Kira menegak →'];
+  if(!counting && !lesson.canReveal) action=['Show question’s scale →','Tunjuk skala soalan →'];
   text('next',...action);$('next').disabled=!!animation || lesson.answerVisible;$('previous').disabled=!stage || !!animation;
-  $('scrubber').hidden=!lesson.ready;$('progress').value=lesson.factor;
+  for(const a of ['x','y']) {
+    const h=a==='x';
+    text(`countAxis${a}`,h?'Horizontal ↔':'Vertical ↕',h?'Mengufuk ↔':'Menegak ↕');
+    $(`countAxis${a}`).setAttribute('aria-pressed',String(axis===a));
+    $(`countValue${a}`).textContent=countWords(lesson.displayedCount('image',a),h);
+    a11y(`countMinus${a}`,h?'One unit left':'One unit down',h?'Satu unit ke kiri':'Satu unit ke bawah');
+    a11y(`countPlus${a}`,h?'One unit right':'One unit up',h?'Satu unit ke kanan':'Satu unit ke atas');
+  }
+  text('countAuto',horizontal?'Auto horizontal':'Auto vertical',horizontal?'Auto mengufuk':'Auto menegak');
+  text('countClear','Clear blue path','Padam laluan biru');
+  for(const button of $('countControls').querySelectorAll('button')) button.disabled=!!animation;
+  $('enlargementMode').disabled=!!animation;
+  $('scrubber').hidden=!lesson.ready || counting;$('progress').value=lesson.factor;
   text('scrubLabel',`Scale factor · ${factorLabel()}`,`Faktor skala · ${factorLabel()}`);
   $('progress').setAttribute('aria-valuetext',factorLabel());
   $('startLabel').textContent='−3';$('horizontalStep').textContent='0';$('verticalStep').textContent='3';
@@ -271,7 +296,7 @@ function sync() {
 }
 
 function schedule() { if (!frame) frame = requestAnimationFrame(draw); }
-function stopAnimation() { cancelAnimationFrame(animation); animation = 0; }
+function stopAnimation() { cancelAnimationFrame(animation); animation = 0; if (isEnlargement()) {lesson.counting=false;lesson.countAnimation=null;} }
 function animateProgress(target) {
   stopAnimation();
   const from = lesson.progress;
@@ -292,7 +317,42 @@ function animateProgress(target) {
   };
   animation = requestAnimationFrame(tick); sync();
 }
+// Animate exactly one component. The original path stays in place while the
+// teacher builds the image independently from the same centre.
+function animateCount(source,axis,target) {
+  stopAnimation();
+  const counts=source==='given'?lesson.givenCounts:lesson.imageCounts,from=counts[axis];
+  const duration=Math.ceil(Math.abs(target-from))*340;
+  if (!duration || reducedMotion.matches) { counts[axis]=target; sync(); return; }
+  lesson.counting=true;lesson.countAnimation={source,axis,from,to:target};
+  let start;
+  const tick=time=>{
+    start ??= time;
+    counts[axis]=squareCountAt(from,target,time-start);
+    if(time-start<duration) { animation=requestAnimationFrame(tick); sync(); }
+    else { counts[axis]=target;lesson.counting=false;lesson.countAnimation=null;animation=0;sync(); }
+  };
+  animation=requestAnimationFrame(tick);sync();
+}
+function countImage(axis,target) {
+  if (!isEnlargement() || !lesson.ready || animation) return;
+  const from=lesson.imageCounts[axis];lesson.setCount(axis,target);
+  const destination=lesson.imageCounts[axis];lesson.imageCounts[axis]=from;
+  // Keep the camera steady unless the teacher's own count goes off-screen.
+  const end=graphToScreen({...q.centre,[axis]:q.centre[axis]+destination},view);
+  if(end.x<35||end.x>canvas.clientWidth-35||end.y<35||end.y>canvas.clientHeight-70) {
+    lesson.imageCounts[axis]=destination;fit();lesson.imageCounts[axis]=from;
+  }
+  animateCount('image',axis,destination);
+}
 function goTo(stage) {
+  if(isEnlargement()) {
+    stopAnimation();lesson.goTo(stage);
+    const axis=stage===3?'x':stage===4?'y':null;
+    if(axis) {const target=lesson.givenCounts[axis];lesson.givenCounts[axis]=0;animateCount('given',axis,target);}
+    else sync();
+    return;
+  }
   const from = lesson.progress; lesson.goTo(stage); const target = lesson.progress;
   if ((isRotation() || isEnlargement()) && fitted) fit();
   lesson.progress = from; animateProgress(target);
@@ -310,7 +370,7 @@ function ensureTrialVisible() {
 
 function draw() {
   frame = 0;
-  const image = lesson.pointAt(), visibleImage = (isEnlargement() ? lesson.ready && lesson.factor !== 1 : isRotation() ? lesson.angle !== 0 : lesson.progress > 0) && (!(isReflection() || isRotation() || isEnlargement()) || Math.hypot(image.x - q.given.x, image.y - q.given.y) > 1e-8);
+  const image = lesson.pointAt(), visibleImage = (isEnlargement() ? lesson.ready && (lesson.mode==='count' ? lesson.canReveal : lesson.factor !== 1) : isRotation() ? lesson.angle !== 0 : lesson.progress > 0) && (!(isReflection() || isRotation() || isEnlargement()) || Math.hypot(image.x - q.given.x, image.y - q.given.y) > 1e-8);
   const reflection = isReflection(), rotation = isRotation(), enlargement = isEnlargement(), v = reflection || rotation || enlargement ? { x: 0, y: 0 } : lesson.movementVector;
   const a = graphToScreen(q.given, view), corner = graphToScreen({ x: q.given.x + v.x, y: q.given.y }, view), p = graphToScreen(image, view);
   const obstacles = [...board.querySelectorAll('button:not([hidden]),.ink-tools,.view-tools,.canvas-caption')].filter(el => el.getClientRects().length).map(el => { const r = el.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; });
@@ -455,11 +515,16 @@ canvas.onkeydown = e => {
 };
 
 function advance() {
+  if(animation) return;
   if (lesson.answerVisible) { if (nextQuestion()) selectQuestion(nextQuestion().id); return; }
   if (isEnlargement()) {
     if (!lesson.ready) goTo(lesson.stage+1);
     else if (lesson.canReveal) { lesson.reveal(); sync(); }
-    else { lesson.scrub(1); lesson.stage=4; animateProgress(lesson.requiredFactor); }
+    else if(lesson.mode==='scale') { lesson.scrub(1);animateProgress(lesson.requiredFactor); }
+    else {
+      const axis=lesson.nextCountAxis;
+      countImage(axis,lesson.requiredCounts[axis]);
+    }
     return;
   }
   if (isRotation()) {
@@ -478,9 +543,12 @@ function advance() {
   goTo(lesson.progress < lesson.targetProgress ? lesson.stage : lesson.stage + 1);
 }
 function previousStep() {
+  if(animation) return;
   if (isEnlargement()) {
-    if (lesson.answerVisible) { lesson.scrub(lesson.factor); sync(); }
-    else if (lesson.factor !== 1) { lesson.stage=3; animateProgress(1); }
+    if (lesson.answerVisible) { lesson.answerVisible=false;lesson.stage=6;sync(); }
+    else if(lesson.mode==='scale') { lesson.setMode('count');if(fitted)fit();sync(); }
+    else if(lesson.stage===6) {lesson.imageCounts.y=0;lesson.stage=5;lesson.countAxis='y';sync();}
+    else if(lesson.stage===5) {lesson.imageCounts={x:0,y:0};lesson.imageStarted=false;lesson.stage=4;lesson.countAxis='x';sync();}
     else goTo(lesson.stage-1);
     return;
   }
@@ -509,6 +577,14 @@ $('slopePositive').onclick = () => changeTrial(() => lesson.setSlope(1));
 $('slopeNegative').onclick = () => changeTrial(() => lesson.setSlope(-1));
 $('clockGuide').onclick = () => { if (lesson.toggleClock()) { clockStarted = performance.now(); sync(); } };
 $('guides').onclick = () => { lesson.toggleGuides(); sync(); };
+$('enlargementMode').onclick=()=>{lesson.setMode(lesson.mode==='count'?'scale':'count');if(fitted)fit();sync();};
+for(const axis of ['x','y']) {
+  $(`countAxis${axis}`).onclick=()=>{lesson.selectCountAxis(axis);sync();};
+  $(`countMinus${axis}`).onclick=()=>countImage(axis,lesson.imageCounts[axis]-1);
+  $(`countPlus${axis}`).onclick=()=>countImage(axis,lesson.imageCounts[axis]+1);
+}
+$('countAuto').onclick=()=>countImage(lesson.countAxis,lesson.requiredCounts[lesson.countAxis]);
+$('countClear').onclick=()=>{lesson.goTo(4);sync();};
 $('next').onclick = advance;
 $('previous').onclick = previousStep;
 function clearScrub() { reflectionScrub = null; freeScrub = null; scrubPointer = null; }
@@ -607,4 +683,4 @@ window.addEventListener('pagehide', () => { clearScrub(); stopAnimation(); point
 document.addEventListener('visibilitychange', () => { if (!document.hidden) schedule(); });
 reducedMotion.addEventListener('change', sync);
 renderCopy(); setTool('pan');
-if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–17. Showing Question 1.', 'Modul ini mengandungi Soalan 1–17. Memaparkan Soalan 1.'); }
+if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–20. Showing Question 1.', 'Modul ini mengandungi Soalan 1–20. Memaparkan Soalan 1.'); }

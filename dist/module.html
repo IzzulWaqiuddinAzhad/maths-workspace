@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
-  <link rel="stylesheet" href="module.css?v=7">
+  <link rel="stylesheet" href="module.css?v=8">
 </head>
 <body>
   <header class="lesson-header">
@@ -52,7 +52,7 @@
         <div><strong id="rotationCentre"></strong><span id="clockHint"></span></div>
         <button id="clockGuide" aria-pressed="false" disabled>Clock guide</button>
       </section>
-      <section id="enlargementControls" class="rotation-controls" aria-label="Enlargement guide" hidden><div><strong id="enlargementCentre"></strong><span id="enlargementHint"></span></div></section>
+      <section id="enlargementControls" class="rotation-controls" aria-label="Enlargement guide" hidden><div><strong id="enlargementCentre"></strong><span id="enlargementHint"></span></div><button id="enlargementMode" hidden>Explore scale factor</button></section>
       <div class="graph-board" id="board">
         <canvas id="graph" tabindex="0" aria-describedby="diagramDescription">Cartesian diagram for Question 1.</canvas>
         <p id="diagramDescription" class="sr-only"></p>
@@ -78,6 +78,11 @@
       </div>
       <footer class="lesson-controls">
         <div class="step-copy" aria-live="polite"><span class="eyebrow" id="stepNumber">QUESTION</span><strong id="stepTitle">Where will A move?</strong><span id="stepDetail">Read the vector before revealing the image.</span></div>
+        <div id="countControls" class="count-controls" aria-label="Count squares" hidden>
+          <div class="count-row"><button id="countAxisx" aria-pressed="true">Horizontal ↔</button><button id="countMinusx">−1</button><output id="countValuex">0 units right</output><button id="countPlusx">+1</button></div>
+          <div class="count-row"><button id="countAxisy" aria-pressed="false">Vertical ↕</button><button id="countMinusy">−1</button><output id="countValuey">0 units up</output><button id="countPlusy">+1</button></div>
+          <div class="count-options"><button id="countClear" class="quiet">Clear blue path</button><button id="countAuto">Auto horizontal</button></div>
+        </div>
         <div class="scrubber" id="scrubber" hidden><label id="scrubLabel" for="progress">Control the movement</label><input id="progress" type="range" min="0" max="2" step="0.01" value="0"><div class="scrub-labels"><span id="startLabel"></span><span id="horizontalStep"></span><span id="verticalStep"></span></div><div id="rotationShortcuts" class="rotation-shortcuts" hidden>
           <button id="rotationCW" aria-label="Clockwise" aria-pressed="false">↻</button><button id="rotationCCW" aria-label="Anticlockwise" aria-pressed="false">↺</button>
           <button data-rotation-angle="0">0°</button><button data-rotation-angle="90">90°</button><button data-rotation-angle="180">180°</button><button data-rotation-angle="270">270°</button><button data-rotation-angle="360">360°</button>
@@ -89,6 +94,6 @@
     </section>
   </main>
   <p class="status" id="status" role="status" hidden></p>
-  <script type="module" src="module-ui.js?v=9"></script>
+  <script type="module" src="module-ui.js?v=10"></script>
 </body>
 </html>

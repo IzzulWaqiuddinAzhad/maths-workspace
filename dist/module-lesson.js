@@ -255,35 +255,91 @@ export class EnlargementSnap {
 }
 export class EnlargementLesson extends PointLesson {
   constructor(question = ENLARGEMENT_QUESTIONS[0]) { super(question); }
-  reset() { this.stage = 0; this.progress = 1; this.answerVisible = false; }
+  reset() {
+    this.stage = 0; this.progress = 1; this.answerVisible = false;
+    this.mode = 'count'; this.countAxis = 'x'; this.counting = false; this.countAnimation=null;
+    this.givenCounts = {x:0,y:0}; this.imageCounts = {x:0,y:0}; this.imageStarted = false;
+  }
   get factor() { return this.progress; }
   get offset() { const p=this.question.given,c=this.question.centre; return {x:p.x-c.x,y:p.y-c.y}; }
   get requiredFactor() { return this.inverse ? 1/this.question.factor : this.question.factor; }
   get answer() { return enlargePoint(this.question.given,this.question.centre,this.requiredFactor); }
-  get ready() { return this.stage >= 3; }
-  get matchesQuestion() { return Math.abs(this.factor-this.requiredFactor) < 1e-9; }
+  get requiredCounts() { const v=this.offset,k=this.requiredFactor; return tidyPoint({x:v.x*k,y:v.y*k}); }
+  get nextCountAxis() {
+    if (!this.imageStarted) return 'x';
+    if (this.stage===5 && Math.abs(this.imageCounts.y-this.requiredCounts.y)>1e-9) return 'y';
+    if (Math.abs(this.imageCounts[this.countAxis]-this.requiredCounts[this.countAxis])>1e-9) return this.countAxis;
+    return this.countAxis==='x'?'y':'x';
+  }
+  get ready() { return this.stage >= 4; }
+  displayedCount(source,axis) {
+    const value=(source==='given'?this.givenCounts:this.imageCounts)[axis],a=this.countAnimation;
+    if (!a || a.source!==source || a.axis!==axis) return value;
+    // Hold the last completed square in either direction, including counting back.
+    return a.from+Math.sign(a.to-a.from)*Math.floor(Math.abs(value-a.from)+1e-8);
+  }
+  get matchesQuestion() {
+    if (this.counting) return false;
+    if (this.mode === 'scale') return Math.abs(this.factor-this.requiredFactor) < 1e-9;
+    return this.imageStarted && ['x','y'].every(axis=>Math.abs(this.imageCounts[axis]-this.requiredCounts[axis])<1e-9);
+  }
   get canReveal() { return this.ready && this.matchesQuestion; }
-  get targetProgress() { return this.stage >= 4 ? this.requiredFactor : 1; }
+  get targetProgress() { return this.stage >= 6 ? this.requiredFactor : 1; }
+  get onGuide() {
+    const v=this.offset,p=this.imageCounts;
+    return Math.abs(v.x*p.y-v.y*p.x)<1e-8;
+  }
   get bounds() {
     const b = this.question.bounds;
-    if (!this.ready) return b;
-    // Fit once before free control; the camera stays still throughout a drag.
-    const ends = [-3,3].map(k => this.pointAt(k));
+    // Counting uses the question's full construction from the start, avoiding
+    // a camera jump between the horizontal and vertical steps.
+    const ends = this.mode === 'scale' ? [-3,3].map(k => this.pointAt(k)) : [this.answer,this.pointAt()];
     return {xmin:Math.min(b.xmin,...ends.map(p=>Math.floor(p.x)-1)),xmax:Math.max(b.xmax,...ends.map(p=>Math.ceil(p.x)+1)),
       ymin:Math.min(b.ymin,...ends.map(p=>Math.floor(p.y)-1)),ymax:Math.max(b.ymax,...ends.map(p=>Math.ceil(p.y)+1))};
   }
   goTo(value) {
     if (!Number.isFinite(value)) return;
-    this.stage = Math.max(0,Math.min(5,Math.round(value)));
-    this.progress = this.targetProgress; this.answerVisible = this.stage === 5;
+    this.stage = Math.max(0,Math.min(7,Math.round(value)));
+    this.mode='count'; this.counting=false; this.countAnimation=null; this.countAxis=this.stage>=6?'y':'x';
+    this.givenCounts={x:this.stage>=3?this.offset.x:0,y:this.stage>=4?this.offset.y:0};
+    this.imageCounts={x:this.stage>=5?this.requiredCounts.x:0,y:this.stage>=6?this.requiredCounts.y:0};
+    this.imageStarted=this.stage>=5;
+    this.progress = this.targetProgress; this.answerVisible = this.stage === 7;
+  }
+  setMode(mode) {
+    if (!this.ready || this.counting || !['count','scale'].includes(mode)) return;
+    this.mode=mode; this.answerVisible=false;
+    this.stage=mode==='scale'?6:this.imageStarted?6:4;
+  }
+  selectCountAxis(axis) {
+    if (!this.ready || this.counting || !['x','y'].includes(axis)) return;
+    this.countAxis=axis;
+  }
+  setCount(axis,value) {
+    if (!this.ready || this.mode!=='count' || !['x','y'].includes(axis) || !Number.isFinite(value)) return;
+    this.imageCounts[axis]=Math.max(-100,Math.min(100,Number(value.toFixed(10))));
+    this.imageStarted=true; this.countAxis=axis; this.stage=axis==='x'?5:6; this.answerVisible=false;
   }
   scrub(value) {
     if (!this.ready || !Number.isFinite(value)) return;
     this.progress = Number(limitFactor(value).toFixed(10));
-    this.stage = this.progress === 1 ? 3 : 4; this.answerVisible = false;
+    this.mode='scale'; this.stage = 6; this.answerVisible = false;
   }
-  reveal() { if (!this.canReveal) return false; this.stage=5; this.answerVisible=true; return true; }
-  pointAt(factor = this.factor) { return enlargePoint(this.question.given,this.question.centre,limitFactor(factor)); }
+  reveal() { if (!this.canReveal) return false; this.stage=7; this.answerVisible=true; return true; }
+  pointAt(factor) {
+    if (factor !== undefined || this.mode==='scale') return enlargePoint(this.question.given,this.question.centre,limitFactor(factor??this.factor));
+    if (!this.imageStarted) return {...this.question.given};
+    return tidyPoint({x:this.question.centre.x+this.imageCounts.x,y:this.question.centre.y+this.imageCounts.y});
+  }
+}
+
+// Pause briefly at each completed square, including when counting backwards.
+export function squareCountAt(from,to,elapsed,unitDuration=340) {
+  const distance=Math.abs(to-from),units=Math.ceil(distance);
+  if (!units || elapsed>=units*unitDuration) return to;
+  const step=Math.max(0,elapsed)/unitDuration,index=Math.floor(step);
+  const phase=Math.min(1,(step-index)/.72),eased=phase*phase*(3-2*phase);
+  return from+Math.sign(to-from)*(index+Math.min(1,distance-index)*eased);
 }
 
 export function fitQuestion(bounds, width, height) {

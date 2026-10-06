@@ -105,7 +105,7 @@ export function createTransformationRenderer(canvas) {
       // An optional lower placement keeps an image caption below its point.
       // Width-aware alternatives still leave room for the guide and count labels.
       const candidates=request.placement==='below'
-        ? [44,28,60,76,92,108].flatMap(dy=>[width/2+18,-width/2-18,width/2+42,-width/2-42,width/2+66,-width/2-66,width/2+90,-width/2-90,0].map(dx=>({x:request.anchor.x+dx,y:request.anchor.y+dy})))
+        ? [44,28,60,76,92,108,124,140,156].flatMap(dy=>[width/2+18,-width/2-18,width/2+42,-width/2-42,width/2+66,-width/2-66,width/2+90,-width/2-90,0].map(dx=>({x:request.anchor.x+dx,y:request.anchor.y+dy})))
         : request.candidates;
       const placed = labels.place({ ...request, candidates, width, height });
       paintLabel(ctx, placed, { ink: request.colour, background: paper });

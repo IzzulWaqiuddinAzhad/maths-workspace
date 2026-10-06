@@ -33,8 +33,8 @@ export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, 
     for(let i=1;i<ps.length;i++) segments.push([ps[i-1],ps[i]]);
   };
   const line=(vertices,...style)=>screenLine(vertices.map(screen),...style);
-  const countPath=(factor,colour,scaled=false)=>{
-    const p=lesson.pointAt(factor), corner={x:p.x,y:centre.y}, b=screen(corner), end=screen(p);
+  const countPath=(counts,colour,scaled=false)=>{
+    const p={x:centre.x+counts.x,y:centre.y+counts.y}, corner={x:p.x,y:centre.y}, b=screen(corner), end=screen(p);
     line([centre,corner,p],colour,scaled?2.5:2,scaled?[]:[4,3]);
     // A tick per whole square makes the two components countable.
     for(const [from,to] of [[centre,corner],[corner,p]]) {
@@ -44,21 +44,27 @@ export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, 
         ctx.beginPath();ctx.moveTo(v.x+(dy? -3:0),v.y+(dx? -3:0));ctx.lineTo(v.x+(dy?3:0),v.y+(dx?3:0));ctx.strokeStyle=colour;ctx.lineWidth=1.5;ctx.stroke();
       }
     }
-    if(Math.abs(p.x-centre.x)>1e-8) requests.push({id:`${scaled?'scaled':'original'}-x`,text:number(Math.abs(p.x-centre.x)),colour,candidates:edgeCandidates(c,b,scaled?1:-1)});
+    const countText=axis=>number(Math.abs(lesson.mode==='count'?lesson.displayedCount(scaled?'image':'given',axis):counts[axis]));
+    if(Math.abs(p.x-centre.x)>1e-8) requests.push({id:`${scaled?'scaled':'original'}-x`,text:countText('x'),colour,candidates:edgeCandidates(c,b,scaled?1:-1)});
     if(Math.abs(p.y-centre.y)>1e-8) {
       // Keep the count outside its vertical leg; it must never label the diagonal.
       const side=Math.sign(end.x-c.x)||1;
       const candidates=edgeCandidates(b,end).filter(q=>(q.x-b.x)*side>0);
-      requests.push({id:`${scaled?'scaled':'original'}-y`,text:number(Math.abs(p.y-centre.y)),colour,candidates});
+      requests.push({id:`${scaled?'scaled':'original'}-y`,text:countText('y'),colour,candidates});
+    }
+    if (lesson.mode==='count' && (scaled ? !lesson.canReveal : lesson.counting && !lesson.imageStarted)) {
+      ctx.beginPath();ctx.arc(end.x,end.y,5,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=colour;ctx.lineWidth=2.5;ctx.stroke();points.push(end);
     }
   };
   ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
   if(lesson.stage>=2) {
     screenLine(enlargementGuideSegment(c,screen(lesson.question.given),width,height),dark?'#b0bac9':'#697586',3,[8,5]);
   }
-  if(lesson.ready) {
-    countPath(1,orange);
-    if(Math.abs(lesson.factor-1)>1e-8 && Math.abs(lesson.factor)>1e-8) countPath(lesson.factor,blue,true);
+  if(lesson.stage>=3) {
+    countPath(lesson.givenCounts,orange);
+    if(lesson.mode==='scale') {
+      if(Math.abs(lesson.factor-1)>1e-8 && Math.abs(lesson.factor)>1e-8) countPath({x:lesson.offset.x*lesson.factor,y:lesson.offset.y*lesson.factor},blue,true);
+    } else if(lesson.imageStarted) countPath(lesson.imageCounts,blue,true);
   }
   ctx.beginPath();ctx.arc(c.x,c.y,6,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=orange;ctx.lineWidth=2;ctx.stroke();
   ctx.beginPath();ctx.moveTo(c.x-10,c.y);ctx.lineTo(c.x+10,c.y);ctx.moveTo(c.x,c.y-10);ctx.lineTo(c.x,c.y+10);ctx.stroke();points.push(c);
