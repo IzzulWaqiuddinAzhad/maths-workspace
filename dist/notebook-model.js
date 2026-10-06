@@ -1,16 +1,23 @@
 import { ROTATION_QUESTIONS, RotationLesson } from './module-lesson.js?v=15';
+import {MODULE_PAGES,MODULE_GRAPHS} from './notebook-assets/module-pages.js';
 
 // Calibration from the original A3 page SVG (PDF points, not screen pixels).
 export const MODULE_PAGE = Object.freeze({width:595.2756,height:841.8898});
+let pageY=0;
+export const NOTEBOOK_PAGES=MODULE_PAGES.map(p=>{const page={...p,x:(841.8898-p.width)/2,y:pageY};pageY+=p.height+30;return Object.freeze(page);});
+export const NOTEBOOK_SIZE=Object.freeze({width:841.8898,height:pageY-30});
+export const NOTEBOOK_GRAPHS=MODULE_GRAPHS.map(g=>{const page=NOTEBOOK_PAGES[g.page];return Object.freeze({...g,x:g.x+page.x,y:g.y+page.y,size:g.width,questionBox:{x:g.x+page.x-22,y:g.y+page.y-32,w:g.width+44,h:g.height+68}});});
+export const pageAt=y=>NOTEBOOK_PAGES.find(p=>y<p.y+p.height+15)??NOTEBOOK_PAGES.at(-1);
+export function pageToGraph(graph,p){const b=graph.bounds;return {x:b.xmin+(p.x-graph.x)/graph.unit,y:b.ymax-(p.y-graph.y)/graph.unit};}
 export const PAGE_GRAPHS = Object.freeze(ROTATION_QUESTIONS.slice(0,4).map((question,i)=>Object.freeze({
   id:question.id, question, x:i%2?333:59, y:i<2?218:551,
   size:200, unit:12.5,
   questionBox:{x:i%2?308:32,y:i<2?106:439,w:258,h:340},
 })));
-export function graphToPage(graph,p){return {x:graph.x+graph.size/2+p.x*graph.unit,y:graph.y+graph.size/2-p.y*graph.unit};}
-export function fitPage(width,height){
-  const zoom=Math.max(.1,Math.min(3,(width-32)/MODULE_PAGE.width));
-  return {zoom,x:(width-MODULE_PAGE.width*zoom)/2,y:70};
+export function graphToPage(graph,p){return graph.bounds?{x:graph.x+(p.x-graph.bounds.xmin)*graph.unit,y:graph.y+(graph.bounds.ymax-p.y)*graph.unit}:{x:graph.x+graph.size/2+p.x*graph.unit,y:graph.y+graph.size/2-p.y*graph.unit};}
+export function fitPage(width,height,page=NOTEBOOK_PAGES[1]){
+  const zoom=Math.max(.1,Math.min(3,(width-32)/page.width));
+  return {zoom,x:(width-page.width*zoom)/2-page.x*zoom,y:70-page.y*zoom};
 }
 export function fitQuestion(graph,width,height,reserved={right:0,bottom:0}){
   const b=graph.questionBox,w=Math.max(180,width-(reserved.right??0)),h=Math.max(180,height-(reserved.bottom??0));
@@ -18,10 +25,10 @@ export function fitQuestion(graph,width,height,reserved={right:0,bottom:0}){
   return {zoom,x:(w-b.w*zoom)/2-b.x*zoom,y:76+(h-92-b.h*zoom)/2-b.y*zoom};
 }
 export function fitGraph(graph,width,height,reserved={}){
-  return fitQuestion({...graph,questionBox:{x:graph.x-18,y:graph.y-18,w:236,h:244}},width,height,reserved);
+  return fitQuestion({...graph,questionBox:{x:graph.x-18,y:graph.y-18,w:(graph.width??200)+36,h:(graph.height??200)+44}},width,height,reserved);
 }
 export function constrainPage(view,width,height){
-  const paperWidth=MODULE_PAGE.width*view.zoom,paperHeight=MODULE_PAGE.height*view.zoom;
+  const paperWidth=NOTEBOOK_SIZE.width*view.zoom,paperHeight=NOTEBOOK_SIZE.height*view.zoom;
   const side=Math.min(160,width/3);
   // Allow room beside a focused graph, but never lose the paper off screen.
   return {...view,x:Math.max(side-paperWidth,Math.min(width-side,view.x)),
@@ -41,11 +48,12 @@ export class NotebookRotationLesson extends RotationLesson {
     this.buildIndex=start;this.stage=Math.min(8,start+2);this.answerVisible=false;
     return true;
   }
-  finishConstructionGesture(){
+  get armReady(){return this.stage>0&&!this.constructionComplete&&this.buildCounts.slice(this.completedArms*2,this.completedArms*2+2).some(n=>n!==0);}
+  advanceArm(){
     if(!this.stage||this.constructionComplete)return false;
     const start=this.completedArms*2;
-    if(![start,start+1].every(i=>Math.abs(this.buildCounts[i]-this.segmentInfo(i).target)<1e-8))return false;
-    // Commit only at release, so a held arrow cannot spill into the next arm.
+    if(!this.armReady)return false;
+    // Next keeps this complete L and returns the cursor to the centre.
     this.buildIndex=start+2;this.stage=this.constructionComplete?9:Math.min(8,this.buildIndex+2);return true;
   }
   previousConstruction(){

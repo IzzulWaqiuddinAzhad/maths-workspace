@@ -1,29 +1,35 @@
 # Module notebook prototype
 
-Open `dist/notebook.html` through an HTTP server. This branch adds one original module page: printed A3, Questions 9–12 (90-degree rotation). The production entry point remains `index.html`.
+Open `dist/notebook.html` through an HTTP server. All 23 original student-module pages are loaded, with 63 interactive Cartesian graphs across 64 questions. The production entry point remains `index.html`. Keep this work on `codex/module-notebook` until reviewed.
 
 ## Teacher workflow
 
-- Write anywhere using the existing workspace pens, highlighter, eraser, shapes, ruler, text and image tools. Calculator stays in the toolbar. Undo/Redo is separate from demonstration steps.
-- One finger pans by default; Apple Pencil draws. Enable Draw with touch if required. Two fingers zoom the paper and its content together. A mouse wheel scrolls; Control/Command + wheel zooms.
-- Scroll to a graph and tap Demo. Next locates the centre. Tap an arrow for one square, hold it to repeat, or slide between arrows without releasing. Both directions stay available; the first movement sets the route. A correctly completed arm and bend are kept on release, then the next arm starts at the centre. Next stays disabled until all four arms are complete. Back clears the current arm, or reopens the preceding one. There are no order selectors or per-segment Next steps.
-- Once constructed, explore angles in either direction, choose quarter-turn presets, optionally show the clock, then reveal the answer at the correct angle. Wrong trial constructions do not unlock the answer.
-- Read object and Read image blink the selected point, extend a guide to x, emphasize the axis value and fly it into an empty coordinate slot, then repeat for y. Only the guides fade. Completed coordinates stay on the graph and survive reload; an image label updates when its angle changes. Coincident source/image readouts share one label.
-- Page fits the page width. Fit graph gives a closer view. Full screen hides the toolbar and panels; Tools brings them back. Safari versions without the fullscreen API get a clean viewport view instead; they may retain browser chrome.
-- Writing and the four lesson states save locally under separate prototype keys. Reset demo affects only that question. The existing workspace document is not changed.
+- Scroll through the paper, or choose a section using the page picker. Previous/next arrows change pages. Page fits the current page width; Fit graph enlarges the selected graph.
+- The existing pens, highlighter, eraser, ruler, text, shapes, images and calculator remain available. Undo/Redo changes writing independently of graph demonstrations. Apple Pencil draws; one finger pans when using the pen with Draw with touch off. Hand pans in any context. Two fingers zoom the paper, demonstrations and ink together.
+- Tap Demo on any Cartesian graph. Choose a printed object and one of the four transformation tools. Use Select to move geometry handles, or switch to Pen to annotate. Each graph remembers its own objects and tool settings.
+- **Translation:** freely move the image with the game pad. Tap for one square, hold to repeat, or slide between arrows. Horizontal and vertical distances update on the graph and panel. No guided steps are required.
+- **Rotation of a point:** locate the centre, then move freely with the pad. The active endpoint pulses. Next keeps the current arm and bend and returns the pulsing point to the centre. Repeat for four arms; the pulse then stops and the rotation lever becomes available. Trial counts are allowed; an incorrect construction does not enable the question-angle shortcut. Back clears the active arm or reopens the previous one. The optional clock and quarter-turn presets remain available.
+- **Rotation of a polygon:** pick or enter the centre, then use the lever. A reference ray and angle arc follow the farthest vertex. Moving the centre resets the turn. Quarter turns snap in either direction.
+- **Reflection:** choose a horizontal, vertical or slanted mirror, draw one on the graph, or enter an equation with the in-app equation keypad. The straight presets start away from the axes. Use the pad or drag the line to shift it parallel to itself; drag either endpoint to change its slope. The displayed equation updates. The lever follows the drag and finishes the flip toward the last deliberate direction on release. Guides are optional.
+- **Enlargement:** point questions retain centre, guide and across/up counting steps. Then use the pad freely to count the image, or switch to the scale-factor lever. Polygon questions use the centre and scale-factor controls directly. Negative factors are supported.
+- **Combined transformations:** Use image keeps the current result and selects it as the next source. Choose the next transformation. The original printed object remains unchanged. Delete image removes only a generated copy.
+- **Read coordinates:** tap a source/image vertex or use Read object / Read image. The point blinks, the guide reaches the x-axis, the number appears there and moves into its coordinate slot; y follows. Only the guides fade. Coordinates stay visible, move with the image and survive reload. For a polygon, the vertex selector chooses which coordinate to read.
+- Full screen hides toolbar and panels for a clean projected page. Tools brings them back. Safari versions without the fullscreen API use the clean viewport layout but may retain browser chrome.
 
-## Architecture
+## Architecture and preservation
 
-`workspace-host.js` provides optional configuration to the existing drawing engine in `app.js`. The normal app uses empty configuration. Hosts can supply a background, camera constraints, document keys and a public view interface without duplicating pointer handlers, tool state or undo logic.
+`workspace-host.js` configures the existing drawing engine. The optional geometry interaction hook in `app.js` uses its existing pointer capture, world conversion and pinch cancellation. The normal app supplies no hook. Demonstrations are drawn beneath annotations and never become erasable document objects.
 
-`notebook-model.js` calibrates the four graphs against the original page SVG. One grid unit is 12.5 PDF points. The paper, demonstrations and annotation objects use this same world space. The SVG comes directly from the editable source of `BIJAK_SPM_PPDMT_2026_Transformasi_Bengkel_v4_2.pdf`, section A3, PDF page 4. Printed questions, grid, axes and given points are retained.
+`notebook-model.js` stacks the pages and maps each printed grid into the common world. `notebook-assets/module-pages.js` stores geometry extracted from the editable student-module builder. Page SVGs are copied directly from its original HTML; questions, axes and source shapes are not redrawn or replaced. `scripts/extract-notebook-module.py` documents extraction and does not save or overwrite the source PDF.
 
-`notebook.js` composes the page host with the a small NotebookRotationLesson extension of the existing RotationLesson, the shared rotation renderer and coordinate-guide animation. Per-graph LabelLayout instances prevent one question's label placement affecting another. Demonstrations render beneath writing and are never selectable or erasable document objects.
+`notebook-session.js` adapts the existing four transformation models and keeps per-object/per-tool state. `notebook-render.js` reuses the existing geometry and coordinate animation renderers. `line-equation-input.js` shares the existing reflection equation editor with the workspace. `notebook.js` connects these to page navigation and the shared workspace tools.
 
-## Validation
+Writing and demonstrations save locally under separate module prototype keys. Earlier A3 ink and its camera are translated into the corresponding page position once; earlier rotation states migrate separately. The old save keys and the main workspace document remain intact. Reset demo affects only the selected object/tool.
 
-Run `npm test`. New coverage checks all four original SVG point locations, shared zoom/pan mapping, iPad fit geometry, both construction orders and all answers, overshoot/correction, arm completion on release, held-pad cancellation, coordinate timing, state migration and recovery, page bounds and writing-history isolation.
+## Validation and limits
 
-Browser checks cover free counting, sliding between arrows, four-arm gating, persistent coordinate reading, angle exploration, clock, paper scrolling, handwriting, Undo/Redo, calculator buttons, safe calculator display, reload persistence, portrait/landscape toolbar bounds and clean fullscreen. A physical iPad, Pencil palm rejection and real Safari pinch gestures still require device testing.
+Run `npm test`. Coverage includes all page/grid bounds, all source objects in all four transformations, positive/negative/inverse point results, free rotation arm commits and cursor reset, finite rendering coordinates, image chaining, persistent vertex readouts, portrait/landscape fit, migration, camera transforms, coordinate-animation timing and writing-history isolation.
 
-This is a one-page prototype. It does not yet preload the rest of the module, import arbitrary PDFs, export an annotated PDF or sync between devices. Keep it on `codex/module-notebook` until the interaction has been reviewed. The main GitHub Pages workflow is deliberately unchanged.
+Browser checks cover free translation, four rotation arms and reset-to-centre, mirror dragging/tilting/flipping, enlargement counting, later polygon pages, coordinate persistence, writing/Undo/Redo, calculator, page navigation and clean layout. Physical iPad/Pencil/Safari gesture testing still requires the device.
+
+Area-only questions without Cartesian graphs retain the printed diagrams and writing tools. This release does not add new area/tessellation lessons, arbitrary PDF import, annotated PDF export or cross-device sync. Off-grid trial geometry is clipped to the printed graph. The main GitHub Pages workflow is unchanged.

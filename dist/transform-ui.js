@@ -1,3 +1,4 @@
+import {bindLineEquationInput} from './line-equation-input.js';
 import { bindRepeatingButton } from './direction-pad.js?v=1';
 import { zoomAt } from './core.js?v=14';
 import { installCanvasOwnership } from './interaction.js?v=13';
@@ -19,7 +20,7 @@ export function mountTransformations(host, { language = () => 'en', back }) {
   let snap = true, guides = false, coordinates = false, showLabels = true, vertex = 0, polygon = [];
   let drag = null, ink = null, workingAnnotations = null, drawLine = null, view = { x: 0, y: 0, zoom: 1 };
   let reflectionDrag = null, rotationWedge = true, padPosition = null, padDrag = null;
-  let penColour = '#d04d40', penWidth = .065, previousSize = null, equation = '', cursor = 0, pickingCentre = false, equationOpen = false;
+  let penColour = '#d04d40', penWidth = .065, previousSize = null, pickingCentre = false, equationOpen = false;
   const pointers = new Map(), cleanups = [];
   const selectedObject = () => { const o = data().objects.find(o => o.id === selected); return o && drag?.id === selected && drag.points ? { ...o, points: drag.points } : o; };
   const button = (id, en, bm, extra = '') => `<button type="button" id="${id}" ${extra}>${tr(en, bm)}</button>`;
@@ -265,7 +266,7 @@ export function mountTransformations(host, { language = () => 'en', back }) {
   get('tfDX').onchange = () => { vector.x = +get('tfDX').value; sync(); }; get('tfDY').onchange = () => { vector.y = +get('tfDY').value; sync(); };
   get('tfPadReset').onclick = get('tfVectorReset').onclick = () => { vector = { x: 0, y: 0 }; sync(); };
   get('tfDrawMirror').onclick = () => setTool('mirror');
-  get('tfEnterMirror').onclick = () => { tool = 'select'; equationOpen = !equationOpen; equation = mirror ? lineEquation(mirror.line) : ''; cursor = equation.length; paintEquation(); sync(); if (equationOpen) get('tfEquation').focus({ preventScroll: true }); };
+  get('tfEnterMirror').onclick = () => { tool = 'select'; equationOpen = !equationOpen; equationInput.setValue(mirror ? lineEquation(mirror.line) : ''); sync(); if (equationOpen) get('tfEquation').focus({ preventScroll: true }); };
   get('tfPickCentre').onclick = () => { tool = 'select'; pickingCentre = true; sync(); say('Tap the graph to place the centre.', 'Ketik graf untuk meletakkan pusat.'); };
   get('tfCX').onchange = get('tfCY').onchange = () => setCentre({ x: +get('tfCX').value, y: +get('tfCY').value });
   get('tfAngle').onchange = () => { if (!centre) setCentre({ x: +get('tfCX').value, y: +get('tfCY').value }); setAngle(+get('tfAngle').value * +get('tfDirection').value); };
@@ -292,30 +293,13 @@ export function mountTransformations(host, { language = () => 'en', back }) {
     if (ps.length > 2 && !polygonValid(ps)) { say('This edit would cross or flatten the polygon.', 'Suntingan ini akan menyilangkan atau meratakan poligon.'); updateVertexControls(); return; }
     resetForEdit(); store.transact(d => { d.transformation.objects.find(o => o.id === selected).points = ps; }); updateObjectControls();
   };
-  function paintEquation() {
-    const element = get('tfEquation'), caret = document.createElement('span'); caret.textContent = '│'; caret.className = 'tf-caret';
-    element.replaceChildren(document.createTextNode(equation.slice(0, cursor)), caret, document.createTextNode(equation.slice(cursor))); element.setAttribute('aria-valuetext', equation);
-  }
-  function equationKey(key) {
-    if (key === 'Enter') { applyEquation(); return; }
-    if (key === 'C') { equation = ''; cursor = 0; }
-    else if (key === 'Backspace') { if (cursor) { equation = equation.slice(0, cursor - 1) + equation.slice(cursor); cursor--; } }
-    else if (key === 'Delete') equation = equation.slice(0, cursor) + equation.slice(cursor + 1);
-    else if (key === 'ArrowLeft') cursor = Math.max(0, cursor - 1);
-    else if (key === 'ArrowRight') cursor = Math.min(equation.length, cursor + 1);
-    else if (equation.length < 120) { equation = equation.slice(0, cursor) + key + equation.slice(cursor); cursor += key.length; }
-    paintEquation(); get('tfEquation').focus({ preventScroll: true });
-  }
   function applyEquation() {
     try {
-      const line = parseMirrorEquation(equation); stopAnimation(); mirror = { line, handles: lineHandles(line, screenToGraph({ x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 }, view)) }; reflected = false; flip = 0; equationOpen = false; tool = 'select';
+      const line = parseMirrorEquation(equationInput.getValue()); stopAnimation(); mirror = { line, handles: lineHandles(line, screenToGraph({ x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 }, view)) }; reflected = false; flip = 0; equationOpen = false; tool = 'select';
       say('Mirror line ready. Pull the lever up to reflect.', 'Garis pantulan sedia. Tarik tuil ke atas untuk pantulan.'); sync();
     } catch { say('Enter a straight-line equation, for example x = 3 or y = 2x + 1.', 'Masukkan persamaan garis lurus, contohnya x = 3 atau y = 2x + 1.'); }
   }
-  for (const key of ['x', 'y', '=', '(', ')', '7', '8', '9', '+', '−', '4', '5', '6', '×', '÷', '1', '2', '3', '←', '→', 'C', '0', '.', '⌫']) {
-    const b = document.createElement('button'); b.type = 'button'; b.textContent = key; b.onpointerdown = e => e.preventDefault(); b.onclick = () => equationKey(({ '⌫': 'Backspace', '←': 'ArrowLeft', '→': 'ArrowRight' })[key] || key); get('tfEquationKeys').append(b);
-  }
-  get('tfEquation').onkeydown = e => { if (e.ctrlKey || e.metaKey || e.altKey) return; if (/^[0-9xy=()+*/.\-]$/.test(e.key) || ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); equationKey(e.key); } };
+  const equationInput=bindLineEquationInput(get('tfEquation'),get('tfEquationKeys'),applyEquation);
   get('tfApplyEquation').onclick = applyEquation;
   const reflectionLever = get('tfReflectionLever');
   function moveReflection(e) {

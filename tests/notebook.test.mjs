@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {MODULE_PAGE,PAGE_GRAPHS,graphToPage,fitPage,fitQuestion,constrainPage,saveLesson,restoreLesson} from '../dist/notebook-model.js';
+import {MODULE_PAGE,NOTEBOOK_SIZE,PAGE_GRAPHS,graphToPage,fitPage,fitQuestion,constrainPage,saveLesson,restoreLesson} from '../dist/notebook-model.js';
 import {screenToWorld,worldToScreen,zoomAt,DocumentStore,newDocument,createObject} from '../dist/core.js?v=14';
 
 test('printed module points agree with all four calibrated graph origins',()=>{
@@ -61,12 +61,12 @@ test('demo changes leave writing history alone and undo never removes the printe
 test('large scroll deltas cannot move the page completely off screen',()=>{
   for(const width of [390,768,1024])for(const zoom of [.1,1,3,8])for(const n of [-100000,100000]){
     const height=768,v=constrainPage({x:n,y:n,zoom},width,height);
-    assert.ok(v.x<width&&v.x+MODULE_PAGE.width*zoom>0);
-    assert.ok(v.y<height&&v.y+MODULE_PAGE.height*zoom>0);
+    assert.ok(v.x<width&&v.x+NOTEBOOK_SIZE.width*zoom>0);
+    assert.ok(v.y<height&&v.y+NOTEBOOK_SIZE.height*zoom>0);
   }
 });
 
-test('free arrows accept both axes without Next and unlock rotation only after four complete arms',()=>{
+test('free arrows keep the cursor until Next commits each arm and returns it to the centre',()=>{
   for(const g of PAGE_GRAPHS)for(const firstAxis of ['x','y']){
     const l=restoreLesson(g.question,null);l.stage=1;
     for(let arm=0;arm<4;arm++){
@@ -75,15 +75,16 @@ test('free arrows accept both axes without Next and unlock rotation only after f
       if(arm===0)l.selectFirstAxis(firstAxis);
       const first=l.segmentInfo(arm*2),second=l.segmentInfo(arm*2+1);
       for(let i=0;i<Math.abs(first.target);i++)l.moveConstruction(first.axis,Math.sign(first.target));
-      assert.equal(l.finishConstructionGesture(),false);
+      assert.equal(l.completedArms,arm);
       // Try the wrong way, overshoot, then correct; never silently snap counts.
       l.moveConstruction(second.axis,-Math.sign(second.target));
-      assert.equal(l.finishConstructionGesture(),false);
+      assert.equal(l.completedArms,arm);
       for(let i=0;i<Math.abs(second.target)+2;i++)l.moveConstruction(second.axis,Math.sign(second.target));
-      assert.equal(l.finishConstructionGesture(),false);
+      assert.equal(l.completedArms,arm);
       l.moveConstruction(second.axis,-Math.sign(second.target));
       assert.equal(l.completedArms,arm);assert.equal(l.constructionComplete,false);
-      assert.equal(l.finishConstructionGesture(),true);assert.equal(l.completedArms,arm+1);
+      assert.equal(l.advanceArm(),true);assert.equal(l.completedArms,arm+1);
+      assert.deepEqual(l.constructionCursor,arm===3?null:g.question.centre);
     }
     assert.ok(l.constructionComplete&&l.constructionMatches);
     l.scrub(g.question.degrees);assert.ok(l.reveal());
@@ -101,7 +102,7 @@ test('partial free movement, read labels and legacy constructions survive reload
   assert.equal(copy.readPoints.source,true);assert.equal(copy.firstAxis,'y');
   const old={stage:3,buildIndex:1,firstAxis:'x',buildCounts:[3,1,0,0,0,0,0,0],progress:0};
   const migrated=restoreLesson(q,old);assert.deepEqual(migrated.constructionCursor,{x:3,y:1});
-  migrated.moveConstruction('y',1);assert.equal(migrated.finishConstructionGesture(),true);
+  migrated.moveConstruction('y',1);assert.equal(migrated.advanceArm(),true);
   copy.goTo(9);copy.scrub(-90);copy.readPoints.image=true;
   const read=restoreLesson(q,saveLesson(copy));assert.equal(read.readPoints.image,true);
   read.scrub(90);assert.deepEqual(read.pointAt(),{x:-2,y:3});assert.equal(read.readPoints.image,true);

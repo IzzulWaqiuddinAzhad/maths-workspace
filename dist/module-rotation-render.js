@@ -8,7 +8,7 @@ export function clockHandAt(elapsed, radius = 1) {
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
 }
 
-export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, width, height, overlays=[], countLabels=defaultCountLabels }) {
+export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, width, height, overlays=[], countLabels=defaultCountLabels, cursorPulse=0 }) {
   const segments = [], points = [], obstacles = [];
   if (!lesson.stage) return { segments, points, obstacles };
   const screen = p => graphToScreen(p, view), c = screen(lesson.question.centre);
@@ -43,6 +43,7 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
   if(!lesson.constructionComplete && lesson.stage) {
     const info=lesson.segmentInfo(),path=lesson.constructionPaths[info.arm],p=screen(lesson.constructionCursor??(info.part?path.end:path.corner));
     ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=lesson.segmentInfo().part?blue:orange;ctx.lineWidth=2;ctx.stroke();points.push(p);
+    if(cursorPulse>0){ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fillStyle=blue;ctx.fill();ctx.save();ctx.globalAlpha=.35+.5*cursorPulse;ctx.beginPath();ctx.arc(p.x,p.y,8+6*cursorPulse,0,Math.PI*2);ctx.strokeStyle=blue;ctx.lineWidth=2.5;ctx.stroke();ctx.restore();}
   }
   countLabels.begin({bounds:width&&height?{x:8,y:8,w:width-16,h:height-62}:undefined,points:[c,source],segments,labelOverlapPenalty:2000});
   countLabels.placed.push(...overlays);
