@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ENLARGEMENT_QUESTIONS, EnlargementLesson, EnlargementSnap, enlargePoint, createModuleLesson, findModuleQuestion, fitQuestion } from '../dist/module-lesson.js';
 import { graphToScreen } from '../dist/transform-model.js';
-import { paintEnlargementLesson } from '../dist/module-enlargement-render.js';
+import { paintEnlargementLesson, enlargementGuideSegment } from '../dist/module-enlargement-render.js';
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} differs from ${b}`);
 
 test('enlargement Q17 follows printed page 5 and independently checked scheme answer',()=>{
@@ -70,11 +70,55 @@ test('enlargement guides stay finite at zero and negative factors and do not mut
   l.goTo(stage);
   for(const k of [-3,-1,0,.5,1,2,3]) {
    if(l.ready)l.scrub(k);
-   const before=JSON.stringify(l),output=paintEnlargementLesson(ctx,{lesson:l,view:{x:300,y:300,zoom:.7},dark});
+   const before=JSON.stringify(l),output=paintEnlargementLesson(ctx,{lesson:l,view:{x:300,y:300,zoom:.7},dark,width:1000,height:600});
    assert.equal(JSON.stringify(l),before);assert.ok(output.obstacles.every(o=>Object.values(o).every(Number.isFinite)));
   }
  }
  assert.ok(paths.length>0);assert.ok(paths.flat().every(Number.isFinite));
+});
+
+test('the enlargement guide reaches both canvas edges through pan, zoom, resize and every scale factor',()=>{
+ const lesson=new EnlargementLesson();lesson.goTo(3);
+ for(const [width,height] of [[1280,434],[390,450],[900,700]]) for(const zoom of [.4,1,2.5]) {
+  const view={x:width/2-70,y:height/2+45,zoom};
+  const c=graphToScreen(lesson.question.centre,view),a=graphToScreen(lesson.question.given,view);
+  const ends=enlargementGuideSegment(c,a,width,height);
+  assert.equal(ends.length,2);
+  for(const p of ends) {
+   assert.ok(p.x>=-1e-8&&p.x<=width+1e-8&&p.y>=-1e-8&&p.y<=height+1e-8);
+   near(Math.min(Math.abs(p.x),Math.abs(p.x-width),Math.abs(p.y),Math.abs(p.y-height)),0);
+   near((p.x-c.x)*(a.y-c.y)-(p.y-c.y)*(a.x-c.x),0);
+  }
+  for(const factor of [-3,0,.5,1,2,3]) {
+   lesson.scrub(factor);
+   const strokes=[];
+   const ctx=new Proxy({measureText:s=>({width:s.length*8}),stroke(){strokes.push(this.lineWidth);}},{get:(t,k)=>t[k]??(()=>{})});
+   const result=paintEnlargementLesson(ctx,{lesson,view,width,height,dark:false});
+   assert.deepEqual(result.segments[0],ends,'guide extent must not depend on the image scale');
+   assert.ok(strokes[0]>=3,'guide must remain bold at every camera zoom');
+  }
+ }
+ assert.deepEqual(enlargementGuideSegment({x:20,y:20},{x:20,y:30},100,80),[{x:20,y:0},{x:20,y:80}]);
+ assert.deepEqual(enlargementGuideSegment({x:20,y:20},{x:30,y:20},100,80),[{x:0,y:20},{x:100,y:20}]);
+ assert.deepEqual(enlargementGuideSegment({x:120,y:20},{x:120,y:30},100,80),[]);
+});
+
+test('square counts remain beside their own vertical legs instead of the diagonal',()=>{
+ const lesson=new EnlargementLesson();lesson.goTo(3);
+ for(const zoom of [.5,1,1.5]) for(const factor of [-2,.5,1,2]) {
+  const view={x:500,y:450,zoom},texts=[];
+  lesson.scrub(factor);
+  const ctx=new Proxy({measureText:s=>({width:s.length*8}),fillText(text,x,y){texts.push({text,x,y,colour:this.fillStyle});}},{get:(t,k)=>t[k]??(()=>{})});
+  paintEnlargementLesson(ctx,{lesson,view,width:1200,height:900,dark:false});
+  for(const [k,colour] of [[1,'#a95c14'],...(factor===1?[]:[[factor,'#2468c4']])]) {
+   const p=graphToScreen(lesson.pointAt(k),view),c=graphToScreen(lesson.question.centre,view);
+   const label=texts.find(t=>t.text===String(3*Math.abs(k))&&t.colour===colour);
+   assert.ok(label);
+   assert.ok((label.x-p.x)*Math.sign(p.x-c.x)>0,'vertical count must be outside its leg');
+   assert.ok(Math.abs(label.x-p.x)<=42,'vertical count must stay adjacent to its leg');
+   assert.ok(label.y>Math.min(p.y,c.y)&&label.y<Math.max(p.y,c.y),'vertical count must remain between the leg endpoints');
+  }
+ }
 });
 
 test('reduction point labels stay separate on a narrow teaching canvas in EN and BM',async()=>{

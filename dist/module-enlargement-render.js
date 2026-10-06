@@ -2,6 +2,23 @@ import { graphToScreen } from './transform-model.js?v=29';
 import { LabelLayout, edgeCandidates, polarCandidates, paintLabel } from './label-layout.js?v=12';
 const labels = new LabelLayout();
 
+// Clip the infinite centre-to-object line to the current screen, not the scale factor.
+export function enlargementGuideSegment(centre, given, width, height) {
+  if (!(width > 0 && height > 0)) return [];
+  const dx=given.x-centre.x, dy=given.y-centre.y;
+  if (Math.hypot(dx,dy)<1e-8) return [];
+  let low=-Infinity, high=Infinity;
+  for (const [origin,direction,limit] of [[centre.x,dx,width],[centre.y,dy,height]]) {
+    if (Math.abs(direction)<1e-8) { if (origin<0 || origin>limit) return []; }
+    else {
+      const a=-origin/direction, b=(limit-origin)/direction;
+      low=Math.max(low,Math.min(a,b)); high=Math.min(high,Math.max(a,b));
+    }
+  }
+  if (low>high) return [];
+  return [low,high].map(t=>({x:centre.x+t*dx,y:centre.y+t*dy}));
+}
+
 // Original and scaled square-count paths share the same centre and camera.
 export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, overlays=[]}) {
   const segments=[],points=[],obstacles=[],requests=[];
@@ -10,11 +27,12 @@ export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, 
   const orange=dark?'#f9bd77':'#a95c14', blue=dark?'#91beff':'#2468c4';
   const ink=dark?'#edf0f5':'#20242c', paper=dark?'#15181d':'#fff';
   const number=n=>String(Number(n.toFixed(2))).replace('-','−');
-  const line=(vertices,colour,width=2,dash=[])=>{
-    const ps=vertices.map(screen);ctx.beginPath();ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+  const screenLine=(ps,colour,width=2,dash=[])=>{
+    ctx.beginPath();ps.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
     ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.setLineDash(dash);ctx.stroke();ctx.setLineDash([]);
     for(let i=1;i<ps.length;i++) segments.push([ps[i-1],ps[i]]);
   };
+  const line=(vertices,...style)=>screenLine(vertices.map(screen),...style);
   const countPath=(factor,colour,scaled=false)=>{
     const p=lesson.pointAt(factor), corner={x:p.x,y:centre.y}, b=screen(corner), end=screen(p);
     line([centre,corner,p],colour,scaled?2.5:2,scaled?[]:[4,3]);
@@ -27,11 +45,16 @@ export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, 
       }
     }
     if(Math.abs(p.x-centre.x)>1e-8) requests.push({id:`${scaled?'scaled':'original'}-x`,text:number(Math.abs(p.x-centre.x)),colour,candidates:edgeCandidates(c,b,scaled?1:-1)});
-    if(Math.abs(p.y-centre.y)>1e-8) requests.push({id:`${scaled?'scaled':'original'}-y`,text:number(Math.abs(p.y-centre.y)),colour,candidates:edgeCandidates(b,end,scaled?-1:1)});
+    if(Math.abs(p.y-centre.y)>1e-8) {
+      // Keep the count outside its vertical leg; it must never label the diagonal.
+      const side=Math.sign(end.x-c.x)||1;
+      const candidates=edgeCandidates(b,end).filter(q=>(q.x-b.x)*side>0);
+      requests.push({id:`${scaled?'scaled':'original'}-y`,text:number(Math.abs(p.y-centre.y)),colour,candidates});
+    }
   };
   ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
   if(lesson.stage>=2) {
-    line([lesson.pointAt(Math.min(-.25,lesson.factor)),lesson.pointAt(Math.max(1.25,lesson.factor))],dark?'#929ba9':'#8c96a5',1.5,[5,5]);
+    screenLine(enlargementGuideSegment(c,screen(lesson.question.given),width,height),dark?'#b0bac9':'#697586',3,[8,5]);
   }
   if(lesson.ready) {
     countPath(1,orange);

@@ -1,5 +1,5 @@
 import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap } from './module-lesson.js?v=7';
-import { paintEnlargementLesson } from './module-enlargement-render.js?v=1';
+import { paintEnlargementLesson } from './module-enlargement-render.js?v=2';
 import { paintRotationLesson } from './module-rotation-render.js?v=2';
 import { paintReflectionLesson } from './module-reflection-render.js?v=1';
 import { createTransformationRenderer } from './transform-render.js?v=33';
