@@ -27,7 +27,7 @@ jobs:
       - name: Check out the notebook release
         uses: actions/checkout@v4
         with:
-          ref: 9aba4520c563766ed4710d76756fe1503bafbdd5
+          ref: e1dccacbec560583b8996ae09a58025437520ae0
           path: notebook-release
       - uses: actions/setup-node@v4
         with:
