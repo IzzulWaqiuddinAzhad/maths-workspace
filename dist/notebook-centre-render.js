@@ -1,7 +1,7 @@
 import {graphToScreen} from './transform-model.js?v=29';
 import {paintCoordinatePulse} from './module-coordinate-guide.js?v=4';
 
-// Use the notebook's shared label collector so paths, circles and handwriting
+// Use the notebook's shared label collector so paths and handwriting
 // all participate in the same final lettering pass.
 export function paintCentreFinding(ctx,{study,labels,view,now=0,active=false}){
   const screen=p=>graphToScreen(p,view),f=study;
@@ -22,7 +22,7 @@ export function paintCentreFinding(ctx,{study,labels,view,now=0,active=false}){
   };
   if(f.index===null)return;
   f.paths.forEach((path,i)=>line(path,i%2?'#276dc3':'#ac5d13'));
-  [f.a,f.b].forEach((p,i)=>{
+  if(!f.distancesVisible)[f.a,f.b].forEach((p,i)=>{
     dot(p,i?'#276dc3':'#ac5d13',f.phase==='meet');
     labels.queue(p,`${f.objects[i?1-f.side:f.side].name}${f.index+1}`,{colour:i?'#276dc3':'#ac5d13'});
   });
@@ -43,12 +43,13 @@ export function paintCentreFinding(ctx,{study,labels,view,now=0,active=false}){
     }else {dot(p,'#803daa',c.id===f.candidate);labels.queue(p,c.name,{colour:'#803daa',leader:true});}
   }
   if(f.chosen&&f.distancesVisible){
-    const c=f.chosen.point,a=f.source[f.compareIndex],b=f.target[f.compareIndex],r=f.distances[0],cs=screen(c);
-    line([c,a],'#ac5d13',2.5,[7,5]);line([c,b],'#276dc3',2.5,[7,5]);
-    ctx.beginPath();ctx.arc(cs.x,cs.y,r*40,0,Math.PI*2);ctx.strokeStyle='#803daa90';ctx.lineWidth=2;ctx.stroke();
-    const circle=Array.from({length:65},(_,i)=>({x:c.x+r*Math.cos(i*Math.PI/32),y:c.y+r*Math.sin(i*Math.PI/32)}));
-    const ps=circle.map(screen);labels.collect({segments:ps.slice(1).map((p,i)=>[ps[i],p])});
-    [a,b].forEach((p,i)=>{dot(p,i?'#276dc3':'#ac5d13',true);labels.queue(p,`${f.objects[i].name}${f.compareIndex+1}`,{colour:i?'#276dc3':'#ac5d13'});});
+    const c=f.chosen.point,points=[f.source[f.compareIndex],f.target[f.compareIndex]],fractions=f.distanceFractions;
+    points.forEach((p,i)=>{
+      const colour=i?'#276dc3':'#ac5d13',t=fractions[i],end={x:c.x+(p.x-c.x)*t,y:c.y+(p.y-c.y)*t};
+      if(t>0)line([c,end],colour,2.8);
+      dot(p,colour,true);
+      labels.queue(p,f.objects[i].labels?.[f.compareIndex]||`${f.objects[i].name}${f.compareIndex+1}`,{colour});
+    });
   }
   if(f.testDegrees!==null){
     const points=f.trialPoints;line([...points,points[0]],'#16816d',3.5);

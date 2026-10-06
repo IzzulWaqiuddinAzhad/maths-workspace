@@ -17,6 +17,17 @@ export function rotationError(source,target,centre,degrees){
   if(!source.length||source.length!==target.length)return Infinity;
   return Math.max(...source.map((p,i)=>pointDistance(rotatePoint(p,centre,degrees),target[i])));
 }
+// Locate printed corresponding shapes, including rotation stages inside mixed
+// questions. Matching every vertex excludes reflections and enlargements.
+export function givenRotationPair(objects,plans){
+  for(const plan of plans)for(const step of plan.steps){
+    const a=objects.find(o=>o.name===step.sourceName),b=objects.find(o=>o.name===step.targetName);
+    if(!a||!b||a===b||a.points.length<2||a.points.length!==b.points.length)continue;
+    const i=a.points.findIndex((p,i)=>!near(p,b.points[i]));if(i<0)continue;
+    if(rotationCandidates(a.points[i],b.points[i]).some(c=>[-90,90,180].some(d=>rotationError(a.points,b.points,c.point,d)<1e-7)))return [a,b];
+  }
+  return null;
+}
 export class CentreFinding {
   constructor(objects,saved){
     this.objects=objects.slice(0,2);this.reset();
@@ -30,11 +41,11 @@ export class CentreFinding {
     }
     if(this.phase==='check'&&this.chooseCandidate(saved.candidate)){
       if(Number.isInteger(saved.compareIndex)&&this.source[saved.compareIndex])this.compareIndex=saved.compareIndex;
-      this.distancesVisible=saved.distancesVisible===true;
+      this.distancesVisible=saved.distancesVisible===true;this.distanceStage=this.distancesVisible?([1,2,3].includes(saved.distanceStage)?saved.distanceStage:3):0;this.distanceProgress=1;
       if([-90,90,180].includes(saved.testDegrees)){this.testDegrees=saved.testDegrees;this.testProgress=1;}
     }
   }
-  reset(){this.index=null;this.side=0;this.phase='pair';this.path=[];this.otherPath=[];this.step=.5;this.candidate=null;this.compareIndex=0;this.distancesVisible=false;this.testDegrees=null;this.testProgress=0;}
+  reset(){this.index=null;this.side=0;this.phase='pair';this.path=[];this.otherPath=[];this.step=.5;this.candidate=null;this.compareIndex=0;this.distancesVisible=false;this.distanceStage=0;this.distanceProgress=1;this.testDegrees=null;this.testProgress=0;}
   get source(){return this.objects[0].points;}
   get target(){return this.objects[1].points;}
   get a(){return this.objects[this.side].points[this.index];}
@@ -69,14 +80,16 @@ export class CentreFinding {
     const path=this.phase==='meet'?this.path:this.otherPath;
     if(path.length>1)path.pop();else if(this.phase==='arms'){this.phase='meet';this.otherPath=[];}
   }
-  clearCheck(){this.candidate=null;this.distancesVisible=false;this.testDegrees=null;this.testProgress=0;}
+  clearCheck(){this.candidate=null;this.distancesVisible=false;this.distanceStage=0;this.distanceProgress=1;this.testDegrees=null;this.testProgress=0;}
   chooseCandidate(id){
     if(this.phase!=='check'||!this.candidates.some(c=>c.id===id))return false;
     this.clearCheck();this.candidate=id;
     const c=this.chosen.point,others=this.source.map((p,i)=>({i,error:Math.abs(pointDistance(p,c)-pointDistance(this.target[i],c))})).filter(p=>p.i!==this.index);
     this.compareIndex=others.sort((a,b)=>b.error-a.error)[0]?.i??this.index;return true;
   }
-  compare(index){if(!this.chosen||!Number.isInteger(index)||!this.source[index])return false;this.compareIndex=index;this.distancesVisible=true;this.testDegrees=null;this.testProgress=0;return true;}
+  compare(index){if(!this.chosen||!Number.isInteger(index)||!this.source[index])return false;this.compareIndex=index;this.distancesVisible=true;this.distanceStage=1;this.distanceProgress=1;this.testDegrees=null;this.testProgress=0;return true;}
+  nextDistance(){if(!this.chosen||!this.distancesVisible||this.distanceProgress<1)return false;if(this.distanceStage>=3){this.compare(this.compareIndex);return false;}this.distanceStage++;this.distanceProgress=0;return true;}
+  get distanceFractions(){return !this.distancesVisible?[0,0]:[this.distanceStage>2?1:this.distanceStage===2?this.distanceProgress:0,this.distanceStage===3?this.distanceProgress:0];}
   get distances(){if(!this.chosen)return null;const c=this.chosen.point;return [pointDistance(this.source[this.compareIndex],c),pointDistance(this.target[this.compareIndex],c)];}
   get equalDistances(){const d=this.distances;return !!d&&Math.abs(d[0]-d[1])<1e-7;}
   startTest(degrees){if(!this.chosen||![-90,90,180].includes(degrees))return false;this.testDegrees=degrees;this.testProgress=0;return true;}
@@ -87,5 +100,5 @@ export class CentreFinding {
     const opposite=path=>path.map(p=>minus(add(this.a,this.b),p));
     return [this.path,opposite(this.path),this.otherPath,opposite(this.otherPath)].filter(p=>p.length);
   }
-  save(){return {index:this.index,side:this.side,phase:this.phase,path:this.path,otherPath:this.otherPath,step:this.step,candidate:this.candidate,compareIndex:this.compareIndex,distancesVisible:this.distancesVisible,testDegrees:this.testProgress===1?this.testDegrees:null};}
+  save(){return {index:this.index,side:this.side,phase:this.phase,path:this.path,otherPath:this.otherPath,step:this.step,candidate:this.candidate,compareIndex:this.compareIndex,distancesVisible:this.distancesVisible,distanceStage:this.distanceStage,testDegrees:this.testProgress===1?this.testDegrees:null};}
 }

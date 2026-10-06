@@ -74,8 +74,26 @@ test('starting on the image changes the controlled tip but preserves the printed
   const f=session(33).centreFinding;f.selectPair(0,1);assert.deepEqual(f.a,{x:-1,y:-2});complete(f);
   const c=f.candidates.find(c=>pointDistance(c.point,{x:-3,y:0})<1e-8);f.chooseCandidate(c.id);f.startTest(-90);f.testProgress=1;assert.ok(f.testMatches);f.startTest(90);assert.equal(f.testMatches,false);
 });
-test('new study is limited to the rotation-description questions',()=>{
-  for(const g of NOTEBOOK_GRAPHS){const s=new NotebookSession(g);assert.equal(!!s.centreFinding,g.questionId>=33&&g.questionId<=40);}
+test('every printed rotation pair including mixed questions has the same study, without including translations or reflections',()=>{
+  const supported=['33','34','35','36','37','38','39','40','47','49','50','60','62-1','64-2'];
+  for(const g of NOTEBOOK_GRAPHS){const s=new NotebookSession(g);assert.equal(!!s.centreFinding,supported.includes(g.id),g.id);}
+  assert.deepEqual(session('49').centreFinding.objects.map(o=>o.name),['Q','R']);
+  assert.deepEqual(session('62-1').centreFinding.objects.map(o=>o.name),['ABCD','EFGH']);
+  for(const id of supported){const f=session(id).centreFinding;assert.ok(f.selectPair(1));complete(f);assert.equal(f.phase,'check');}
+});
+test('distance reading waits for each Next, clears the previous pair, and preserves the construction',()=>{
+  const f=session(33).centreFinding;f.selectPair(0);complete(f);f.chooseCandidate('first');const paths=structuredClone(f.paths);
+  f.compare(1);assert.deepEqual(f.distanceFractions,[0,0]);assert.equal(f.distanceStage,1);
+  assert.ok(f.nextDistance());f.distanceProgress=.5;assert.deepEqual(f.distanceFractions,[.5,0]);assert.equal(f.nextDistance(),false);
+  f.distanceProgress=1;assert.ok(f.nextDistance());f.distanceProgress=.25;assert.deepEqual(f.distanceFractions,[1,.25]);f.distanceProgress=1;
+  assert.deepEqual(f.distanceFractions,[1,1]);assert.equal(f.nextDistance(),false);assert.equal(f.distanceStage,1);
+  f.compare(2);assert.deepEqual(f.distanceFractions,[0,0]);assert.deepEqual(f.paths,paths);
+  const restored=new CentreFinding(f.objects,f.save());assert.equal(restored.distanceStage,1);assert.equal(restored.compareIndex,2);
+});
+test('the distance renderer only draws the two radii and small point pulses, never a comparison circle',()=>{
+  const s=session(33),f=s.centreFinding,g={...graph(33),session:s,layout:new LabelLayout()};s.findingCentre=true;f.selectPair(0);complete(f);f.chooseCandidate('first');f.compare(1);
+  const radii=[],ctx=new Proxy({measureText:t=>({width:String(t).length*12}),arc:(x,y,r)=>radii.push(r)},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
+  f.nextDistance();f.distanceProgress=1;f.nextDistance();f.distanceProgress=1;paintNotebookGraph(ctx,g,{now:2000,active:true});assert.ok(radii.every(r=>r<25));
 });
 test('find-centre rendering handles fractional centres, off-grid candidates, animation and every question without invalid geometry',()=>{
   const numerical=new Set(['moveTo','lineTo','arc','rect','fillRect','translate','scale']);

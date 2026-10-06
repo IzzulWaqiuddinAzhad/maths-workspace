@@ -2,8 +2,8 @@ import {transformationText} from './notebook-questions.js';
 import {bindLineEquationInput} from './line-equation-input.js';
 import {workspaceHost as host} from './workspace-host.js';
 import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,rotationFromSlider,rotationToSlider,constrainPage} from './notebook-model.js?v=6';
-import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=7';
-import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=9';
+import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=8';
+import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=10';
 import {coordinateGuideDuration} from './module-coordinate-guide.js?v=4';
 import {RotationSnap,ReflectionScrub,lineFoot,objectHit,parseMirrorEquation,lineHandles} from './transform-model.js?v=29';
 import {EnlargementSnap,squareCountAt} from './module-lesson.js?v=15';
@@ -69,16 +69,17 @@ const {workspace}=await import('./app.js?v=55');api=workspace;
 document.querySelector('header').prepend($('tools'));
 $('overlay').setAttribute('aria-label','Module pages. Write with a pen, use one finger to pan, or pinch to zoom. Select to interact with the active graph.');
 
-function stopAnimation(){api?.cancelAction();if(animation?.kind==='centre-test'){animation.graph.session.centreFinding.testDegrees=null;animation.graph.session.centreFinding.testProgress=0;}$('mirrorInputPanel').hidden=true;padBinding?.stop();if(animation?.kind==='count'){const l=animation.graph.session.lesson;l.givenCounts[animation.axis]=animation.from;l.stage=animation.axis==='x'?2:3;l.counting=false;l.countAnimation=null;}animation=null;guide=null;intent=null;}
+function stopAnimation(){api?.cancelAction();if(animation?.kind==='centre-distance')animation.graph.session.centreFinding.distanceProgress=1;if(animation?.kind==='centre-test'){animation.graph.session.centreFinding.testDegrees=null;animation.graph.session.centreFinding.testProgress=0;}$('mirrorInputPanel').hidden=true;padBinding?.stop();if(animation?.kind==='count'){const l=animation.graph.session.lesson;l.givenCounts[animation.axis]=animation.from;l.stage=animation.axis==='x'?2:3;l.counting=false;l.countAnimation=null;}animation=null;guide=null;intent=null;}
 function animate(){if(!tick&&!document.hidden)tick=requestAnimationFrame(frame);}
 function frame(time){
   tick=0;now=time;
   if(animation){
     const a=animation,l=a.graph.session.lesson,p=Math.min(1,(time-a.start)/a.duration);
-    if(a.kind==='centre-test')a.graph.session.centreFinding.testProgress=p*p*(3-2*p);
+    if(a.kind==='centre-distance')a.graph.session.centreFinding.distanceProgress=p*p*(3-2*p);
+    else if(a.kind==='centre-test')a.graph.session.centreFinding.testProgress=p*p*(3-2*p);
     else if(a.kind==='count')l.givenCounts[a.axis]=squareCountAt(a.from,a.to,time-a.start);
     else l.scrub(a.from+(a.to-a.from)*(p*p*(3-2*p)));
-    if(p===1){if(a.kind==='count'){l.givenCounts[a.axis]=a.to;l.counting=false;l.countAnimation=null;}animation=null;save();sync();}
+    if(p===1){if(a.kind==='count'){l.givenCounts[a.axis]=a.to;l.counting=false;l.countAnimation=null;}animation=null;if(a.kind==='centre-test')intent='compare-pair';save();sync();}
   }
   if(guide&&time-guide.start>=coordinateGuideDuration(guide.mode,guide.point)){
     const l=guide.graph.session.lesson;if(guide.mode==='plot')l.stage=Math.max(1,l.stage);l.readPoints[guide.key]=true;
@@ -96,7 +97,8 @@ function showCoordinates(mode,kind='source',index=active?.readIndex??0){
   guide={graph:active,mode,key:centre?'centre':readKey(kind,index),point:centre?l.question.centre:kind==='image'?s.imagePoints[index]:s.source.points[index],label:centre?'Centre':vertexLabel(s,index,kind==='image'),start:performance.now()};
   sync();animate();
 }
-function openGraph(g){stopAnimation();active=g;g.started=true;g.readIndex=0;$('demoPanel').hidden=false;for(const a of graphs)a.button.setAttribute('aria-pressed',String(a===g));sync();fitActive(true);animate();}
+function centrePairIntent(f){return f.chosen?'compare-pair':f.phase==='pair'||f.phase==='meet'&&f.path.length===1?'find-pair':null;}
+function openGraph(g){stopAnimation();active=g;if(g.session.findingCentre)intent=centrePairIntent(g.session.centreFinding);g.started=true;g.readIndex=0;$('demoPanel').hidden=false;for(const a of graphs)a.button.setAttribute('aria-pressed',String(a===g));sync();fitActive(true);animate();}
 function positionSummary(){
   const root=$('questionSummary');if(!active||root.hidden)return;
   const {width,height}=api.size,b=graphSummaryBounds(active,api.view,width,height,root.offsetHeight);
@@ -123,9 +125,9 @@ function syncSummary(){
   const button=(row,text,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.disabled=disabled;b.onclick=action;row.append(b);return b;};
   if(s.findingCentre){
     const row=document.createElement('div');row.className='summary-row';
-    button(row,`${s.base[0].name} → ${s.base[1].name}`,()=>selectCentrePair());
-    const title=document.createElement('span');title.textContent='Find centre';row.append(title);root.append(row);
-    const instruction=document.createElement('p');instruction.className='summary-construction';instruction.textContent=centreInstruction(s.centreFinding);root.append(instruction);return;
+    button(row,`${s.centreFinding.objects[0].name} → ${s.centreFinding.objects[1].name}`,()=>selectCentrePair());
+    const title=document.createElement('span');title.textContent='Find centre';row.append(title);if(s.centreFinding.chosen)button(row,distanceButtonText(s.centreFinding),advanceDistance,!!animation);root.append(row);
+    const instruction=document.createElement('p');instruction.className='summary-construction';instruction.textContent=distanceText(s.centreFinding)||centreInstruction(s.centreFinding);root.append(instruction);return;
   }
   s.plan.steps.forEach((step,i)=>{
     const row=document.createElement('div');row.className='summary-row';row.setAttribute('data-active',String(i===s.stepIndex));
@@ -173,12 +175,19 @@ function sync(){
   $('demoStatus').textContent=guide?(guide.point.x===0&&guide.point.y===0?'Origin.':'Follow x, then y.'):intent==='centre'?'Tap the graph to place the centre.':intent==='line'?'Drag on the graph to draw the mirror line.':rot&&!l.stage?'Plot or pick the centre.':s.usesConstruction&&!l.constructionComplete?'Move freely. Next visits the next arm or its unfinished tip.':ref?'Move the line or its handles. Use the lever to flip.':enl&&!l.ready?'Follow the counts from the centre.':'';
   syncCentreFinding(busy);
 }
+function distanceText(f){
+  const [a,b]=f.distanceFractions;if(a<1)return '';
+  const first=`${f.objects[0].labels?.[f.compareIndex]||f.objects[0].name+(f.compareIndex+1)}: ${lengthText(f.distances[0])} units`;
+  return b<1?first:`${first} · ${f.objects[1].labels?.[f.compareIndex]||f.objects[1].name+(f.compareIndex+1)}: ${lengthText(f.distances[1])} units\n${f.equalDistances?'Equal distances. Check the whole polygon too.':'Unequal distances: this centre cannot work.'}`;
+}
+function distanceButtonText(f){return !f.distancesVisible?'Read pair':f.distanceStage===1?'Next: first distance':f.distanceStage===2?'Next: matching distance':'Replay pair';}
 function centreInstruction(f){
-  if(intent==='find-pair'||f.phase==='pair')return 'Tap a vertex on either polygon. Its matching vertex will pulse too.';
+  if(f.phase==='pair')return 'Tap a vertex on either polygon. Its matching vertex will pulse too.';
+  if(intent==='find-pair')return 'Tap another vertex, or start moving with the game pad.';
   if(f.phase==='meet')return f.met?'The tips meet at M. Next: complete the other two arms.':'Move the pulsing tips towards each other with the game pad.';
   if(f.phase==='arms')return f.armsReady?'Four arms complete. Next: check the possible centres.':'From M, repeat the lengths turned through 90°. The two tips move oppositely.';
   if(!f.chosen)return 'Choose M for 180°, or C₁ / C₂ for 90°. Then check another vertex pair.';
-  return `Test ${f.chosen.name}: compare another pair, then rotate the whole polygon.`;
+  return f.distancesVisible?(f.distanceStage===1?'The matching pair is pulsing. Next: draw the first distance.':f.distanceStage===2?'Next: draw the distance to the matching vertex.':'Tap another vertex to compare a new pair.'):`Tap a vertex to compare its two distances from ${f.chosen.name}.`;
 }
 function syncCentreFinding(busy){
   const s=active.session,f=s.centreFinding,finding=!!f&&s.findingCentre;
@@ -192,36 +201,39 @@ function syncCentreFinding(busy){
   $('centreStepControls').hidden=!['meet','arms'].includes(f.phase);
   $('centreNext').disabled=busy||!f.canNext;$('centreNext').textContent=f.phase==='meet'?'Next arms':'Check centres';
   $('centreUndo').disabled=busy||f.phase==='pair'||f.phase==='meet'&&f.path.length<=1;
-  $('choosePair').disabled=busy;$('choosePair').setAttribute('aria-pressed',String(intent==='find-pair'));
+  $('choosePair').disabled=busy;$('choosePair').setAttribute('aria-pressed',String(['find-pair','compare-pair'].includes(intent)));
   $('constructionControls').hidden=!['meet','arms'].includes(f.phase);
-  document.querySelectorAll('[data-nudge]').forEach(b=>{b.disabled=busy||!!intent;b.ariaLabel=`Move ${f.step===.5?'half a square':'one square'} ${b.dataset.nudge}`;});
+  document.querySelectorAll('[data-nudge]').forEach(b=>{b.disabled=busy;b.ariaLabel=`Move ${f.step===.5?'half a square':'one square'} ${b.dataset.nudge}`;});
   document.querySelectorAll('[data-centre-step]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(+b.dataset.centreStep===f.step));});
   document.querySelectorAll('[data-candidate]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(b.dataset.candidate===f.candidate));const c=f.candidates.find(c=>c.id===b.dataset.candidate),p=c?.point,bounds=active.bounds;const outside=p&&(p.x<bounds.xmin||p.x>bounds.xmax||p.y<bounds.ymin||p.y>bounds.ymax);b.textContent=`${c?.name??b.dataset.candidate} · ${b.dataset.candidate==='midpoint'?'180°':'90°'}${outside?' · beyond grid':''}`;});
   const c=f.cursor,start=f.phase==='meet'?f.a:f.midpoint;
   $('countValue').textContent=c&&start?`Horizontal ${fmt(c.x-start.x)}\nVertical ${fmt(c.y-start.y)}`:'';
   const h=f.index===null?null:{x:Math.abs(f.a.x-f.midpoint.x),y:Math.abs(f.a.y-f.midpoint.y)};
   $('countCaption').textContent=f.phase==='arms'?`Turn the first lengths: ${fmt(h.x)} and ${fmt(h.y)}`:'Move both tips';
-  $('comparePair').replaceChildren(...f.source.map((_,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${f.objects[0].name}${i+1} ↔ ${f.objects[1].name}${i+1}${i===f.index?' · first pair':''}`;return o;}));
+  $('comparePair').replaceChildren(...f.source.map((_,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${f.objects[0].labels?.[i]||f.objects[0].name+(i+1)} ↔ ${f.objects[1].labels?.[i]||f.objects[1].name+(i+1)}${i===f.index?' · first pair':''}`;return o;}));
   $('comparePair').value=f.compareIndex;$('comparePair').disabled=busy;$('compareDistances').disabled=busy;
+  $('compareDistances').textContent=distanceButtonText(f);
   document.querySelectorAll('[data-centre-test]').forEach(b=>{b.disabled=busy;b.hidden=f.candidate==='midpoint'?+b.dataset.centreTest!==180:+b.dataset.centreTest===180;b.setAttribute('aria-pressed',String(+b.dataset.centreTest===f.testDegrees));});
-  $('distanceResult').textContent=f.distancesVisible?`${f.objects[0].name}${f.compareIndex+1}: ${lengthText(f.distances[0])} units · ${f.objects[1].name}${f.compareIndex+1}: ${lengthText(f.distances[1])} units\n${f.equalDistances?'Equal distances. Check the whole polygon too.':'Unequal distances: this centre cannot work.'}`:'';
+  $('distanceResult').textContent=distanceText(f);
   $('centreTestResult').textContent=f.testDegrees===null?'':busy?'Rotating…':f.testMatches?'Every corresponding vertex matches.':'The whole polygon does not match. Try another centre or direction.';
   $('hideCentreTest').hidden=f.testDegrees===null;$('hideCentreTest').disabled=busy;
   $('demoStatus').textContent=centreInstruction(f);
 }
-function selectCentrePair(){stopAnimation();intent='find-pair';sync();animate();}
-$('findCentre').onclick=()=>{stopAnimation();active.session.findingCentre=true;if(active.session.centreFinding.phase==='pair')intent='find-pair';changed();fitActive(true);};
+function selectCentrePair(){stopAnimation();intent=active.session.centreFinding.chosen?'compare-pair':'find-pair';sync();animate();}
+$('findCentre').onclick=()=>{stopAnimation();active.session.findingCentre=true;const f=active.session.centreFinding;active.session.chooseObject(f.objects[0].id);intent=centrePairIntent(f);changed();fitActive(true);};
 $('freeRotation').onclick=()=>{stopAnimation();active.session.findingCentre=false;active.session.trialVisible=true;changed();fitActive(true);};
 $('hideTrial').onclick=()=>{stopAnimation();active.session.trialVisible=!active.session.trialVisible;changed();};
 $('choosePair').onclick=selectCentrePair;
 $('centreNext').onclick=()=>{stopAnimation();active.session.centreFinding.next();changed();};
 $('centreUndo').onclick=()=>{stopAnimation();active.session.centreFinding.undo();changed();};
-document.querySelectorAll('[data-centre-step]').forEach(b=>b.onclick=()=>{padBinding.stop();active.session.centreFinding.step=+b.dataset.centreStep;changed();});
-document.querySelectorAll('[data-candidate]').forEach(b=>b.onclick=()=>{stopAnimation();active.session.centreFinding.chooseCandidate(b.dataset.candidate);changed();});
-$('comparePair').onchange=e=>{active.session.centreFinding.compare(+e.target.value);changed();};
-$('compareDistances').onclick=()=>{active.session.centreFinding.compare(+$('comparePair').value);changed();};
+document.querySelectorAll('[data-centre-step]').forEach(b=>b.onclick=()=>{padBinding.stop();intent=null;active.session.centreFinding.step=+b.dataset.centreStep;changed();});
+document.querySelectorAll('[data-candidate]').forEach(b=>b.onclick=()=>{stopAnimation();active.session.centreFinding.chooseCandidate(b.dataset.candidate);intent='compare-pair';changed();});
+function readDistancePair(index){stopAnimation();active.session.centreFinding.compare(index);intent='compare-pair';changed();}
+$('comparePair').onchange=e=>readDistancePair(+e.target.value);
+function advanceDistance(){const f=active.session.centreFinding;stopAnimation();intent='compare-pair';if(!f.distancesVisible)f.compare(+$('comparePair').value);else if(f.nextDistance())animation={kind:'centre-distance',graph:active,start:performance.now(),duration:850};changed();}
+$('compareDistances').onclick=advanceDistance;
 document.querySelectorAll('[data-centre-test]').forEach(b=>b.onclick=()=>{stopAnimation();if(!active.session.centreFinding.startTest(+b.dataset.centreTest))return;animation={kind:'centre-test',graph:active,start:performance.now(),duration:1600};sync();animate();});
-$('hideCentreTest').onclick=()=>{stopAnimation();active.session.centreFinding.testDegrees=null;changed();};
+$('hideCentreTest').onclick=()=>{stopAnimation();active.session.centreFinding.testDegrees=null;intent='compare-pair';changed();};
 
 $('demoNext').onclick=()=>{
   if(!active||animation||guide)return;const s=active.session,l=s.lesson;
@@ -247,7 +259,7 @@ document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{stopAnimation
 const moves={up:['y',1],down:['y',-1],left:['x',-1],right:['x',1]};
 function nudge(direction){
   if(!active||animation||guide)return;const s=active.session,l=s.lesson,[axis,delta]=moves[direction];
-  if(s.findingCentre)s.centreFinding.move(axis,delta);else if(s.mode==='translation')l.move(axis,delta);else if(s.usesConstruction)l.moveConstruction(axis,delta);
+  if(s.findingCentre){intent=null;s.centreFinding.move(axis,delta);}else if(s.mode==='translation')l.move(axis,delta);else if(s.usesConstruction)l.moveConstruction(axis,delta);
   else if(s.mode==='reflection'){l.shift(axis==='x'?delta:0,axis==='y'?delta:0);active.mirrorChanged=performance.now();}
   else if(s.mode==='enlargement')l.setCount(axis,l.imageCounts[axis]+delta);
   changed();
@@ -281,20 +293,20 @@ $('scaleFactor').onchange=e=>{active.session.lesson.scrub(+e.target.value);chang
 // The workspace owns capture, touch cancellation and camera conversion. Demos
 // supply only the geometry interaction, leaving pen/eraser/history untouched.
 function beginGraphInteraction({point,view}){
-  if(!active||animation||guide)return null;
+  if(!active||animation&&animation.kind!=='centre-distance'||guide)return null;
   const g=active,s=g.session,l=s.lesson,p=pageToGraph(g,point),b=g.bounds;
   if(p.x<b.xmin||p.x>b.xmax||p.y<b.ymin||p.y>b.ymax)return intent?{end(){}}:null;
   const snap=q=>({x:Math.round(q.x),y:Math.round(q.y)}),tolerance=15/(g.unit*view.zoom),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   if(s.findingCentre){
     const f=s.centreFinding;
     let pairHit=null,candidateHit=null;
-    if(intent==='find-pair'||api.tool==='select'&&f.phase==='pair')for(let side=0;side<2;side++){
+    if(['find-pair','compare-pair'].includes(intent)||api.tool==='select'&&(f.phase==='pair'||f.chosen))for(let side=0;side<2;side++){
       const index=f.objects[side].points.findIndex(q=>distance(p,q)<tolerance);if(index>=0){pairHit={side,index};break;}
     }
     if(!intent&&f.phase==='check'&&api.tool==='select')candidateHit=f.candidates.find(c=>distance(p,c.point)<tolerance);
     if(pairHit||candidateHit){let moved=false;return {move(q){if(distance(pageToGraph(g,q),p)>tolerance)moved=true;},end(cancel){if(cancel||moved)return;
-      if(pairHit){if(!f.selectPair(pairHit.index,pairHit.side)){$('demoStatus').textContent='That vertex stays fixed. Choose another pair.';return;}intent=null;}
-      else f.chooseCandidate(candidateHit.id);changed();
+      if(pairHit){if(f.chosen&&intent!=='find-pair'){readDistancePair(pairHit.index);return;}if(!f.selectPair(pairHit.index,pairHit.side)){$('demoStatus').textContent='That vertex stays fixed. Choose another pair.';return;}intent='find-pair';}
+      else {f.chooseCandidate(candidateHit.id);intent='compare-pair';}changed();
     }};}
     return intent?{end(){}}:null;
   }

@@ -1,4 +1,4 @@
-import {CentreFinding} from './notebook-centre.js?v=1';
+import {CentreFinding,givenRotationPair} from './notebook-centre.js?v=2';
 import {notebookQuestionPlans} from './notebook-questions.js';
 import {findModuleQuestion,TranslationLesson,ReflectionLesson,EnlargementLesson} from './module-lesson.js?v=15';
 import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=6';
@@ -58,7 +58,8 @@ export class NotebookSession {
     const initial=this.plan.steps[0].type??graph.defaultType;
     this.mode=TRANSFORMATION_TYPES.includes(saved?.mode)?saved.mode:initial;
     this.saved=saved?.engines??{};this.engines=new Map();
-    this.centreFinding=graph.questionId>=33&&graph.questionId<=40&&this.base.length===2?new CentreFinding(this.base,saved?.centreFinding):null;
+    const rotationPair=givenRotationPair(this.base,this.plans);
+    this.centreFinding=rotationPair?new CentreFinding(rotationPair,saved?.centreFinding):null;
     this.findingCentre=!!this.centreFinding&&this.mode==='rotation'&&saved?.findingCentre===true;
     this.trialVisible=saved?.trialVisible!==false;
     if(legacy&&this.originalQuestion?.type==='rotation')this.saved[`${this.selected}:rotation`]=legacy;
