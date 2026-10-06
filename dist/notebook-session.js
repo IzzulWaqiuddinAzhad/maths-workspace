@@ -1,3 +1,4 @@
+import {CentreFinding} from './notebook-centre.js?v=1';
 import {notebookQuestionPlans} from './notebook-questions.js';
 import {findModuleQuestion,TranslationLesson,ReflectionLesson,EnlargementLesson} from './module-lesson.js?v=15';
 import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=6';
@@ -57,6 +58,9 @@ export class NotebookSession {
     const initial=this.plan.steps[0].type??graph.defaultType;
     this.mode=TRANSFORMATION_TYPES.includes(saved?.mode)?saved.mode:initial;
     this.saved=saved?.engines??{};this.engines=new Map();
+    this.centreFinding=graph.questionId>=33&&graph.questionId<=40&&this.base.length===2?new CentreFinding(this.base,saved?.centreFinding):null;
+    this.findingCentre=!!this.centreFinding&&this.mode==='rotation'&&saved?.findingCentre===true;
+    this.trialVisible=saved?.trialVisible!==false;
     if(legacy&&this.originalQuestion?.type==='rotation')this.saved[`${this.selected}:rotation`]=legacy;
   }
   get plan(){return this.plans[this.planIndex];}
@@ -126,7 +130,7 @@ export class NotebookSession {
     if(!source&&index===this.stepIndex+1&&this.canKeepImage){this.keepImage();source=this.source;}
     if(!source)return false;this.selected=source.id;this.mode=this.plan.steps[index].type??this.mode;return true;
   }
-  chooseMode(mode){if(TRANSFORMATION_TYPES.includes(mode))this.mode=mode;}
+  chooseMode(mode){if(TRANSFORMATION_TYPES.includes(mode)){this.mode=mode;if(mode!=='rotation')this.findingCentre=false;}}
   chooseObject(id){if(this.objects.some(o=>o.id===id))this.selected=id;}
   setCentre(p){
     if(!finitePoint(p)||!['rotation','enlargement'].includes(this.mode))return;
@@ -152,7 +156,7 @@ export class NotebookSession {
     this.kept=this.kept.filter(o=>o.id!==this.selected);this.selected=this.base[0].id;return true;
   }
   reset(){this.engines.delete(this.key);delete this.saved[this.key];}
-  save(){return {planIndex:this.planIndex,selected:this.selected,mode:this.mode,kept:this.kept,engines:{...this.saved,...Object.fromEntries([...this.engines].map(([k,l])=>[k,serialise(l)]))}};}
+  save(){return {findingCentre:this.findingCentre,trialVisible:this.trialVisible,centreFinding:this.centreFinding?.save(),planIndex:this.planIndex,selected:this.selected,mode:this.mode,kept:this.kept,engines:{...this.saved,...Object.fromEntries([...this.engines].map(([k,l])=>[k,serialise(l)]))}};}
 }
 // One-time migration keeps earlier A3 writing in its exact position on that page.
 export function migrateNotebookDocument(saved,page){

@@ -80,3 +80,8 @@ body.clean-view[data-tool=pen] .context,body.clean-view[data-tool=highlighter] .
 .question-summary button{max-width:100%;overflow-wrap:anywhere;white-space:normal}
 
 .rotation-directions{display:flex;justify-content:space-between;font-size:12px;color:#5e6877;gap:10px}
+
+#centreStudy{border-block:1px solid #e1e5ea;padding:5px 0 9px;margin-bottom:8px}#hideTrial{width:100%;margin-top:6px}
+#candidateCheck label{display:block;margin:10px 0 5px;font-size:12px;color:#5e6877}#comparePair{width:100%;margin-bottom:5px}#compareDistances{width:100%}
+#distanceResult,#centreTestResult{display:block;font-size:13px;line-height:1.5;margin:8px 0;color:#214e8b;white-space:pre-line}
+#candidateControls button{font-size:12px;padding:6px}#centreStepControls button{padding:5px}#hideCentreTest{width:100%}.summary-construction{margin:4px 0 0;font-size:13px;color:#214e8b;line-height:1.4}

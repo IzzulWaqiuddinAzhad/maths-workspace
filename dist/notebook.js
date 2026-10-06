@@ -2,8 +2,8 @@ import {transformationText} from './notebook-questions.js';
 import {bindLineEquationInput} from './line-equation-input.js';
 import {workspaceHost as host} from './workspace-host.js';
 import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,rotationFromSlider,rotationToSlider,constrainPage} from './notebook-model.js?v=6';
-import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=6';
-import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=8';
+import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=7';
+import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=9';
 import {coordinateGuideDuration} from './module-coordinate-guide.js?v=4';
 import {RotationSnap,ReflectionScrub,lineFoot,objectHit,parseMirrorEquation,lineHandles} from './transform-model.js?v=29';
 import {EnlargementSnap,squareCountAt} from './module-lesson.js?v=15';
@@ -21,6 +21,7 @@ const pages=NOTEBOOK_PAGES.map(p=>({...p,image:null}));
 let api,active=null,animation=null,guide=null,tick=0,now=0,clean=false,full=false,padBinding=null,currentPage=1,intent=null;
 let rotationSnap=null,enlargementSnap=null,reflectionScrub=null;
 const fmt=n=>String(Number(n.toFixed(2))).replace('-','−');
+const lengthText=n=>(Math.abs(n-Math.round(n))>1e-8?'≈ ':'')+fmt(n);
 const save=()=>{try{localStorage.setItem(LESSONS_KEY,JSON.stringify(Object.fromEntries(graphs.map(g=>[g.id,{...g.session.save(),started:g.started}]))))}catch{$('demoStatus').textContent='Storage is full. Keep this page open to retain the demonstration.';}};
 function loadPage(p){
   if(p.image)return;p.image=new Image();p.image.src=new URL(`./notebook-assets/${p.asset}`,import.meta.url);
@@ -47,7 +48,7 @@ Object.assign(host,{
     $('pagePicker').value=String(currentPage);$('previousPage').disabled=!currentPage;$('nextPage').disabled=currentPage===pages.length-1;
     $('questionSummary').hidden=!active;
     positionSummary();document.body.dataset.tool=api.tool;
-    if(active&&visible(active,view,height)&&(active.session.lesson.clockVisible||active.session.lesson.readPoints.centre||active.session.usesConstruction&&active.session.lesson.stage&&!active.session.lesson.constructionComplete))animate();
+    if(active&&visible(active,view,height)&&(active.session.findingCentre||active.session.lesson.clockVisible||active.session.lesson.readPoints.centre||active.session.usesConstruction&&active.session.lesson.stage&&!active.session.lesson.constructionComplete))animate();
     for(const g of graphs){
       const a=worldToScreen({x:g.x,y:g.y},view),b=worldToScreen({x:g.x+g.width,y:g.y+g.height},view),image=pages[g.page].image;
       g.button.hidden=!api||!image?.naturalWidth||b.x<12||a.x>width-12||b.y<60||a.y>height-48;
@@ -68,13 +69,14 @@ const {workspace}=await import('./app.js?v=55');api=workspace;
 document.querySelector('header').prepend($('tools'));
 $('overlay').setAttribute('aria-label','Module pages. Write with a pen, use one finger to pan, or pinch to zoom. Select to interact with the active graph.');
 
-function stopAnimation(){api?.cancelAction();$('mirrorInputPanel').hidden=true;padBinding?.stop();if(animation?.kind==='count'){const l=animation.graph.session.lesson;l.givenCounts[animation.axis]=animation.from;l.stage=animation.axis==='x'?2:3;l.counting=false;l.countAnimation=null;}animation=null;guide=null;intent=null;}
+function stopAnimation(){api?.cancelAction();if(animation?.kind==='centre-test'){animation.graph.session.centreFinding.testDegrees=null;animation.graph.session.centreFinding.testProgress=0;}$('mirrorInputPanel').hidden=true;padBinding?.stop();if(animation?.kind==='count'){const l=animation.graph.session.lesson;l.givenCounts[animation.axis]=animation.from;l.stage=animation.axis==='x'?2:3;l.counting=false;l.countAnimation=null;}animation=null;guide=null;intent=null;}
 function animate(){if(!tick&&!document.hidden)tick=requestAnimationFrame(frame);}
 function frame(time){
   tick=0;now=time;
   if(animation){
     const a=animation,l=a.graph.session.lesson,p=Math.min(1,(time-a.start)/a.duration);
-    if(a.kind==='count')l.givenCounts[a.axis]=squareCountAt(a.from,a.to,time-a.start);
+    if(a.kind==='centre-test')a.graph.session.centreFinding.testProgress=p*p*(3-2*p);
+    else if(a.kind==='count')l.givenCounts[a.axis]=squareCountAt(a.from,a.to,time-a.start);
     else l.scrub(a.from+(a.to-a.from)*(p*p*(3-2*p)));
     if(p===1){if(a.kind==='count'){l.givenCounts[a.axis]=a.to;l.counting=false;l.countAnimation=null;}animation=null;save();sync();}
   }
@@ -85,7 +87,7 @@ function frame(time){
   api.requestDraw(true);
   const s=active?.session,l=s?.lesson;
   const inView=active&&visible(active,api.view,api.size.height);
-  if(animation||guide||inView&&(l?.clockVisible||l?.readPoints.centre||s?.usesConstruction&&l.stage&&!l.constructionComplete||time-(active.mirrorChanged||0)<900))animate();
+  if(animation||guide||inView&&(s?.findingCentre||l?.clockVisible||l?.readPoints.centre||s?.usesConstruction&&l.stage&&!l.constructionComplete||time-(active.mirrorChanged||0)<900))animate();
 }
 function showCoordinates(mode,kind='source',index=active?.readIndex??0){
   if(!active)return;stopAnimation();const s=active.session,l=s.lesson;
@@ -119,6 +121,12 @@ function syncSummary(){
   else if(s.plan.label){const label=document.createElement('span');label.textContent=s.plan.label;heading.append(label);}
   root.append(heading);
   const button=(row,text,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.disabled=disabled;b.onclick=action;row.append(b);return b;};
+  if(s.findingCentre){
+    const row=document.createElement('div');row.className='summary-row';
+    button(row,`${s.base[0].name} → ${s.base[1].name}`,()=>selectCentrePair());
+    const title=document.createElement('span');title.textContent='Find centre';row.append(title);root.append(row);
+    const instruction=document.createElement('p');instruction.className='summary-construction';instruction.textContent=centreInstruction(s.centreFinding);root.append(instruction);return;
+  }
   s.plan.steps.forEach((step,i)=>{
     const row=document.createElement('div');row.className='summary-row';row.setAttribute('data-active',String(i===s.stepIndex));
     if(s.plan.steps.length>1){const n=document.createElement('span');n.className='summary-order';n.textContent=i+1;row.append(n);}
@@ -128,8 +136,8 @@ function syncSummary(){
     const description=transformationText(current&&step.type&&s.mode!==step.type?{describe:true}:step,s.lesson)+(step.describe&&step.targetName?` → ${step.targetName}`:'');
     const operation=button(row,`${step.symbol?step.symbol+' · ':''}${description}`,()=>{useStep();},!available);operation.className='summary-operation';
     const centre=current?(['rotation','enlargement'].includes(s.mode)?s.lesson.question.centre:null):step.centre;
-    if(centre)button(row,'Centre',()=>{if(useStep())showCoordinates('plot','centre');},!available);
-    if(current&&s.imageReady)button(row,`${s.lesson.answerLabel} → use image`,()=>{stopAnimation();if(s.keepImage()){active.readIndex=0;changed();}},!s.canKeepImage);
+    if(centre&&(!s.centreFinding||s.trialVisible))button(row,'Centre',()=>{if(useStep())showCoordinates('plot','centre');},!available);
+    if(current&&s.imageReady&&(!s.centreFinding||s.trialVisible))button(row,`${s.lesson.answerLabel} → use image`,()=>{stopAnimation();if(s.keepImage()){active.readIndex=0;changed();}},!s.canKeepImage);
     root.append(row);
   });
   // A free continuation remains visible after all printed stages, or when a
@@ -159,11 +167,62 @@ function sync(){
   if(enl){$('scaleSlider').value=l.factor;$('scaleFactor').value=l.factor;$('countValue').textContent=`Horizontal ${fmt(l.imageCounts.x)}\nVertical ${fmt(l.imageCounts.y)}`;$('countCaption').textContent='Count from the centre';document.querySelectorAll('[data-enlarge]').forEach(b=>{b.hidden=s.polygon&&b.dataset.enlarge==='count';b.setAttribute('aria-pressed',String(b.dataset.enlarge===l.mode));});}
   $('rotationSlider').disabled=busy;$('scaleSlider').disabled=busy;
   $('clockToggle').hidden=!(s.usesConstruction&&l.constructionComplete);$('clockToggle').setAttribute('aria-pressed',String(l.clockVisible));
-  $('showCentre').hidden=!(rot||enl);$('showImage').hidden=!s.imageReady;
+  $('showPoint').hidden=false;$('showCentre').hidden=!(rot||enl);$('showImage').hidden=!s.imageReady;
   for(const id of ['showPoint','showImage','showCentre'])$(id).disabled=busy;
   $('readVertex').hidden=!s.polygon;$('readVertex').replaceChildren(...s.source.points.map((_,i)=>{const option=document.createElement('option');option.value=i;option.textContent=vertexLabel(s,i);return option;}));$('readVertex').value=active.readIndex;
   $('demoStatus').textContent=guide?(guide.point.x===0&&guide.point.y===0?'Origin.':'Follow x, then y.'):intent==='centre'?'Tap the graph to place the centre.':intent==='line'?'Drag on the graph to draw the mirror line.':rot&&!l.stage?'Plot or pick the centre.':s.usesConstruction&&!l.constructionComplete?'Move freely. Next visits the next arm or its unfinished tip.':ref?'Move the line or its handles. Use the lever to flip.':enl&&!l.ready?'Follow the counts from the centre.':'';
+  syncCentreFinding(busy);
 }
+function centreInstruction(f){
+  if(intent==='find-pair'||f.phase==='pair')return 'Tap a vertex on either polygon. Its matching vertex will pulse too.';
+  if(f.phase==='meet')return f.met?'The tips meet at M. Next: complete the other two arms.':'Move the pulsing tips towards each other with the game pad.';
+  if(f.phase==='arms')return f.armsReady?'Four arms complete. Next: check the possible centres.':'From M, repeat the lengths turned through 90°. The two tips move oppositely.';
+  if(!f.chosen)return 'Choose M for 180°, or C₁ / C₂ for 90°. Then check another vertex pair.';
+  return `Test ${f.chosen.name}: compare another pair, then rotate the whole polygon.`;
+}
+function syncCentreFinding(busy){
+  const s=active.session,f=s.centreFinding,finding=!!f&&s.findingCentre;
+  $('centreStudy').hidden=!f||s.mode!=='rotation';$('findingControls').hidden=!finding;
+  $('freeRotation').setAttribute('aria-pressed',String(!finding));$('findCentre').setAttribute('aria-pressed',String(finding));
+  $('hideTrial').hidden=finding;$('hideTrial').textContent=s.trialVisible?'Hide trial':'Show trial';
+  $('objectControls').hidden=finding;document.querySelector('.transformation-types').hidden=finding;
+  if(!finding){document.querySelectorAll('[data-nudge]').forEach(b=>b.ariaLabel=`Move one square ${b.dataset.nudge}`);return;}
+  for(const id of ['stepControls','centreControls','reflectionControls','rotationControls','enlargementControls','readVertex','showCentre','showPoint','showImage','clockToggle'])$(id).hidden=true;
+  $('candidateControls').hidden=f.phase!=='check';$('candidateCheck').hidden=!f.chosen;
+  $('centreStepControls').hidden=!['meet','arms'].includes(f.phase);
+  $('centreNext').disabled=busy||!f.canNext;$('centreNext').textContent=f.phase==='meet'?'Next arms':'Check centres';
+  $('centreUndo').disabled=busy||f.phase==='pair'||f.phase==='meet'&&f.path.length<=1;
+  $('choosePair').disabled=busy;$('choosePair').setAttribute('aria-pressed',String(intent==='find-pair'));
+  $('constructionControls').hidden=!['meet','arms'].includes(f.phase);
+  document.querySelectorAll('[data-nudge]').forEach(b=>{b.disabled=busy||!!intent;b.ariaLabel=`Move ${f.step===.5?'half a square':'one square'} ${b.dataset.nudge}`;});
+  document.querySelectorAll('[data-centre-step]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(+b.dataset.centreStep===f.step));});
+  document.querySelectorAll('[data-candidate]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(b.dataset.candidate===f.candidate));const c=f.candidates.find(c=>c.id===b.dataset.candidate),p=c?.point,bounds=active.bounds;const outside=p&&(p.x<bounds.xmin||p.x>bounds.xmax||p.y<bounds.ymin||p.y>bounds.ymax);b.textContent=`${c?.name??b.dataset.candidate} · ${b.dataset.candidate==='midpoint'?'180°':'90°'}${outside?' · beyond grid':''}`;});
+  const c=f.cursor,start=f.phase==='meet'?f.a:f.midpoint;
+  $('countValue').textContent=c&&start?`Horizontal ${fmt(c.x-start.x)}\nVertical ${fmt(c.y-start.y)}`:'';
+  const h=f.index===null?null:{x:Math.abs(f.a.x-f.midpoint.x),y:Math.abs(f.a.y-f.midpoint.y)};
+  $('countCaption').textContent=f.phase==='arms'?`Turn the first lengths: ${fmt(h.x)} and ${fmt(h.y)}`:'Move both tips';
+  $('comparePair').replaceChildren(...f.source.map((_,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${f.objects[0].name}${i+1} ↔ ${f.objects[1].name}${i+1}${i===f.index?' · first pair':''}`;return o;}));
+  $('comparePair').value=f.compareIndex;$('comparePair').disabled=busy;$('compareDistances').disabled=busy;
+  document.querySelectorAll('[data-centre-test]').forEach(b=>{b.disabled=busy;b.hidden=f.candidate==='midpoint'?+b.dataset.centreTest!==180:+b.dataset.centreTest===180;b.setAttribute('aria-pressed',String(+b.dataset.centreTest===f.testDegrees));});
+  $('distanceResult').textContent=f.distancesVisible?`${f.objects[0].name}${f.compareIndex+1}: ${lengthText(f.distances[0])} units · ${f.objects[1].name}${f.compareIndex+1}: ${lengthText(f.distances[1])} units\n${f.equalDistances?'Equal distances. Check the whole polygon too.':'Unequal distances: this centre cannot work.'}`:'';
+  $('centreTestResult').textContent=f.testDegrees===null?'':busy?'Rotating…':f.testMatches?'Every corresponding vertex matches.':'The whole polygon does not match. Try another centre or direction.';
+  $('hideCentreTest').hidden=f.testDegrees===null;$('hideCentreTest').disabled=busy;
+  $('demoStatus').textContent=centreInstruction(f);
+}
+function selectCentrePair(){stopAnimation();intent='find-pair';sync();animate();}
+$('findCentre').onclick=()=>{stopAnimation();active.session.findingCentre=true;if(active.session.centreFinding.phase==='pair')intent='find-pair';changed();fitActive(true);};
+$('freeRotation').onclick=()=>{stopAnimation();active.session.findingCentre=false;active.session.trialVisible=true;changed();fitActive(true);};
+$('hideTrial').onclick=()=>{stopAnimation();active.session.trialVisible=!active.session.trialVisible;changed();};
+$('choosePair').onclick=selectCentrePair;
+$('centreNext').onclick=()=>{stopAnimation();active.session.centreFinding.next();changed();};
+$('centreUndo').onclick=()=>{stopAnimation();active.session.centreFinding.undo();changed();};
+document.querySelectorAll('[data-centre-step]').forEach(b=>b.onclick=()=>{padBinding.stop();active.session.centreFinding.step=+b.dataset.centreStep;changed();});
+document.querySelectorAll('[data-candidate]').forEach(b=>b.onclick=()=>{stopAnimation();active.session.centreFinding.chooseCandidate(b.dataset.candidate);changed();});
+$('comparePair').onchange=e=>{active.session.centreFinding.compare(+e.target.value);changed();};
+$('compareDistances').onclick=()=>{active.session.centreFinding.compare(+$('comparePair').value);changed();};
+document.querySelectorAll('[data-centre-test]').forEach(b=>b.onclick=()=>{stopAnimation();if(!active.session.centreFinding.startTest(+b.dataset.centreTest))return;animation={kind:'centre-test',graph:active,start:performance.now(),duration:1600};sync();animate();});
+$('hideCentreTest').onclick=()=>{stopAnimation();active.session.centreFinding.testDegrees=null;changed();};
+
 $('demoNext').onclick=()=>{
   if(!active||animation||guide)return;const s=active.session,l=s.lesson;
   if(!l.stage){showCoordinates('plot');return;}
@@ -175,7 +234,7 @@ $('demoNext').onclick=()=>{
   }
 };
 $('demoBack').onclick=()=>{stopAnimation();const s=active.session,l=s.lesson;if(s.usesConstruction){if(l.angle)l.scrub(0);else l.previousConstruction();}else if(s.mode==='enlargement')l.goTo(l.stage-1);changed();};
-$('demoReset').onclick=()=>{stopAnimation();active.session.reset();changed();};
+$('demoReset').onclick=()=>{stopAnimation();if(active.session.findingCentre){active.session.centreFinding.reset();intent='find-pair';}else active.session.reset();changed();};
 function closeDemo(){stopAnimation();$('demoPanel').hidden=true;for(const g of graphs)g.button.setAttribute('aria-pressed','false');active=null;$('questionSummary').hidden=true;save();api.requestDraw(true);}
 $('demoClose').onclick=closeDemo;$('demoFit').onclick=()=>fitActive(true);
 $('clockToggle').onclick=()=>{active.session.lesson.toggleClock();changed();};
@@ -188,7 +247,7 @@ document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{stopAnimation
 const moves={up:['y',1],down:['y',-1],left:['x',-1],right:['x',1]};
 function nudge(direction){
   if(!active||animation||guide)return;const s=active.session,l=s.lesson,[axis,delta]=moves[direction];
-  if(s.mode==='translation')l.move(axis,delta);else if(s.usesConstruction)l.moveConstruction(axis,delta);
+  if(s.findingCentre)s.centreFinding.move(axis,delta);else if(s.mode==='translation')l.move(axis,delta);else if(s.usesConstruction)l.moveConstruction(axis,delta);
   else if(s.mode==='reflection'){l.shift(axis==='x'?delta:0,axis==='y'?delta:0);active.mirrorChanged=performance.now();}
   else if(s.mode==='enlargement')l.setCount(axis,l.imageCounts[axis]+delta);
   changed();
@@ -226,6 +285,20 @@ function beginGraphInteraction({point,view}){
   const g=active,s=g.session,l=s.lesson,p=pageToGraph(g,point),b=g.bounds;
   if(p.x<b.xmin||p.x>b.xmax||p.y<b.ymin||p.y>b.ymax)return intent?{end(){}}:null;
   const snap=q=>({x:Math.round(q.x),y:Math.round(q.y)}),tolerance=15/(g.unit*view.zoom),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  if(s.findingCentre){
+    const f=s.centreFinding;
+    let pairHit=null,candidateHit=null;
+    if(intent==='find-pair'||api.tool==='select'&&f.phase==='pair')for(let side=0;side<2;side++){
+      const index=f.objects[side].points.findIndex(q=>distance(p,q)<tolerance);if(index>=0){pairHit={side,index};break;}
+    }
+    if(!intent&&f.phase==='check'&&api.tool==='select')candidateHit=f.candidates.find(c=>distance(p,c.point)<tolerance);
+    if(pairHit||candidateHit){let moved=false;return {move(q){if(distance(pageToGraph(g,q),p)>tolerance)moved=true;},end(cancel){if(cancel||moved)return;
+      if(pairHit){if(!f.selectPair(pairHit.index,pairHit.side)){$('demoStatus').textContent='That vertex stays fixed. Choose another pair.';return;}intent=null;}
+      else f.chooseCandidate(candidateHit.id);changed();
+    }};}
+    return intent?{end(){}}:null;
+  }
+  if(s.centreFinding&&s.mode==='rotation'&&!s.trialVisible)return null;
   let kind=intent,handle=-1;
   if(!kind&&['rotation','enlargement'].includes(s.mode)&&l.stage&&distance(p,l.question.centre)<tolerance)kind='centre';
   if(!kind&&s.mode==='reflection'&&l.line){handle=l.handles.findIndex(q=>distance(p,q)<tolerance);if(handle>=0)kind='handle';else if(distance(p,lineFoot(p,l.line))<tolerance)kind='mirror';}

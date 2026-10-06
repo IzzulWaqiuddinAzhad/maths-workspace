@@ -1,4 +1,5 @@
-import {NotebookLabels} from './notebook-labels.js?v=1';
+import {paintCentreFinding} from './notebook-centre-render.js?v=1';
+import {NotebookLabels} from './notebook-labels.js?v=2';
 import {paintRotationLesson} from './module-rotation-render.js?v=11';
 import {paintReflectionLesson} from './module-reflection-render.js?v=8';
 import {paintEnlargementLesson,enlargementGuideSegment} from './module-enlargement-render.js?v=6';
@@ -21,6 +22,11 @@ export function paintNotebookGraph(ctx,g,{now=0,active=false,guide=null,historic
   ctx.save();ctx.beginPath();ctx.rect(g.x-20,g.y-20,g.width+40,g.height+44);ctx.clip();ctx.translate(g.x,g.y);ctx.scale(g.unit/40,g.unit/40);
   if(root)labels.maskPrinted();
   ctx.restore();
+  if(root&&s.centreFinding&&(s.findingCentre||s.mode==='rotation'&&!s.trialVisible)){
+    ctx.save();ctx.beginPath();ctx.rect(g.x,g.y,g.width,g.height);ctx.clip();ctx.translate(g.x,g.y);ctx.scale(g.unit/40,g.unit/40);
+    if(s.findingCentre)paintCentreFinding(ctx,{study:s.centreFinding,labels,view,now,active});
+    const placed=labels.paint(now);ctx.restore();return placed;
+  }
   if(!historical)for(const layer of s.presentations)paintNotebookGraph(ctx,{...g,session:layer},{now,historical:true,labels});
   ctx.save();ctx.beginPath();ctx.rect(g.x-20,g.y-20,g.width+40,g.height+44);ctx.clip();ctx.translate(g.x,g.y);ctx.scale(g.unit/40,g.unit/40);
   const line=(points,colour='#2468c4',dash=[])=>{

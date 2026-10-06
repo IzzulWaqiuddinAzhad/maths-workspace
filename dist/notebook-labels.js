@@ -91,6 +91,10 @@ export class NotebookLabels {
     const ctx=this.ctx,result=this.place();
     for(const r of result){
       const options={point:r.point,label:r.label,view:this.view,width:this.width,height:this.height,pointColour:r.colour,placement:r.placement};
+      if(r.leader){
+        const p=graphToScreen(r.point,this.view),b=r.box,end={x:Math.max(b.x,Math.min(b.x+b.w,p.x)),y:Math.max(b.y,Math.min(b.y+b.h,p.y))};
+        if(Math.hypot(end.x-p.x,end.y-p.y)>58){ctx.save();ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(end.x,end.y);ctx.strokeStyle=r.colour+'90';ctx.lineWidth=1.2;ctx.setLineDash([3,4]);ctx.stroke();ctx.restore();}
+      }
       if(r.guide){paintCoordinateGuide(ctx,{...r.guide,...options,elapsed:now-r.guide.start,transientReadout:r.guide.key==='centre'});continue;}
       if(r.coordinates&&!isOrigin(r.point)){paintCoordinateReadout(ctx,options);continue;}
       ctx.save();ctx.font=`600 ${r.placement.fontSize}px Arial, sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.lineWidth=5;ctx.strokeStyle='#fff';ctx.strokeText(r.label,r.placement.x,r.placement.y);ctx.fillStyle=r.colour;ctx.fillText(r.label,r.placement.x,r.placement.y);ctx.restore();
