@@ -104,7 +104,7 @@ export class NotebookSession {
   }
   get canKeepImage(){return this.imageReady&&(this.mode!=='reflection'||this.lesson.progress===1)&&this.kept.length<40;}
   choosePlan(index){if(!this.plans[index])return false;this.planIndex=index;this.selected=this.planSource.id;this.mode=this.plan.steps[0].type??this.graph.defaultType;return true;}
-  sourceForStep(index){const step=this.plan.steps[index];return this.kept.find(o=>o.planIndex===this.planIndex&&o.stepIndex===index)??this.base.find(o=>o.id===this.plan.sourceId&&index===0)??this.base.find(o=>o.name===step?.sourceName);}
+  sourceForStep(index){const step=this.plan.steps[index];return [...this.kept].reverse().find(o=>o.planIndex===this.planIndex&&o.stepIndex===index)??this.kept.find(o=>o.planIndex===undefined&&o.name===step?.sourceName)??this.base.find(o=>o.id===this.plan.sourceId&&index===0)??this.base.find(o=>o.name===step?.sourceName);}
   activateStep(index){
     if(!this.plan.steps[index])return false;
     let source=this.sourceForStep(index);
@@ -123,7 +123,7 @@ export class NotebookSession {
   keepImage(){
     if(!this.canKeepImage)return false;
     const source=this.source,points=this.imagePoints,name=this.lesson.answerLabel,nextStep=this.stepIndex+1;
-    let object=this.kept.find(o=>o.parentId===source.id&&o.name===name&&JSON.stringify(o.points)===JSON.stringify(points));
+    let object=this.kept.find(o=>o.parentId===source.id&&o.planIndex===this.planIndex&&o.name===name&&JSON.stringify(o.points)===JSON.stringify(points));
     if(!object){object={...completedImage(source,points,this.objects),name,parentId:source.id,planIndex:this.planIndex,stepIndex:nextStep};this.kept.push(object);}
     this.selected=object.id;if(this.plan.steps[nextStep]?.type)this.mode=this.plan.steps[nextStep].type;
     this.lesson.readPoints.source=true;return true;

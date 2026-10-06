@@ -145,3 +145,7 @@ test('source coordinate labels stay visible when continuing with a different tra
   const s=session('1');s.lesson.readPoints.source=true;s.chooseMode('reflection');assert.ok(s.lesson.readPoints.source);
   s.chooseMode('translation');s.lesson.move('x',2);s.keepImage();s.chooseMode('rotation');assert.ok(s.lesson.readPoints.source);
 });
+test('earlier saved intermediate images remain accessible from their summary row',()=>{
+  const s=session('22'),saved=s.save();saved.kept=[{id:'old-image',name:'Q′',points:[{x:2,y:4}],labels:['Q′'],image:true}];
+  const restored=new NotebookSession(graph('22'),saved);assert.ok(restored.activateStep(1));assert.equal(restored.source.id,'old-image');assert.equal(restored.mode,'rotation');assert.deepEqual(restored.lesson.question.centre,{x:1,y:1});
+});
