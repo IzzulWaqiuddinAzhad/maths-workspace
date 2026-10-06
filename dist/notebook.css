@@ -65,6 +65,12 @@ body.clean-view header{display:none}body.clean-view main{height:100dvh}body.clea
 .question-summary{position:absolute;top:58px;left:12px;width:400px;box-sizing:border-box;max-height:30%;overflow:auto;z-index:5;background:#fff;border:1px solid #d7e2ee;border-radius:12px;padding:7px 10px;box-shadow:0 3px 12px #18294512;user-select:none;-webkit-user-select:none}
 .summary-heading{display:flex;align-items:center;gap:10px;font-size:12px;color:#697586;padding:0 4px}
 .summary-heading select{font-size:13px;min-height:38px;max-width:75%;background:white;border:1px solid #d7e2ee;border-radius:6px}
+.summary-heading{flex-wrap:wrap;gap:5px}
+.summary-heading .copy-graph-image{margin-left:auto;min-height:44px;padding:6px 9px;border:1px solid #d7e2ee;border-radius:8px;background:#f7faff;font-size:13px;flex-shrink:0}
+.copy-graph-image:disabled{opacity:.55}
+#graphImageDialog{width:min(680px,calc(100vw - 32px));max-height:90dvh;overflow:auto}
+#graphImagePreview{display:block;max-width:100%;max-height:60dvh;margin:12px auto;object-fit:contain;-webkit-touch-callout:default}
+#saveGraphImage{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px;border-radius:8px;background:#244f89;color:#fff;text-decoration:none}
 .summary-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:4px 0;border-top:1px solid #edf0f4}
 .summary-row:first-of-type{border-top:0}.summary-row[data-active=true]{color:#214e8b}
 .summary-row button{min-height:44px;padding:6px 10px;border:1px solid #d7e2ee;border-radius:8px;background:#f7faff;font-size:14px;color:inherit}

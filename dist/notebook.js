@@ -11,6 +11,7 @@ import {bindDirectionPad} from './direction-pad.js?v=2';
 import {LabelLayout} from './label-layout.js?v=14';
 import {calculatorPanel} from './calculator-panel.js?v=13';
 import {worldToScreen,screenToWorld} from './core.js?v=14';
+import {createNotebookGraphPNG,writePNGClipboard} from './notebook-image.js';
 
 const $=id=>document.getElementById(id),LESSONS_KEY='module-notebook:module:lessons:v1',DOCUMENT_KEY='module-notebook:module:document:v1';
 const load=key=>{try{return JSON.parse(localStorage.getItem(key))??{}}catch{return {}}};
@@ -20,6 +21,7 @@ const graphs=NOTEBOOK_GRAPHS.map(g=>({...g,session:new NotebookSession(g,stored[
 const pages=NOTEBOOK_PAGES.map(p=>({...p,image:null}));
 let api,active=null,animation=null,guide=null,tick=0,now=0,clean=false,full=false,padBinding=null,currentPage=1,intent=null;
 let rotationSnap=null,enlargementSnap=null,reflectionScrub=null;
+let copyingImage=false,copyMessageTimer,imagePreviewURL=null;
 const fmt=n=>String(Number(n.toFixed(2))).replace('-','−');
 const lengthText=n=>(Math.abs(n-Math.round(n))>1e-8?'≈ ':'')+fmt(n);
 const save=()=>{try{localStorage.setItem(LESSONS_KEY,JSON.stringify(Object.fromEntries(graphs.map(g=>[g.id,{...g.session.save(),started:g.started}]))))}catch{$('demoStatus').textContent='Storage is full. Keep this page open to retain the demonstration.';}};
@@ -124,6 +126,7 @@ function syncSummary(){
   else if(s.plan.label){const label=document.createElement('span');label.textContent=s.plan.label;heading.append(label);}
   root.append(heading);
   const button=(row,text,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.disabled=disabled;b.onclick=action;row.append(b);return b;};
+  const copyButton=button(heading,copyingImage?'Copying…':'Copy image',copyActiveImage,copyingImage);copyButton.className='copy-graph-image';copyButton.title='Copy this graph with its annotations';
   if(s.findingEnlargement){
     const f=s.enlargementFinding,row=document.createElement('div');row.className='summary-row';
     button(row,`${f.objects[0].name} → ${f.objects[1].name}`,selectEnlargementPair);
@@ -153,6 +156,27 @@ function syncSummary(){
   // teacher selects a different object to investigate.
   if(s.stepIndex>=s.plan.steps.length||!s.step){const row=document.createElement('div');row.className='summary-row';button(row,s.source.name,()=>showCoordinates('read','source'));const text=document.createElement('span');text.textContent=s.mode;row.append(text);if(['rotation','enlargement'].includes(s.mode))button(row,'Centre',()=>showCoordinates('plot','centre'));root.append(row);}
 }
+function imageMessage(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(copyMessageTimer);copyMessageTimer=setTimeout(()=>$('toast').hidden=true,5000);}
+async function copyActiveImage(){
+  if(!active||copyingImage)return;
+  const graph=active;copyingImage=true;syncSummary();positionSummary();
+  const png=createNotebookGraphPNG(graph,pages[graph.page],api.store.document.objects,{now,guide:guide?.graph===graph?guide:null});
+  png.catch(()=>{});
+  try{
+    await writePNGClipboard(png);
+    imageMessage('Image copied. Paste it into Goodnotes.');
+  }catch{
+    try{
+      const blob=await png;
+      if(imagePreviewURL)URL.revokeObjectURL(imagePreviewURL);
+      imagePreviewURL=URL.createObjectURL(blob);$('graphImagePreview').src=imagePreviewURL;
+      $('saveGraphImage').href=imagePreviewURL;$('saveGraphImage').download=`question-${graph.id}-graph.png`;
+      $('graphImageDialog').showModal();
+    }catch(error){imageMessage(error.message||'The image could not be copied. Please try again.');}
+  }finally{copyingImage=false;if(active){syncSummary();positionSummary();}}
+}
+$('closeGraphImage').onclick=()=>$('graphImageDialog').close();
+$('graphImageDialog').addEventListener('close',()=>{if(imagePreviewURL)URL.revokeObjectURL(imagePreviewURL);imagePreviewURL=null;$('graphImagePreview').removeAttribute('src');$('saveGraphImage').removeAttribute('href');});
 function sync(){
   if(!active)return;syncSummary();const s=active.session,l=s.lesson,m=s.mode,busy=!!animation||!!guide,rot=m==='rotation',enl=m==='enlargement',ref=m==='reflection';
   $('demoTitle').textContent=`${s.source.name} · ${active.questionId}`;
