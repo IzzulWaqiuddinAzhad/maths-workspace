@@ -1,5 +1,5 @@
 import { graphToScreen } from './transform-model.js?v=29';
-import { LabelLayout, edgeCandidates, polarCandidates, paintLabel } from './label-layout.js?v=12';
+import { LabelLayout, edgeCandidates, polarCandidates, paintLabel } from './label-layout.js?v=13';
 const labels = new LabelLayout();
 
 // Clip the infinite centre-to-object line to the current screen, not the scale factor.
@@ -20,7 +20,7 @@ export function enlargementGuideSegment(centre, given, width, height) {
 }
 
 // Original and scaled square-count paths share the same centre and camera.
-export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, overlays=[]}) {
+export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, overlays=[], centreLabel='C'}) {
   const segments=[],points=[],obstacles=[],requests=[];
   if (!lesson.stage) return {segments,points,obstacles};
   const screen=p=>graphToScreen(p,view), centre=lesson.question.centre, c=screen(centre);
@@ -62,16 +62,17 @@ export function paintEnlargementLesson(ctx, {lesson, view, dark, width, height, 
   }
   ctx.beginPath();ctx.arc(c.x,c.y,6,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=orange;ctx.lineWidth=2;ctx.stroke();
   ctx.beginPath();ctx.moveTo(c.x-10,c.y);ctx.lineTo(c.x+10,c.y);ctx.moveTo(c.x,c.y-10);ctx.lineTo(c.x,c.y+10);ctx.stroke();points.push(c);
-  requests.unshift({id:'centre',text:`C (${number(centre.x)}, ${number(centre.y)})`,colour:ink,candidates:polarCandidates(c,2.6,55,{spread:.8,rings:4})});
+  requests.unshift({id:'centre',text:`${centreLabel} (${number(centre.x)}, ${number(centre.y)})`,colour:ink,candidates:polarCandidates(c,2.6,55,{spread:.8,rings:4})});
   const bounds=lesson.bounds;
-  labels.begin({bounds:width&&height?{x:8,y:8,w:width-16,h:height-76}:undefined,points:[c,screen(lesson.question.given),screen(lesson.pointAt())],
+  labels.begin({labelOverlapPenalty:2000,bounds:width&&height?{x:8,y:8,w:width-16,h:height-76}:undefined,points:[c,screen(lesson.question.given),screen(lesson.pointAt())],
     segments:[...segments,[screen({x:bounds.xmin,y:0}),screen({x:bounds.xmax,y:0})],[screen({x:0,y:bounds.ymin}),screen({x:0,y:bounds.ymax})]]});
   labels.placed.push(...overlays);
-  ctx.font='600 15px system-ui';
   for(const request of requests) {
-    const width=ctx.measureText(request.text).width,label=labels.place({...request,width,height:18});
+    const fontSize=request.id==='centre'?15:width<500?22:24, height=fontSize+3;
+    ctx.font=`${request.id==='centre'?600:700} ${fontSize}px system-ui`;
+    const textWidth=ctx.measureText(request.text).width,label=labels.place({...request,width:textWidth,height});
     paintLabel(ctx,label,{ink:request.colour,background:paper});
-    obstacles.push({x:label.x-width/2-4,y:label.y-12,w:width+8,h:24});
+    obstacles.push({x:label.x-textWidth/2-4,y:label.y-height/2-3,w:textWidth+8,h:height+6});
   }
   labels.end();
   ctx.restore();return {segments,points,obstacles};

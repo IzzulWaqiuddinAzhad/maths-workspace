@@ -13,6 +13,33 @@ test('enlargement Q17 follows printed page 5 and independently checked scheme an
  assert.deepEqual(l.pointAt(),q.given);assert.equal(l.answerVisible,false);
 });
 
+test('all four enlargement lessons match the booklet diagrams and independent answers',()=>{
+ const expected=[
+  ['17',{x:3,y:2},{x:1,y:-1},2,'image',{x:5,y:5}],
+  ['18',{x:-1,y:1},{x:-2,y:2},3,'image',{x:1,y:-1}],
+  ['19',{x:6,y:2},{x:2,y:-2},.5,'image',{x:4,y:0}],
+  ['20',{x:5,y:5},{x:-1,y:1},2,'object',{x:2,y:3}],
+ ];
+ assert.equal(ENLARGEMENT_QUESTIONS.length,4);
+ for(const [id,given,centre,factor,find,answer] of expected) {
+  const q=findModuleQuestion(id),l=createModuleLesson(q);
+  assert.deepEqual(q.given,given);assert.deepEqual(q.centre,centre);assert.equal(q.factor,factor);assert.equal(q.find,find);
+  assert.deepEqual(l.answer,answer);assert.equal(l.answerVisible,false);
+  l.goTo(3);l.scrub(l.requiredFactor);assert.equal(l.reveal(),true);assert.deepEqual(l.pointAt(),answer);
+  // The final mapping always uses the original forward operation, even Q20.
+  assert.deepEqual(enlargePoint(l.object,centre,factor),l.image);
+ }
+});
+
+test('Q20 recovers the object using a reciprocal factor without treating factor 2 as a correct return',()=>{
+ const l=createModuleLesson(findModuleQuestion('20'));
+ assert.equal(l.givenLabel,'D′');assert.equal(l.answerLabel,'D');assert.equal(l.requiredFactor,.5);
+ l.goTo(3);l.scrub(2);assert.equal(l.canReveal,false);assert.equal(l.reveal(),false);
+ l.goTo(4);assert.equal(l.factor,.5);assert.equal(l.canReveal,true);assert.deepEqual(l.pointAt(),{x:2,y:3});
+ assert.equal(l.reveal(),true);l.scrub(-1);assert.equal(l.answerVisible,false);
+ l.goTo(2);assert.equal(l.factor,1);l.reset();assert.equal(l.stage,0);assert.equal(l.answerVisible,false);
+});
+
 test('signed enlargement scales centre-relative distances, with fixed centre and exact reduction',()=>{
  const c={x:1,y:-1},p={x:3,y:2};
  const samples=[[-3,{x:-5,y:-10}],[-2,{x:-3,y:-7}],[-1,{x:-1,y:-4}],[0,c],[.5,{x:2,y:.5}],[1,p],[2,{x:5,y:5}],[3,{x:7,y:8}]];
@@ -132,11 +159,38 @@ test('reduction point labels stay separate on a narrow teaching canvas in EN and
   const draw=createTransformationRenderer({clientWidth:width,clientHeight:height,getContext:()=>ctx});
   for(const trial of ['Trial','Cubaan']) {
    texts.length=0;
-   draw({view,gridBounds:l.bounds,objects:[{id:'given',points:[l.question.given],labels:['A'],coordinates:true}],
-    preview:{id:'moving',points:[l.pointAt()],labels:[trial]},annotations:[],labelFontSize:19,pointLabelSpread:Math.PI/2,pointLabelRings:8,
+   draw({view,labelOverlapPenalty:2000,tickStride:40*view.zoom<14?5:2,axisFontSize:15,pointRadius:5,gridBounds:l.bounds,objects:[{id:'given',points:[l.question.given],labels:['A'],coordinates:true}],
+    preview:{id:'moving',points:[l.pointAt()],labels:[trial],labelPlacement:'below'},annotations:[],labelFontSize:19,pointLabelSpread:Math.PI/2,pointLabelRings:12,
     geometryOverlay:ctx=>paintEnlargementLesson(ctx,{lesson:l,view,dark:false,width,height})});
    const a=texts.find(p=>p.text.startsWith('A (')),b=texts.find(p=>p.text===trial);
    assert.ok(a&&b);assert.ok(Math.abs(a.x-b.x)>=(a.w+b.w)/2 || Math.abs(a.y-b.y)>=21,`${trial} overlaps the given point label`);
+  }
+ } finally {
+  if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;
+  if(oldDpr===undefined)delete globalThis.devicePixelRatio;else globalThis.devicePixelRatio=oldDpr;
+ }
+});
+
+test('all enlargement point captions sit below their images with large, non-overlapping component labels',async()=>{
+ const {createTransformationRenderer}=await import('../dist/transform-render.js');
+ const oldDocument=globalThis.document,oldDpr=globalThis.devicePixelRatio;
+ globalThis.document={body:{classList:{contains:()=>false}}};globalThis.devicePixelRatio=1;
+ try {
+  for(const q of ENLARGEMENT_QUESTIONS) for(const [width,height] of [[1000,550],[390,460]]) {
+   const l=createModuleLesson(q);l.goTo(5);
+   const texts=[],view=fitQuestion(l.bounds,width,height);
+   const ctx=new Proxy({measureText(s){return {width:s.length*(Number(this.font?.match(/(\d+)px/)?.[1])||15)*.55};},fillText(text,x,y){texts.push({text,x,y,font:this.font,w:this.measureText(text).width});}},{get:(t,k)=>t[k]??(()=>{})});
+   const draw=createTransformationRenderer({clientWidth:width,clientHeight:height,getContext:()=>ctx});
+   draw({view,labelOverlapPenalty:2000,tickStride:40*view.zoom<14?5:2,axisFontSize:15,pointRadius:5,gridBounds:l.bounds,objects:[{id:'given',points:[q.given],labels:[l.givenLabel],coordinates:true,image:l.inverse,labelPlacement:l.inverse?'below':undefined}],
+    preview:{id:'moving',points:[l.pointAt()],labels:[l.answerLabel],coordinates:true,image:!l.inverse,labelPlacement:'below'},annotations:[],labelFontSize:width<500?19:23,pointLabelSpread:Math.PI/2,pointLabelRings:12,
+    geometryOverlay:(ctx,base)=>paintEnlargementLesson(ctx,{lesson:l,view,dark:false,width,height,overlays:base.obstacles,centreLabel:q.label==='C'?'Centre':'C'})});
+   const imagePoint=graphToScreen(l.image,view),imageLabel=texts.find(p=>p.text.startsWith(q.label+'′ ('));
+   assert.ok(imageLabel);assert.ok(imageLabel.y>imagePoint.y+10,`Q${q.id} image label must remain below its point`);
+   const captions=texts.filter(p=>/^\d+(\.\d+)?$/.test(p.text)&&p.font.startsWith('700 '));
+   assert.equal(captions.length,4);assert.ok(captions.every(p=>Number(p.font.match(/(\d+)px/)[1])>=22));
+   for(let i=0;i<captions.length;i++) for(const b of captions.slice(i+1)) {const a=captions[i];assert.ok(Math.abs(a.x-b.x)>=(a.w+b.w)/2 || Math.abs(a.y-b.y)>=(Number(a.font.match(/(\d+)px/)[1])+Number(b.font.match(/(\d+)px/)[1]))/2,`Q${q.id} count ${JSON.stringify(a)} overlaps ${JSON.stringify(b)} at width ${width}`);}
+   const letterLabels=texts.filter(p=>p.font.startsWith('italic'));
+   for(const a of letterLabels) for(const b of captions) assert.ok(Math.abs(a.x-b.x)>=(a.w+b.w)/2 || Math.abs(a.y-b.y)>=(Number(a.font.match(/(\d+)px/)[1])+Number(b.font.match(/(\d+)px/)[1]))/2,`Q${q.id} ${JSON.stringify(a)} overlaps ${JSON.stringify(b)} at width ${width}`);
   }
  } finally {
   if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;

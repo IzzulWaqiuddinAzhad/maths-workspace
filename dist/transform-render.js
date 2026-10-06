@@ -1,5 +1,5 @@
 import { graphToScreen, screenToGraph, GRID_UNIT, formatNumber, lineHandles, lineFoot, mirrorGrip } from './transform-model.js?v=29';
-import { LabelLayout, polarCandidates, paintLabel } from './label-layout.js?v=12';
+import { LabelLayout, polarCandidates, paintLabel } from './label-layout.js?v=13';
 
 export function createTransformationRenderer(canvas) {
   const ctx = canvas.getContext('2d'), labels = new LabelLayout();
@@ -48,7 +48,7 @@ export function createTransformationRenderer(canvas) {
       ps.forEach((p, i) => {
         ctx.beginPath(); ctx.arc(p.x, p.y, state.pointRadius || (active && !isImage ? 5 : 3.5), 0, Math.PI * 2); ctx.fillStyle = active && !isImage ? paper : colour; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = colour; ctx.stroke(); dots.push(p);
         const label = o.labels[i] + ((o.coordinates ?? coordinates) ? ` (${formatNumber(o.points[i].x)}, ${formatNumber(o.points[i].y)})` : '');
-        if (state.labels !== false) requests.push({ id: `${isImage ? 'image' : o.id}:${i}`, text: label, colour, candidates: polarCandidates(p, ps.length === 1 ? -Math.PI / 4 : Math.atan2(p.y - mid.y, p.x - mid.x), 21, { spread: state.pointLabelSpread ?? .5, rings: state.pointLabelRings ?? 5 }) });
+        if (state.labels !== false) requests.push({ id: `${isImage ? 'image' : o.id}:${i}`, text: label, colour, anchor: p, placement: o.labelPlacement, candidates: polarCandidates(p, ps.length === 1 ? -Math.PI / 4 : Math.atan2(p.y - mid.y, p.x - mid.x), 21, { spread: state.pointLabelSpread ?? .5, rings: state.pointLabelRings ?? 5 }) });
       });
     }
     if (guides && preview) {
@@ -77,7 +77,7 @@ export function createTransformationRenderer(canvas) {
       requests.push({ id: 'rotation-angle', text: state.rotationLabel, colour: blue, candidates: polarCandidates(c, start + sweep / 2, radius + 24, { spread: .35, rings: 6 }) });
     }
     if (state.geometryOverlay) {
-      const extra = state.geometryOverlay(ctx) || {};
+      const extra = state.geometryOverlay(ctx, {segments, points:dots, obstacles}) || {};
       segments.push(...(extra.segments || [])); dots.push(...(extra.points || [])); obstacles.push(...(extra.obstacles || []));
     }
     objects.forEach(o => object(o));
@@ -96,11 +96,20 @@ export function createTransformationRenderer(canvas) {
     }
     if (state.draft?.length) { stroke(state.draft, blue, 2, [5, 4]); state.draft.forEach(p => { const s = screen(p); ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, Math.PI * 2); ctx.fillStyle = blue; ctx.fill(); }); }
     if (state.drawLine) stroke(state.drawLine, '#b58032', 2, [6, 4]);
-    labels.begin({ bounds: { x: 8, y: 8, w: w - 16, h: h - 60 }, segments, points: dots });
+    labels.begin({ labelOverlapPenalty: state.labelOverlapPenalty, bounds: { x: 8, y: 8, w: w - 16, h: h - 60 }, segments, points: dots });
     // Keep vertex labels clear of axis numerals and the graph's edge controls.
     labels.placed.push(...obstacles, ...(state.overlays || []), { x: 5, y: h / 2 - 20, w: 40, h: 40 }, { x: w - 45, y: h / 2 - 20, w: 40, h: 40 }, { x: w / 2 - 20, y: 5, w: 40, h: 40 }, { x: w / 2 - 20, y: h - 92, w: 40, h: 40 });
     ctx.font = `italic ${state.labelFontSize || 15}px Georgia, serif`;
-    for (const request of requests) { const placed = labels.place({ ...request, width: ctx.measureText(request.text).width, height: (state.labelFontSize || 15) + 2 }); paintLabel(ctx, placed, { ink: request.colour, background: paper }); }
+    for (const request of requests) {
+      const width=ctx.measureText(request.text).width, height=(state.labelFontSize || 15)+2;
+      // An optional lower placement keeps an image caption below its point.
+      // Width-aware alternatives still leave room for the guide and count labels.
+      const candidates=request.placement==='below'
+        ? [44,28,60,76,92,108].flatMap(dy=>[width/2+18,-width/2-18,width/2+42,-width/2-42,width/2+66,-width/2-66,width/2+90,-width/2-90,0].map(dx=>({x:request.anchor.x+dx,y:request.anchor.y+dy})))
+        : request.candidates;
+      const placed = labels.place({ ...request, candidates, width, height });
+      paintLabel(ctx, placed, { ink: request.colour, background: paper });
+    }
     labels.end();
     for (const s of [...annotations, ...(state.ink ? [state.ink] : [])]) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; const colour = dark && s.strokeColour === '#20242c' ? '#edf0f5' : s.strokeColour;

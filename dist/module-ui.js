@@ -1,8 +1,8 @@
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap } from './module-lesson.js?v=7';
-import { paintEnlargementLesson } from './module-enlargement-render.js?v=2';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap } from './module-lesson.js?v=8';
+import { paintEnlargementLesson } from './module-enlargement-render.js?v=3';
 import { paintRotationLesson } from './module-rotation-render.js?v=2';
 import { paintReflectionLesson } from './module-reflection-render.js?v=1';
-import { createTransformationRenderer } from './transform-render.js?v=33';
+import { createTransformationRenderer } from './transform-render.js?v=34';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
 import { installCanvasOwnership } from './interaction.js?v=13';
@@ -26,7 +26,7 @@ const isReflection = () => q.type === 'reflection';
 const isRotation = () => q.type === 'rotation';
 const isEnlargement = () => q.type === 'enlargement';
 const enlargementDescription = () => `${tr('Scale factor','Faktor skala')} ${fmt(q.factor)} · ${tr('centre','pusat')} ${coord(q.centre)}`;
-const factorLabel = () => `k = ${fmt(Number(lesson.factor.toFixed(2)))}`;
+const factorLabel = () => `${lesson.inverse ? tr('From image × ', 'Dari imej × ') : 'k = '}${fmt(Number(lesson.factor.toFixed(2)))}`;
 const graphBounds = () => lesson.bounds || q.bounds;
 const rotationDescription = () => `${Math.abs(q.degrees)}° ${q.degrees === 180 ? tr('half-turn', 'separuh pusingan') : q.degrees < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam')}`;
 const angleWords = angle => `${Math.round(Math.abs(angle))}°${angle === 0 ? '' : ' ' + (angle < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam'))}`;
@@ -57,7 +57,7 @@ function renderCopy() {
   $('questionGroup').options[0].textContent = tr('Translation · 1–4', 'Translasi · 1–4');
   $('questionGroup').options[1].textContent = tr('Reflection · 5–8', 'Pantulan · 5–8');
   $('questionGroup').options[2].textContent = tr('Rotation · 9–16', 'Putaran · 9–16');
-  $('questionGroup').options[3].textContent = tr('Enlargement · 17', 'Pembesaran · 17');
+  $('questionGroup').options[3].textContent = tr('Enlargement · 17–20', 'Pembesaran · 17–20');
   $('questionBadge').textContent = tr(`Question ${q.number}`, `Soalan ${q.number}`) + ' · ' + topic;
   $('section').textContent = `${q.section} / ${topic.toUpperCase()} · ${q.number}`;
   text('questionTitle', lesson.inverse ? 'Find the original point' : 'Find the image', lesson.inverse ? 'Cari koordinat objek' : 'Cari koordinat imej'); $('prompt').textContent = q.prompt[language];
@@ -218,16 +218,18 @@ function syncEnlargement() {
   $('enlargementControls').setAttribute('aria-label',tr('Enlargement guide','Panduan pembesaran'));
   text('enlargementCentre',`Centre ${coord(q.centre)} · Question: k = ${fmt(q.factor)}`,`Pusat ${coord(q.centre)} · Soalan: k = ${fmt(q.factor)}`);
   text('enlargementHint','Measure from the centre. Orange: original distances · Blue: scaled distances.','Ukur dari pusat. Jingga: jarak asal · Biru: jarak selepas pembesaran.');
+  if(lesson.inverse) text('enlargementHint',`The image is given. Recover ${q.label} by dividing its distances from the centre by ${fmt(q.factor)} (× ${fmt(lesson.requiredFactor)}). Orange: given distances · Blue: return distances.`,`Imej diberi. Cari ${q.label} dengan membahagi jarak dari pusat dengan ${fmt(q.factor)} (× ${fmt(lesson.requiredFactor)}). Jingga: jarak diberi · Biru: jarak songsang.`);
   const titles=[['Where is the centre?','Di manakah pusat pembesaran?'],[`Centre ${coord(q.centre)}`,`Pusat ${coord(q.centre)}`],['Centre → given point','Pusat → titik diberi'],[`${Math.abs(v.x)} ${direction(v.x,true)} · ${Math.abs(v.y)} ${direction(v.y,false)}`,`${Math.abs(v.x)} ${direction(v.x,true)} · ${Math.abs(v.y)} ${direction(v.y,false)}`],[factorLabel(),factorLabel()],[`${lesson.answerLabel} = ${coord(lesson.answer)}`,`${lesson.answerLabel} = ${coord(lesson.answer)}`]];
   text('stepTitle',...titles[stage]);
   const k=Number(lesson.factor.toFixed(2)), dx=Number((v.x*k).toFixed(2)),dy=Number((v.y*k).toFixed(2));
   const special=k===0?tr('At k = 0, the image collapses to the centre.','Apabila k = 0, imej menjadi titik pusat.') : k===1?tr('At k = 1, the point stays in its original position.','Apabila k = 1, titik kekal pada kedudukan asal.') : k<0?tr('Negative k: the image is on the opposite side of the centre.','k negatif: imej di sebelah bertentangan pusat.') : k<1?tr('Between 0 and 1: the image moves closer to the centre.','Antara 0 dengan 1: imej menghampiri pusat.') : tr('Multiply both distances from the centre.','Darabkan kedua-dua jarak dari pusat.');
   const detail=stage<2?tr('Start at the stated centre, not the origin.','Mulakan di pusat yang diberi, bukan asalan.') : stage===2?tr('The centre, object and image lie on the same straight line.','Pusat, objek dan imej terletak pada garis lurus yang sama.') : stage===3?tr('Count the squares, then change the scale factor.','Kira petak, kemudian ubah faktor skala.') : `${special} ${fmt(v.x)} × ${fmt(k)} = ${fmt(dx)}; ${fmt(v.y)} × ${fmt(k)} = ${fmt(dy)}.`;
   text('stepDetail',detail,detail);
-  if(lesson.answerVisible) text('stepDetail',`x: ${fmt(q.centre.x)} + ${fmt(dx)} = ${fmt(lesson.answer.x)} · y: ${calculation(q.centre.y,dy,lesson.answer.y)}`,`x: ${fmt(q.centre.x)} + ${fmt(dx)} = ${fmt(lesson.answer.x)} · y: ${calculation(q.centre.y,dy,lesson.answer.y)}`);
+  if(lesson.inverse && stage>=3 && !lesson.answerVisible) text('stepDetail',`Work back from ${lesson.givenLabel}: ${fmt(v.x)} × ${fmt(k)} = ${fmt(dx)}; ${fmt(v.y)} × ${fmt(k)} = ${fmt(dy)}. To recover ${q.label}, use × ${fmt(lesson.requiredFactor)}.`,`Undur dari ${lesson.givenLabel}: ${fmt(v.x)} × ${fmt(k)} = ${fmt(dx)}; ${fmt(v.y)} × ${fmt(k)} = ${fmt(dy)}. Untuk mencari ${q.label}, guna × ${fmt(lesson.requiredFactor)}.`);
+  if(lesson.answerVisible) text('stepDetail',`x: ${calculation(q.centre.x,dx,lesson.answer.x)} · y: ${calculation(q.centre.y,dy,lesson.answer.y)}`,`x: ${calculation(q.centre.x,dx,lesson.answer.x)} · y: ${calculation(q.centre.y,dy,lesson.answer.y)}`);
   text('stepNumber',stage?`STEP ${stage} / 5`:`QUESTION ${q.number}`,stage?`LANGKAH ${stage} / 5`:`SOALAN ${q.number}`);
   const actions=[['Mark the centre →','Tandakan pusat →'],['Draw guide →','Lukis garis panduan →'],['Count squares →','Kira petak →']];
-  const action=lesson.answerVisible?['Answer revealed','Jawapan didedahkan']:lesson.ready?(lesson.canReveal?['Reveal answer','Dedahkan jawapan']:['Show question’s scale →','Tunjuk skala soalan →']):actions[stage];
+  const action=lesson.answerVisible?['Answer revealed','Jawapan didedahkan']:lesson.ready?(lesson.canReveal?['Reveal answer','Dedahkan jawapan']:lesson.inverse?['Show inverse scale →','Tunjuk skala songsang →']:['Show question’s scale →','Tunjuk skala soalan →']):actions[stage];
   text('next',...action);$('next').disabled=!!animation || lesson.answerVisible;$('previous').disabled=!stage || !!animation;
   $('scrubber').hidden=!lesson.ready;$('progress').value=lesson.factor;
   text('scrubLabel',`Scale factor · ${factorLabel()}`,`Faktor skala · ${factorLabel()}`);
@@ -317,11 +319,11 @@ function draw() {
   if (!reflection && !rotation && !enlargement && lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
   const complete = rotation || enlargement ? true : lesson.progress === (reflection ? 1 : 2);
   const pulse = reducedMotion.matches ? 0 : Math.max(0, (axisPulseUntil - performance.now()) / 600);
-  drawGraph({ view, pointLabelSpread: enlargement ? Math.PI/2 : undefined, pointLabelRings: enlargement ? 8 : undefined, originLabel: !(reflection && lesson.choice && lesson.choice.kind !== 'slanted' && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: 2, axisFontSize: 15, labelFontSize: (reflection || rotation || enlargement) && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
-    objects: [{ id: 'given', points: [q.given], labels: [lesson.givenLabel], image: lesson.inverse, coordinates: lesson.stage > 0 }],
-    preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? (reflection || rotation || enlargement) && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible } : null,
+  drawGraph({ view, labelOverlapPenalty: enlargement ? 2000 : undefined, pointLabelSpread: enlargement ? Math.PI/2 : undefined, pointLabelRings: enlargement ? 12 : undefined, originLabel: !(reflection && lesson.choice && lesson.choice.kind !== 'slanted' && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: enlargement && GRID_UNIT*view.zoom<14 ? 5 : 2, axisFontSize: 15, labelFontSize: (reflection || rotation || enlargement) && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
+    objects: [{ id: 'given', points: [q.given], labels: [lesson.givenLabel], image: lesson.inverse, coordinates: lesson.stage > 0, labelPlacement: enlargement && lesson.inverse ? 'below' : undefined }],
+    preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? (reflection || rotation || enlargement) && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible, labelPlacement: enlargement ? 'below' : undefined } : null,
     annotations: erased ?? inkStore.document.objects, ink, overlays: obstacles,
-    geometryOverlay: enlargement ? ctx => paintEnlargementLesson(ctx, {lesson,view,dark,width:canvas.clientWidth,height:canvas.clientHeight,overlays:obstacles}) : rotation ? ctx => paintRotationLesson(ctx, { lesson, view, dark, clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: graphBounds(), dark, pulse }) : null,
+    geometryOverlay: enlargement ? (ctx,base) => paintEnlargementLesson(ctx, {lesson,view,dark,width:canvas.clientWidth,height:canvas.clientHeight,overlays:[...obstacles,...base.obstacles],centreLabel:q.label==='C'?tr('Centre','Pusat'):'C'}) : rotation ? ctx => paintRotationLesson(ctx, { lesson, view, dark, clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: graphBounds(), dark, pulse }) : null,
   });
   if (enlargement) return;
   if (reflection) { if (pulse > 0) schedule(); return; }
@@ -457,7 +459,7 @@ function advance() {
   if (isEnlargement()) {
     if (!lesson.ready) goTo(lesson.stage+1);
     else if (lesson.canReveal) { lesson.reveal(); sync(); }
-    else { lesson.scrub(1); lesson.stage=4; animateProgress(q.factor); }
+    else { lesson.scrub(1); lesson.stage=4; animateProgress(lesson.requiredFactor); }
     return;
   }
   if (isRotation()) {

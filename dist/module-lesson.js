@@ -55,16 +55,21 @@ export const ROTATION_QUESTIONS = Object.freeze([
     }),
   });
 }));
-// First enlargement lesson: A5, printed page 5 (PDF page 6).
-export const ENLARGEMENT_QUESTIONS = Object.freeze([Object.freeze({
-  id: '17', number: '17', label: 'A', section: 'A5', type: 'enlargement', find: 'image',
-  given: Object.freeze({ x: 3, y: 2 }), centre: Object.freeze({ x: 1, y: -1 }), factor: 2,
+// A5, printed page 5 (PDF page 6). Q20 supplies the image, not the object.
+export const ENLARGEMENT_QUESTIONS = Object.freeze([
+  { id:'17', label:'A', find:'image', given:{x:3,y:2}, centre:{x:1,y:-1}, factor:2 },
+  { id:'18', label:'B', find:'image', given:{x:-1,y:1}, centre:{x:-2,y:2}, factor:3 },
+  { id:'19', label:'C', find:'image', given:{x:6,y:2}, centre:{x:2,y:-2}, factor:.5 },
+  { id:'20', label:'D', find:'object', given:{x:5,y:5}, centre:{x:-1,y:1}, factor:2 },
+].map(q=>Object.freeze({
+  ...q, number:q.id, section:'A5', type:'enlargement',
+  given:Object.freeze(q.given), centre:Object.freeze(q.centre),
   bounds: Object.freeze({ xmin: -8, xmax: 8, ymin: -8, ymax: 8 }),
   prompt: Object.freeze({
-    en: 'A′ is the image of A under an enlargement with centre (1, −1), scale factor 2. Find its coordinates.',
-    bm: 'A′ ialah imej bagi A di bawah pembesaran berpusat di (1, −1), faktor skala 2. Cari koordinat A′.',
+    en: `${q.label}′ is the image of ${q.label} under an enlargement with centre (${q.centre.x}, ${q.centre.y}), scale factor ${q.factor===.5?'½':q.factor}. ${q.find==='object'?`Find the coordinates of ${q.label}.`:'Find its coordinates.'}`,
+    bm: `${q.label}′ ialah imej bagi ${q.label} di bawah pembesaran berpusat di (${q.centre.x}, ${q.centre.y}), faktor skala ${q.factor===.5?'½':q.factor}. Cari koordinat ${q.label}${q.find==='image'?'′':''}.`,
   }),
-})]);
+})));
 export const MODULE_QUESTIONS = Object.freeze([...TRANSLATION_QUESTIONS, ...REFLECTION_QUESTIONS, ...ROTATION_QUESTIONS, ...ENLARGEMENT_QUESTIONS]);
 export const findModuleQuestion = id => MODULE_QUESTIONS.find(q => q.id === id);
 export const createModuleLesson = q => q.type === 'enlargement' ? new EnlargementLesson(q) : q.type === 'rotation' ? new RotationLesson(q) : q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
@@ -253,11 +258,12 @@ export class EnlargementLesson extends PointLesson {
   reset() { this.stage = 0; this.progress = 1; this.answerVisible = false; }
   get factor() { return this.progress; }
   get offset() { const p=this.question.given,c=this.question.centre; return {x:p.x-c.x,y:p.y-c.y}; }
-  get answer() { return enlargePoint(this.question.given,this.question.centre,this.question.factor); }
+  get requiredFactor() { return this.inverse ? 1/this.question.factor : this.question.factor; }
+  get answer() { return enlargePoint(this.question.given,this.question.centre,this.requiredFactor); }
   get ready() { return this.stage >= 3; }
-  get matchesQuestion() { return Math.abs(this.factor-this.question.factor) < 1e-9; }
+  get matchesQuestion() { return Math.abs(this.factor-this.requiredFactor) < 1e-9; }
   get canReveal() { return this.ready && this.matchesQuestion; }
-  get targetProgress() { return this.stage >= 4 ? this.question.factor : 1; }
+  get targetProgress() { return this.stage >= 4 ? this.requiredFactor : 1; }
   get bounds() {
     const b = this.question.bounds;
     if (!this.ready) return b;

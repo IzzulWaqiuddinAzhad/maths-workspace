@@ -1,4 +1,4 @@
-# Module teaching: translation 1–4, reflection 5–8, rotation 9–16 and enlargement 17
+# Module teaching: translation 1–4, reflection 5–8, rotation 9–16 and enlargement 17–20
 
 Open `module.html?question=1`, or Explore → Transformations → Module teaching · Translation 1–4. This separate full-page teaching view preserves the existing free exploration.
 
@@ -33,7 +33,7 @@ The question card collapses to enlarge the graph. Fit restores the printed grid.
 
 Run `npm test`. In a browser, check all four direct links, question navigation and browser Back; verify hidden answers, every teaching step, forward final mappings, reverse/scrub/reset, separate annotation histories, pan/zoom, EN/BM and light/dark. Inspect desktop, tablet and phone layouts, collapsed questions and fullscreen.
 
-Translation Questions 1–4, Reflection Questions 5–8, Rotation Questions 9–16 and the first Enlargement lesson (Question 17) are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Enlargement Questions 18–20, polygon Questions 41–44, combined transformations and area demonstrations remain future module work.
+Translation Questions 1–4, Reflection Questions 5–8, Rotation Questions 9–16 and Enlargement Questions 17–20 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Polygon Questions 41–44, combined transformations and area demonstrations remain future module work.
 
 ## Reflection questions 5–8
 
@@ -94,9 +94,9 @@ After the construction is complete, the optional Clock guide toggle shows an ana
 Tests cover all eight independent answers, the rigid lengths and right angles of every copy, centre-relative construction, both full turns, arbitrary trial angles, equivalent endpoints, snapping hysteresis, reveal guards, back/reset behaviour and a clockwise screen-coordinate clock that cannot mutate lesson state. Browser checks include real slider drags through every snap point in both directions, exact keyboard adjustments, return-to-question/reveal, clock toggling, translation/reflection regressions, and desktop, 390px phone and 820px tablet layouts. Physical iPad/stylus/multi-touch testing remains a device check.
 
 
-## First enlargement lesson: Question 17
+## Enlargement questions 17–20
 
-Open `module.html?question=17`, choose Enlargement in the activity selector, or use Explore → Transformations → Module teaching · Enlargement 17. The source is A5, printed page 5 (PDF page 6) of the v4.2 booklet. The diagram gives A(3, 2); centre (1, −1), scale factor 2. The image A′(5, 5) was independently calculated and checked against the scheme. The booklet uses points in Questions 17–20 and polygons in Questions 41–44 (B5, printed page 11). This release intentionally starts with one point lesson for classroom review.
+Open `module.html?question=17`, choose Enlargement in the activity selector, or use Explore → Transformations → Module teaching · Enlargement 17–20. The source is A5, printed page 5 (PDF page 6) of the v4.2 booklet. The diagram gives A(3, 2); centre (1, −1), scale factor 2. The image A′(5, 5) was independently calculated and checked against the scheme. The booklet uses points in Questions 17–20 and polygons in Questions 41–44 (B5, printed page 11). All four point lessons use the same staged construction and free scale control.
 
 1. Mark the stated centre, rather than defaulting to the origin.
 2. Draw the straight guide through the centre and given point.
@@ -106,4 +106,19 @@ Open `module.html?question=17`, choose Enlargement in the activity selector, or 
 
 `EnlargementLesson` retains source coordinates, computes centre-relative scaling and controls reveal eligibility separately from the trial factor. The rotation range handler is shared with enlargement, including pointer capture, cancellation and the stable slider layout. Bounds expand once when free control becomes available to include the entire scale range; dragging does not continually refit the camera. Pan, zoom, annotation Undo/Redo, EN/BM, theme and question navigation remain shared. The enlargement overlay uses the existing `LabelLayout` to keep distance labels apart. The shared point renderer accepts optional wider label candidates for crowded diagrams while retaining its previous defaults.
 
-Checks include exact source/answer data, positive/fractional/negative/zero factors, fixed-centre and collinearity properties, reveal protection, stable bounds, snapping and non-mutating rendering. Browser testing covers real pointer drags, keyboard entry, staged reveal/backtracking/reset, annotations, existing activities and desktop/phone/tablet layouts. An actual iPad/stylus remains a device check. Questions 18–20 and polygon lessons are not yet activated.
+Checks include exact source/answer data, positive/fractional/negative/zero factors, fixed-centre and collinearity properties, reveal protection, stable bounds, snapping and non-mutating rendering. Browser testing covers real pointer drags, keyboard entry, staged reveal/backtracking/reset, annotations, existing activities and desktop/phone/tablet layouts. An actual iPad/stylus remains a device check. Polygon lessons are not yet activated.
+
+### Shared enlargement layout and inverse question
+
+| Question | Given | Centre | Stated factor | Required answer |
+| --- | --- | --- | --- | --- |
+| 17 | A(3, 2) | (1, −1) | 2 | A′(5, 5) |
+| 18 | B(−1, 1) | (−2, 2) | 3 | B′(1, −1) |
+| 19 | C(6, 2) | (2, −2) | ½ | C′(4, 0) |
+| 20 | D′(5, 5) | (−1, 1) | 2 | D(2, 3) |
+
+Q20 starts from the given image. Its slider explicitly measures the return scale from that image; the required return factor is ½. The staged action demonstrates the reciprocal, and factor 2 is not accepted as the return operation. The final mapping still shows D(2, 3) → D′(5, 5) under the stated enlargement factor 2. Object/image colours and the original question stay correct throughout.
+
+All four share bold, viewport-spanning guides, 24px bold component counts (22px on narrow screens), vertical counts outside their own legs and lower image captions. Label avoidance reserves the actual larger text rectangles and axis numerals; the renderer keeps its original defaults for other activities. Image captions use width-aware candidates below the point, including the given image in Q20. The centre in Q19 is named Centre/Pusat to distinguish it from point C. Zoomed-out enlargement views reduce axis-number density to keep numbers readable.
+
+The regression checks cover all four source diagrams/answers, inverse recovery and reveal gating, image captions below their points, larger count labels and overlap checks on desktop and phone-size canvases.
