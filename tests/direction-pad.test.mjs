@@ -40,3 +40,18 @@ test('a disabled lesson stops repeats without changing another lesson',async t=>
  allowed=true;await wait(15);assert.equal(count,1);
  pad.dispose();pad.send('pointerdown',{button:0,pointerId:2});assert.equal(count,1);
 });
+
+test('sliding a captured pad changes direction, pauses between arrows and commits only on release',async t=>{
+  const actions=[],buttons=[{disabled:false,focus(){}},{disabled:false,focus(){}}];let released=0;
+  const pad=setup(b=>actions.push(buttons.indexOf(b)),{targetAt:e=>e.targetIndex===undefined?null:buttons[e.targetIndex],onRelease:()=>released++});t.after(pad.dispose);
+  pad.send('pointerdown',{button:0,pointerId:4,targetIndex:0});assert.deepEqual(actions,[0]);
+  pad.send('pointermove',{pointerId:4,targetIndex:1});assert.deepEqual(actions,[0,1]);
+  pad.send('pointermove',{pointerId:4});await wait(20);assert.deepEqual(actions,[0,1]);
+  pad.send('pointermove',{pointerId:4,targetIndex:0});assert.deepEqual(actions,[0,1,0]);
+  pad.send('pointerup',{pointerId:4});assert.equal(released,1);
+  await wait(20);assert.deepEqual(actions,[0,1,0]);
+  pad.send('click',{detail:1,targetIndex:0});assert.deepEqual(actions,[0,1,0]);
+  pad.send('pointerdown',{button:0,pointerId:5,targetIndex:1});
+  pad.send('pointercancel',{pointerId:5});assert.equal(released,1);
+  pad.send('click',{detail:0,targetIndex:1});assert.equal(released,2);
+});

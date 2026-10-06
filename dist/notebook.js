@@ -1,7 +1,8 @@
 import {workspaceHost as host} from './workspace-host.js';
-import {MODULE_PAGE,PAGE_GRAPHS,graphToPage,fitPage,fitQuestion,fitGraph,constrainPage,saveLesson,restoreLesson} from './notebook-model.js';
-import {paintRotationLesson} from './module-rotation-render.js?v=7';
-import {paintCoordinateGuide,COORDINATE_GUIDE_DURATION} from './module-coordinate-guide.js?v=1';
+import {MODULE_PAGE,PAGE_GRAPHS,fitPage,fitQuestion,fitGraph,constrainPage,saveLesson,restoreLesson} from './notebook-model.js?v=2';
+import {paintRotationLesson} from './module-rotation-render.js?v=8';
+import {paintCoordinateGuide,paintCoordinateReadout,coordinateGuideDuration} from './module-coordinate-guide.js?v=2';
+import {bindDirectionPad} from './direction-pad.js?v=2';
 import {LabelLayout} from './label-layout.js?v=13';
 import {calculatorPanel} from './calculator-panel.js?v=13';
 import {worldToScreen} from './core.js?v=14';
@@ -51,9 +52,15 @@ function paintGraph(ctx,g){
     ctx.strokeStyle='#fff';ctx.lineWidth=5;ctx.strokeText(label,tx,ty);ctx.fillText(label,tx,ty);
   };
   if(l.stage)point(g.question.centre,'', '#c23246');
-  if(l.constructionComplete&&l.angle!==0){
-    const p=l.pointAt(),label=g.question.label+'′'+(l.answerVisible?' '+coordinates(p):'');
-    point(p,label,'#2468c4');
+  const reading=guide?.graph===g&&guide.mode==='read'?guide.key:null;
+  const readout=(p,label,colour)=>paintCoordinateReadout(ctx,{point:p,label,view,dark:false,width:640,height:724,pointColour:colour});
+  const imageReady=l.constructionComplete&&(l.angle!==0||l.readPoints.image);
+  const coincident=imageReady&&l.atStart;
+  if(l.readPoints.source&&reading!=='source'&&!coincident)readout(g.question.given,g.question.label,'#20242c');
+  if(imageReady){
+    const p=l.pointAt(),label=g.question.label+'′',hasCoordinates=l.answerVisible||l.readPoints.image||(coincident&&l.readPoints.source);
+    point(p,hasCoordinates||reading==='image'?'':label,'#2468c4');
+    if(hasCoordinates&&reading!=='image'&&!(coincident&&reading==='source'))readout(p,coincident&&l.readPoints.source?`${g.question.label} = ${label}`:label,'#2468c4');
   }
   if(guide?.graph===g)paintCoordinateGuide(ctx,{...guide,elapsed:now-guide.start,view,dark:false,width:640,height:724,pointColour:guide.mode==='plot'?'#c23246':'#2468c4'});
   ctx.restore();
@@ -72,9 +79,7 @@ $('overlay').setAttribute('aria-label','Module page. Write with a pen, use one f
 page.decode().then(()=>{$('pageLoading').hidden=true;api.requestDraw(true);}).catch(()=>{$('pageLoading').textContent='The module could not load. Reload this page to try again.';});
 
 function stopAnimation(){
-  if(animation?.kind==='count'){
-    const l=animation.graph.lesson;l.buildCounts[animation.index]=Math.round(l.buildCounts[animation.index]);l.counting=false;l.countAnimation=null;
-  }
+  padBinding?.stop();
   if(animation?.kind==='rotate')animation.graph.lesson.scrub(animation.graph.lesson.progress);
   animation=null;guide=null;
 }
@@ -85,21 +90,24 @@ function frame(time){
   tick=0;now=time;
   if(animation){
     const a=animation,l=a.graph.lesson,p=Math.min(1,(time-a.start)/a.duration);
-    if(a.kind==='count')l.buildCounts[a.index]=a.from+(a.to-a.from)*p;
-    else l.progress=a.from+(a.to-a.from)*(p*p*(3-2*p));
+    l.progress=a.from+(a.to-a.from)*(p*p*(3-2*p));
     if(p===1){
-      if(a.kind==='count'){l.buildCounts[a.index]=a.to;l.counting=false;l.countAnimation=null;}
-      else l.scrub(a.to);
+      l.scrub(a.to);
       animation=null;save();sync();
     }
   }
-  if(guide&&time-guide.start>=COORDINATE_GUIDE_DURATION){if(guide.mode==='plot')guide.graph.lesson.stage=Math.max(1,guide.graph.lesson.stage);guide=null;save();sync();}
+  if(guide&&time-guide.start>=coordinateGuideDuration(guide.mode)){
+    if(guide.mode==='plot')guide.graph.lesson.stage=Math.max(1,guide.graph.lesson.stage);
+    else guide.graph.lesson.readPoints[guide.key]=true;
+    guide=null;save();sync();
+  }
   api.requestDraw(true);
   if(animation||guide||graphs.some(g=>g.lesson.clockVisible&&!document.hidden))animate();
 }
-function showCoordinates(mode){
+function showCoordinates(mode,key='source'){
   if(!active)return;stopAnimation();const l=active.lesson;
-  guide={graph:active,mode,point:mode==='plot'?active.question.centre:(l.constructionComplete&&l.angle?l.pointAt():active.question.given),label:mode==='plot'?'O':active.question.label+(l.constructionComplete&&l.angle?'′':''),start:performance.now()};
+  if(key==='image'&&(!l.constructionComplete||(!l.angle&&!l.readPoints.image)))return;
+  guide={graph:active,mode,key,point:mode==='plot'?active.question.centre:key==='image'?l.pointAt():active.question.given,label:mode==='plot'?'O':active.question.label+(key==='image'?'′':''),start:performance.now()};
   sync();animate();
 }
 function openGraph(g){
@@ -117,52 +125,41 @@ function sync(){
   if(!active)return;const l=active.lesson,busy=!!animation||!!guide;
   $('demoTitle').textContent=`${active.question.label} · ${active.id}`;
   $('demoBack').disabled=busy||!l.stage;
-  $('demoNext').disabled=busy||l.answerVisible;
-  $('demoNext').textContent=!l.stage?'Plot centre':!l.constructionComplete?'Next':l.canReveal?'Reveal':l.matchesQuestion?'Next':'Rotate';
+  $('demoNext').disabled=busy||l.answerVisible||(l.stage>0&&(!l.constructionComplete||!l.constructionMatches));
+  $('demoNext').textContent=!l.stage?'Plot centre':l.canReveal?'Reveal':'Next';
   $('constructionControls').hidden=l.constructionComplete;
   $('rotationControls').hidden=!l.constructionComplete;
   $('clockToggle').hidden=!l.constructionComplete;
   $('clockToggle').setAttribute('aria-pressed',String(l.clockVisible));
-  for(const [id,axis]of[['firstX','x'],['firstY','y']]){$(id).setAttribute('aria-pressed',String(l.firstAxis===axis));$(id).disabled=busy;}
   $('rotationSlider').disabled=busy;$('rotationSlider').value=String(l.angle);
   $('rotationValue').textContent=`${fmt(Math.abs(l.angle))}°${l.angle<0?' clockwise':l.angle>0?' anticlockwise':''}`;
   document.querySelectorAll('[data-angle]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(+b.dataset.angle===l.angle));});
-  const info=l.segmentInfo();
-  document.querySelectorAll('[data-nudge]').forEach(b=>{const axis=['up','down'].includes(b.dataset.nudge)?'y':'x';b.disabled=busy||!l.stage||l.constructionComplete||(l.buildIndex>0||l.buildCounts[0]!==0)&&axis!==info.axis;});
-  $('countValue').textContent=fmt(l.buildCounts[l.buildIndex]||0);
-  $('demoAuto').disabled=busy||!l.stage||l.constructionComplete;
-  $('demoStatus').textContent=guide?'Follow the coordinates to the point.':animation?'':!l.stage?'Tap Next to locate the centre.':!l.constructionComplete?`Arm ${info.arm+1} · ${info.part?'bend':'straight segment'}. Move with the pad, then Next.`:!l.constructionMatches?'Compare the lengths with the original point. Back lets you adjust them.':l.answerVisible?`${active.question.label}′ ${coordinates(l.answer)}`:'Turn either way. Next uses the question’s angle.';
-}
-function countAutomatically(){
-  if(!active||animation||guide)return;const l=active.lesson;if(!l.stage||l.constructionComplete)return;
-  const index=l.buildIndex,from=l.buildCounts[index],to=l.segmentInfo().target;
-  if(from===to){l.advanceConstruction();changed();return;}
-  l.counting=true;l.countAnimation={from,to};
-  animation={kind:'count',graph:active,index,from,to,start:performance.now(),duration:Math.max(300,Math.min(2400,Math.abs(to-from)*230))};sync();animate();
+  document.querySelectorAll('[data-nudge]').forEach(b=>{b.disabled=busy||!l.stage||l.constructionComplete;});
+  $('countValue').textContent=`${l.completedArms} / 4`;
+  $('showPoint').disabled=busy;$('showImage').disabled=busy;$('showCentre').disabled=busy;
+  $('showImage').hidden=!l.constructionComplete||(!l.angle&&!l.readPoints.image);
+  $('demoStatus').textContent=guide?guide.mode==='read'?'Read x, then y.':'Follow the coordinates to the point.':animation?'':!l.stage?'Tap Next to locate the centre.':!l.constructionComplete?`Arm ${l.completedArms+1}. Tap, hold or slide between arrows. Release to keep a completed arm.`:!l.constructionMatches?'Compare the lengths with the original point. Back lets you adjust them.':l.answerVisible?`${active.question.label}′ ${coordinates(l.answer)}`:'Turn either way. Next uses the question’s angle.';
 }
 $('demoNext').onclick=()=>{
   if(!active||animation||guide)return;const l=active.lesson;
   if(!l.stage){showCoordinates('plot');return;}
-  if(!l.constructionComplete){
-    if(l.buildCounts[l.buildIndex]===0&&l.segmentInfo().target!==0){countAutomatically();return;}
-    l.advanceConstruction();changed();return;
-  }
+  if(!l.constructionComplete)return;
   if(l.canReveal){l.reveal();changed();return;}
   if(!l.constructionMatches){$('demoStatus').textContent='Use Back to adjust the construction, or Reset demo to begin again.';return;}
   animation={kind:'rotate',graph:active,from:l.angle,to:l.movementDegrees,start:performance.now(),duration:1100};l.answerVisible=false;sync();animate();
 };
-$('demoAuto').onclick=countAutomatically;
 $('demoBack').onclick=()=>{stopAnimation();const l=active.lesson;if(l.answerVisible){l.answerVisible=false;l.stage=10;}else if(l.angle){l.scrub(0);}else l.previousConstruction();changed();};
 $('demoReset').onclick=()=>{stopAnimation();active.lesson.reset();changed();};
 $('demoClose').onclick=()=>{stopAnimation();$('demoPanel').hidden=true;for(const g of graphs)g.button.setAttribute('aria-pressed','false');active=null;save();api.requestDraw(true);};
 $('demoFit').onclick=()=>fitActive(true);
-$('firstX').onclick=()=>{active.lesson.selectFirstAxis('x');changed();};
-$('firstY').onclick=()=>{active.lesson.selectFirstAxis('y');changed();};
 $('clockToggle').onclick=()=>{active.lesson.toggleClock();changed();animate();};
-$('showCentre').onclick=()=>showCoordinates('plot');$('showPoint').onclick=()=>showCoordinates('read');
+$('showCentre').onclick=()=>showCoordinates('plot');$('showPoint').onclick=()=>showCoordinates('read','source');$('showImage').onclick=()=>showCoordinates('read','image');
 const moves={up:['y',1],down:['y',-1],left:['x',-1],right:['x',1]};
-function nudge(direction){if(!active||animation||guide)return;active.lesson.nudgeConstruction(...moves[direction]);changed();}
-document.querySelectorAll('[data-nudge]').forEach(b=>b.onclick=()=>nudge(b.dataset.nudge));
+function nudge(direction){if(!active||animation||guide)return;active.lesson.moveConstruction(...moves[direction]);changed();}
+function finishArm(){if(active&&!animation&&!guide){active.lesson.finishConstructionGesture();changed();}}
+const padBinding=bindDirectionPad(document.querySelector('.notebook-pad'),nudge,{interval:180,
+  enabled:()=>!!active&&!clean&&!animation&&!guide&&!$('demoPanel').hidden&&active.lesson.stage>0&&!active.lesson.constructionComplete,
+  onRelease:finishArm});
 $('demoPanel').addEventListener('keydown',e=>{
   // Range inputs retain their native hardware-keyboard semantics.
   if(e.target.tagName==='INPUT')return;
@@ -170,6 +167,7 @@ $('demoPanel').addEventListener('keydown',e=>{
   if(direction){e.preventDefault();nudge(direction);}
   if(e.key==='Escape')$('demoClose').click();
 });
+$('demoPanel').addEventListener('keyup',e=>{if(e.target.tagName!=='INPUT'&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))finishArm();});
 function rotateTo(n){if(!active||animation||guide)return;active.lesson.scrub(n);changed();}
 $('rotationSlider').oninput=e=>rotateTo(+e.target.value);
 document.querySelectorAll('[data-angle]').forEach(b=>b.onclick=()=>rotateTo(+b.dataset.angle));
@@ -178,7 +176,7 @@ function pageFit(){api.setView(fitPage(api.size.width,api.size.height));}
 $('pageFit').onclick=pageFit;$('home').onclick=pageFit;$('zoomvalue').onclick=pageFit;
 function setClean(value,{focus=false}={}){
   clean=value;document.body.classList.toggle('clean-view',clean);$('showTools').hidden=!clean;$('exitClean').hidden=!clean;
-  if(clean)calculatorPanel().hide();
+  if(clean){padBinding.stop();calculatorPanel().hide();}
   $('fullscreen').ariaLabel=full?'Exit full screen':'Full screen';
   if(focus&&active)requestAnimationFrame(()=>requestAnimationFrame(()=>fitActive(true)));
 }

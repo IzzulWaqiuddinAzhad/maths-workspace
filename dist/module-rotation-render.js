@@ -41,7 +41,7 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
     countSegment(path.corner,path.end,i*2+1,blue);
   }
   if(!lesson.constructionComplete && lesson.stage) {
-    const info=lesson.segmentInfo(),path=lesson.constructionPaths[info.arm],p=screen(info.part?path.end:path.corner);
+    const info=lesson.segmentInfo(),path=lesson.constructionPaths[info.arm],p=screen(lesson.constructionCursor??(info.part?path.end:path.corner));
     ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=lesson.segmentInfo().part?blue:orange;ctx.lineWidth=2;ctx.stroke();points.push(p);
   }
   countLabels.begin({bounds:width&&height?{x:8,y:8,w:width-16,h:height-62}:undefined,points:[c,source],segments,labelOverlapPenalty:2000});

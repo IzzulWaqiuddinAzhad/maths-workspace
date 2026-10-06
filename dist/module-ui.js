@@ -1,5 +1,5 @@
 import { createSequenceOverview } from './module-sequence-view.js?v=1';
-import { coordinateGuideFrame, paintCoordinateGuide, COORDINATE_GUIDE_DURATION } from './module-coordinate-guide.js?v=1';
+import { coordinateGuideFrame, paintCoordinateGuide, coordinateGuideDuration } from './module-coordinate-guide.js?v=2';
 import { bindRepeatingButton } from './direction-pad.js?v=1';
 import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=15';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
@@ -174,7 +174,7 @@ function drawCoordinateGuide() {
   const image=guide.label===lesson.answerLabel&&!lesson.inverse||guide.label===lesson.givenLabel&&lesson.inverse;
   const intermediate=sequence&&(sequence.index===0&&guide.label===lesson.answerLabel||sequence.index===1&&guide.label===lesson.givenLabel);
   const pointColour=intermediate?(dark?'#ffc47f':'#a95c14'):image?(dark?'#91beff':'#2468c4'):(dark?'#edf0f5':'#20242c');
-  if(elapsed>=COORDINATE_GUIDE_DURATION){const finish=guide.finish;cancelCoordinateGuide();finish();return;}
+  if(elapsed>=coordinateGuideDuration(guide.mode)){const finish=guide.finish;cancelCoordinateGuide();finish();return;}
   const frame=paintCoordinateGuide(canvas.getContext('2d'),{...guide,elapsed,view,dark,pointColour,width:canvas.clientWidth,height:canvas.clientHeight});
   if(guide.mode==='plot'){
     const boardRect=canvas.getBoundingClientRect();

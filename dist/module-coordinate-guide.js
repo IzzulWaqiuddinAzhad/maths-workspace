@@ -1,16 +1,31 @@
 import { graphToScreen } from './transform-model.js?v=29';
 
 export const COORDINATE_GUIDE_DURATION = 3400;
+export const coordinateGuideDuration = mode => mode === 'read' ? 4800 : COORDINATE_GUIDE_DURATION;
 const clamp = x => Math.max(0, Math.min(1, x));
 const progress = (t, a, b) => clamp((t-a)/(b-a));
 const mix = (a, b, t) => ({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
-const fmt = n => String(n).replace('-', '−');
+const fmt = n => String(Number(n.toFixed(2))).replace('-', '−');
 
 // Timings affect presentation only. Every endpoint comes from the same point.
 // Reading goes point → axes; plotting goes axes → their intersection.
 export function coordinateGuideFrame(point, mode, elapsed) {
   const plot = mode === 'plot', t = Math.max(0, elapsed);
   const xAxis = {x:point.x,y:0}, yAxis = {x:0,y:point.y};
+  if(!plot){
+    const xProgress=progress(t,500,1200),yProgress=progress(t,2300,3000);
+    return {
+      phase:t<500?'point':t<2300?'x':t<4050?'y':'intersection',
+      done:t>=coordinateGuideDuration(mode),xAxis,yAxis,
+      xLine:[point,mix(point,xAxis,xProgress)],yLine:[point,mix(point,yAxis,yProgress)],
+      xProgress,yProgress,xFlight:progress(t,1500,2100),yFlight:progress(t,3300,3900),
+      xRead:t>=2100,yRead:t>=3900,
+      xEmphasis:t>=1200&&t<2100,yEmphasis:t>=3000&&t<3900,
+      xAxisVisible:t>=1200,yAxisVisible:t>=3000,
+      opacity:1-progress(t,4250,4800),showPoint:true,
+      pulse:t<500?.5+.5*Math.sin(t*Math.PI/180):0,
+    };
+  }
   const xProgress = progress(t, plot?650:350, 1250);
   const yProgress = progress(t, plot?1950:1550, 2500);
   const xStart = plot?xAxis:point, yStart = plot?yAxis:point;
@@ -28,6 +43,27 @@ export function coordinateGuideFrame(point, mode, elapsed) {
     showPoint:!plot||t>=2500,
     pulse:(phase==='point'||phase==='intersection') ? .5+.5*Math.sin(t*Math.PI/450) : 0,
   };
+}
+
+// The coordinate pair has stable slots: numbers travel into them, then remain.
+// This renderer is also used after the temporary projection lines are removed.
+export function paintCoordinateReadout(ctx,{point,label,view,dark,width,height,pointColour,xRead=true,yRead=true}){
+  const c=graphToScreen(point,view),paper=dark?'#15181d':'#fff',ink=pointColour||(dark?'#edf0f5':'#20242c');
+  ctx.save();ctx.font='600 22px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';
+  const parts=[`${label} (`,fmt(point.x),', ',fmt(point.y),')'];
+  const widths=parts.map((s,i)=>Math.max(i===1||i===3?20:0,ctx.measureText(s).width));
+  const total=widths.reduce((a,b)=>a+b,0),left=Math.max(6,Math.min(width-total-6,c.x-total/2));
+  const top=c.y+36>height-30?c.y-36:c.y+36;
+  const y=Math.max(20,Math.min(height-25,top));
+  ctx.fillStyle=paper;ctx.fillRect(left-5,y-16,total+10,32);
+  let x=left;const slots=[];
+  parts.forEach((text,i)=>{
+    if(i===1||i===3)slots.push({x:x+widths[i]/2,y});
+    ctx.fillStyle=i===1?(dark?'#ffc47f':'#a95c14'):i===3?(dark?'#91beff':'#2468c4'):ink;
+    if((i!==1||xRead)&&(i!==3||yRead))ctx.fillText(text,x,y);
+    x+=widths[i];
+  });
+  ctx.restore();return {x:slots[0],y:slots[1]};
 }
 
 export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,width,height,pointColour}) {
@@ -48,16 +84,27 @@ export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,wid
     ctx.fillStyle=paper;ctx.fillRect(x-w/2,y-15,w,30);ctx.strokeStyle=colour;
     if(emphasis){ctx.lineWidth=1.5;ctx.strokeRect(x-w/2,y-15,w,30);}
     ctx.fillStyle=colour;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y);
+    return {x,y};
   };
-  if(frame.xEmphasis||frame.xRead)badge(fmt(point.x),x.x,x.y+18,orange,frame.xEmphasis);
-  if(frame.yEmphasis||frame.yRead)badge(fmt(point.y),y.x-22,y.y,blue,frame.yEmphasis);
+  let xBadge,yBadge;
+  if(frame.xAxisVisible??(frame.xEmphasis||frame.xRead))xBadge=badge(fmt(point.x),x.x,x.y+18,orange,frame.xEmphasis);
+  if(frame.yAxisVisible??(frame.yEmphasis||frame.yRead))yBadge=badge(fmt(point.y),y.x-22,y.y,blue,frame.yEmphasis);
   if(frame.showPoint){
     ctx.beginPath();ctx.arc(c.x,c.y,9+frame.pulse*7,0,Math.PI*2);ctx.strokeStyle=pointColour||ink;ctx.lineWidth=2;ctx.stroke();
     ctx.beginPath();ctx.arc(c.x,c.y,5,0,Math.PI*2);ctx.fillStyle=pointColour||ink;ctx.fill();
   }
-  if(frame.showPoint){
+  if(frame.showPoint&&mode==='plot'){
     const text=frame.xRead?`${label} (${fmt(point.x)}, ${frame.yRead?fmt(point.y):'?'})`:label;
     badge(text,c.x,c.y-34,pointColour||ink,false);
   }
-  ctx.restore();return frame;
+  ctx.restore();
+  if(mode==='read'){
+    const slots=paintCoordinateReadout(ctx,{point,label,view,dark,width,height,pointColour,xRead:frame.xRead,yRead:frame.yRead});
+    ctx.save();
+    for(const [amount,start,end,value,colour]of[[frame.xFlight,xBadge,slots.x,point.x,orange],[frame.yFlight,yBadge,slots.y,point.y,blue]]){
+      if(start&&amount>0&&amount<1){const p=mix(start,end,amount);badge(fmt(value),p.x,p.y,colour,true);}
+    }
+    ctx.restore();
+  }
+  return frame;
 }

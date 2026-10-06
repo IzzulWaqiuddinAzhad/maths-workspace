@@ -27,9 +27,9 @@ body.module-notebook{background:#e9ebef;color-scheme:light;--panel:#fff;--text:#
 .demo-row{display:flex;gap:6px;margin-top:7px}.demo-row>button{flex:1}
 .demo-panel [aria-pressed=true]{background:#e6effc;border-color:#6488d4;color:#214e8b}
 .count-controls{display:flex;align-items:center;gap:9px;margin:12px 0 2px}
-.notebook-pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:1px;flex-shrink:0;border-radius:14px}
+.notebook-pad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:1px;flex-shrink:0;border-radius:14px;touch-action:none}
 .notebook-pad button{background:#29313e;color:#fff;border:none;font-size:18px;padding:0;touch-action:none}
-.notebook-pad button:active{background:#426b9e}
+.notebook-pad button:active,.notebook-pad button[data-held]{background:#426b9e}
 .notebook-pad [data-nudge=up]{grid-column:2;grid-row:1;border-radius:9px 9px 0 0}
 .notebook-pad [data-nudge=left]{grid-column:1;grid-row:2;border-radius:9px 0 0 9px}
 .notebook-pad [data-nudge=right]{grid-column:3;grid-row:2;border-radius:0 9px 9px 0}
@@ -52,3 +52,5 @@ body.clean-view header{display:none}body.clean-view main{height:100dvh}body.clea
 @media(min-width:701px) and (max-width:900px){.module-notebook header{flex-wrap:wrap;height:104px;align-content:center}.module-notebook #tools{order:2;flex-basis:100%;justify-content:space-between}.module-notebook #historyControls{margin:0 auto 0 0}.module-notebook main{height:calc(100dvh - 104px)}body.clean-view main{height:100dvh}}
 
 .notebook-accessible{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;pointer-events:none}
+
+.count-actions span{font-size:12px;text-align:center;color:#5e6877}
