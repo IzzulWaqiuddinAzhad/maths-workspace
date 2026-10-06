@@ -2,8 +2,8 @@ import {transformationText} from './notebook-questions.js';
 import {bindLineEquationInput} from './line-equation-input.js';
 import {workspaceHost as host} from './workspace-host.js';
 import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,rotationFromSlider,rotationToSlider,constrainPage} from './notebook-model.js?v=6';
-import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=8';
-import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=10';
+import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=9';
+import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=11';
 import {coordinateGuideDuration} from './module-coordinate-guide.js?v=4';
 import {RotationSnap,ReflectionScrub,lineFoot,objectHit,parseMirrorEquation,lineHandles} from './transform-model.js?v=29';
 import {EnlargementSnap,squareCountAt} from './module-lesson.js?v=15';
@@ -48,7 +48,7 @@ Object.assign(host,{
     $('pagePicker').value=String(currentPage);$('previousPage').disabled=!currentPage;$('nextPage').disabled=currentPage===pages.length-1;
     $('questionSummary').hidden=!active;
     positionSummary();document.body.dataset.tool=api.tool;
-    if(active&&visible(active,view,height)&&(active.session.findingCentre||active.session.lesson.clockVisible||active.session.lesson.readPoints.centre||active.session.usesConstruction&&active.session.lesson.stage&&!active.session.lesson.constructionComplete))animate();
+    if(active&&visible(active,view,height)&&(active.session.findingCentre||active.session.findingEnlargement&&active.session.enlargementFinding.index!==null||active.session.lesson.clockVisible||active.session.lesson.readPoints.centre||active.session.usesConstruction&&active.session.lesson.stage&&!active.session.lesson.constructionComplete))animate();
     for(const g of graphs){
       const a=worldToScreen({x:g.x,y:g.y},view),b=worldToScreen({x:g.x+g.width,y:g.y+g.height},view),image=pages[g.page].image;
       g.button.hidden=!api||!image?.naturalWidth||b.x<12||a.x>width-12||b.y<60||a.y>height-48;
@@ -69,17 +69,18 @@ const {workspace}=await import('./app.js?v=55');api=workspace;
 document.querySelector('header').prepend($('tools'));
 $('overlay').setAttribute('aria-label','Module pages. Write with a pen, use one finger to pan, or pinch to zoom. Select to interact with the active graph.');
 
-function stopAnimation(){api?.cancelAction();if(animation?.kind==='centre-distance')animation.graph.session.centreFinding.distanceProgress=1;if(animation?.kind==='centre-test'){animation.graph.session.centreFinding.testDegrees=null;animation.graph.session.centreFinding.testProgress=0;}$('mirrorInputPanel').hidden=true;padBinding?.stop();if(animation?.kind==='count'){const l=animation.graph.session.lesson;l.givenCounts[animation.axis]=animation.from;l.stage=animation.axis==='x'?2:3;l.counting=false;l.countAnimation=null;}animation=null;guide=null;intent=null;}
+function stopAnimation(){api?.cancelAction();if(animation?.kind==='pair-line')animation.graph.session.enlargementFinding.finishLine();if(animation?.kind==='centre-distance')animation.graph.session.centreFinding.distanceProgress=1;if(animation?.kind==='centre-test'){animation.graph.session.centreFinding.testDegrees=null;animation.graph.session.centreFinding.testProgress=0;}$('mirrorInputPanel').hidden=true;padBinding?.stop();if(animation?.kind==='count'){const l=animation.graph.session.lesson;l.givenCounts[animation.axis]=animation.from;l.stage=animation.axis==='x'?2:3;l.counting=false;l.countAnimation=null;}animation=null;guide=null;intent=null;}
 function animate(){if(!tick&&!document.hidden)tick=requestAnimationFrame(frame);}
 function frame(time){
   tick=0;now=time;
   if(animation){
     const a=animation,l=a.graph.session.lesson,p=Math.min(1,(time-a.start)/a.duration);
-    if(a.kind==='centre-distance')a.graph.session.centreFinding.distanceProgress=p*p*(3-2*p);
+    if(a.kind==='pair-line')a.graph.session.enlargementFinding.progress=p*p*(3-2*p);
+    else if(a.kind==='centre-distance')a.graph.session.centreFinding.distanceProgress=p*p*(3-2*p);
     else if(a.kind==='centre-test')a.graph.session.centreFinding.testProgress=p*p*(3-2*p);
     else if(a.kind==='count')l.givenCounts[a.axis]=squareCountAt(a.from,a.to,time-a.start);
     else l.scrub(a.from+(a.to-a.from)*(p*p*(3-2*p)));
-    if(p===1){if(a.kind==='count'){l.givenCounts[a.axis]=a.to;l.counting=false;l.countAnimation=null;}animation=null;if(a.kind==='centre-test')intent='compare-pair';save();sync();}
+    if(p===1){if(a.kind==='pair-line')a.graph.session.enlargementFinding.finishLine();if(a.kind==='count'){l.givenCounts[a.axis]=a.to;l.counting=false;l.countAnimation=null;}animation=null;if(a.kind==='centre-test')intent='compare-pair';save();sync();}
   }
   if(guide&&time-guide.start>=coordinateGuideDuration(guide.mode,guide.point)){
     const l=guide.graph.session.lesson;if(guide.mode==='plot')l.stage=Math.max(1,l.stage);l.readPoints[guide.key]=true;
@@ -88,7 +89,7 @@ function frame(time){
   api.requestDraw(true);
   const s=active?.session,l=s?.lesson;
   const inView=active&&visible(active,api.view,api.size.height);
-  if(animation||guide||inView&&(s?.findingCentre||l?.clockVisible||l?.readPoints.centre||s?.usesConstruction&&l.stage&&!l.constructionComplete||time-(active.mirrorChanged||0)<900))animate();
+  if(animation||guide||inView&&(s?.findingCentre||s?.findingEnlargement&&s.enlargementFinding.index!==null||l?.clockVisible||l?.readPoints.centre||s?.usesConstruction&&l.stage&&!l.constructionComplete||time-(active.mirrorChanged||0)<900))animate();
 }
 function showCoordinates(mode,kind='source',index=active?.readIndex??0){
   if(!active)return;stopAnimation();const s=active.session,l=s.lesson;
@@ -98,7 +99,7 @@ function showCoordinates(mode,kind='source',index=active?.readIndex??0){
   sync();animate();
 }
 function centrePairIntent(f){return f.chosen?'compare-pair':f.phase==='pair'||f.phase==='meet'&&f.path.length===1?'find-pair':null;}
-function openGraph(g){stopAnimation();active=g;if(g.session.findingCentre)intent=centrePairIntent(g.session.centreFinding);g.started=true;g.readIndex=0;$('demoPanel').hidden=false;for(const a of graphs)a.button.setAttribute('aria-pressed',String(a===g));sync();fitActive(true);animate();}
+function openGraph(g){stopAnimation();active=g;if(g.session.findingEnlargement)intent='enlargement-pair';else if(g.session.findingCentre)intent=centrePairIntent(g.session.centreFinding);g.started=true;g.readIndex=0;$('demoPanel').hidden=false;for(const a of graphs)a.button.setAttribute('aria-pressed',String(a===g));sync();fitActive(true);animate();}
 function positionSummary(){
   const root=$('questionSummary');if(!active||root.hidden)return;
   const {width,height}=api.size,b=graphSummaryBounds(active,api.view,width,height,root.offsetHeight);
@@ -119,10 +120,16 @@ function syncSummary(){
   const s=active.session,root=$('questionSummary');root.hidden=false;root.replaceChildren();
   const heading=document.createElement('div');heading.className='summary-heading';
   const title=document.createElement('strong');title.textContent=`Question ${active.questionId}`;heading.append(title);
-  if(s.plans.length>1){const picker=document.createElement('select');picker.ariaLabel='Question part';s.plans.forEach((plan,i)=>{const option=document.createElement('option');option.value=i;option.textContent=plan.label;picker.append(option);});picker.value=s.planIndex;picker.onchange=()=>{stopAnimation();s.choosePlan(+picker.value);active.readIndex=0;changed();fitActive();};heading.append(picker);}
+  if(s.plans.length>1){const picker=document.createElement('select');picker.ariaLabel='Question part';s.plans.forEach((plan,i)=>{const option=document.createElement('option');option.value=i;option.textContent=plan.label;picker.append(option);});picker.value=s.planIndex;picker.onchange=()=>{stopAnimation();s.choosePlan(+picker.value);if(s.findingEnlargement)intent='enlargement-pair';active.readIndex=0;changed();fitActive();};heading.append(picker);}
   else if(s.plan.label){const label=document.createElement('span');label.textContent=s.plan.label;heading.append(label);}
   root.append(heading);
   const button=(row,text,action,disabled=false)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.disabled=disabled;b.onclick=action;row.append(b);return b;};
+  if(s.findingEnlargement){
+    const f=s.enlargementFinding,row=document.createElement('div');row.className='summary-row';
+    button(row,`${f.objects[0].name} → ${f.objects[1].name}`,selectEnlargementPair);
+    const title=document.createElement('span');title.textContent='Find centre';row.append(title);button(row,'Add line',addPairLine,!!animation||!f.canAddLine);root.append(row);
+    const instruction=document.createElement('p');instruction.className='summary-construction';instruction.textContent=enlargementInstruction(f);root.append(instruction);return;
+  }
   if(s.findingCentre){
     const row=document.createElement('div');row.className='summary-row';
     button(row,`${s.centreFinding.objects[0].name} → ${s.centreFinding.objects[1].name}`,()=>selectCentrePair());
@@ -173,8 +180,36 @@ function sync(){
   for(const id of ['showPoint','showImage','showCentre'])$(id).disabled=busy;
   $('readVertex').hidden=!s.polygon;$('readVertex').replaceChildren(...s.source.points.map((_,i)=>{const option=document.createElement('option');option.value=i;option.textContent=vertexLabel(s,i);return option;}));$('readVertex').value=active.readIndex;
   $('demoStatus').textContent=guide?(guide.point.x===0&&guide.point.y===0?'Origin.':'Follow x, then y.'):intent==='centre'?'Tap the graph to place the centre.':intent==='line'?'Drag on the graph to draw the mirror line.':rot&&!l.stage?'Plot or pick the centre.':s.usesConstruction&&!l.constructionComplete?'Move freely. Next visits the next arm or its unfinished tip.':ref?'Move the line or its handles. Use the lever to flip.':enl&&!l.ready?'Follow the counts from the centre.':'';
-  syncCentreFinding(busy);
+  syncCentreFinding(busy);syncEnlargementFinding(busy);
 }
+function enlargementInstruction(f){
+  if(f.index===null)return 'Tap a vertex. Its matching vertex will pulse too.';
+  if(!f.distinctPair(f.index))return 'These vertices coincide. Choose another pair to draw a line.';
+  if(f.drawingIndex!==null)return 'Drawing through the matching vertices…';
+  if(f.lines.includes(f.index))return f.lines.length<2?'Line added. Tap another vertex, then Add line.':'Tap another vertex to check where the lines meet.';
+  return 'Matching pair selected. Press Add line to join and extend through them.';
+}
+function syncEnlargementFinding(busy){
+  const s=active.session,f=s.enlargementFinding,finding=s.findingEnlargement;
+  $('enlargementStudy').hidden=!f||s.mode!=='enlargement';$('enlargementFindingControls').hidden=!finding;
+  $('freeEnlargement').setAttribute('aria-pressed',String(!finding));$('findEnlargement').setAttribute('aria-pressed',String(finding));
+  if(!finding)return;
+  $('demoTitle').textContent=`${f.objects[0].name} → ${f.objects[1].name} · ${active.questionId}`;
+  for(const id of ['objectControls','stepControls','centreControls','reflectionControls','rotationControls','enlargementControls','constructionControls','readVertex','showCentre','showPoint','showImage','clockToggle'])$(id).hidden=true;
+  document.querySelector('.transformation-types').hidden=false;
+  $('chooseEnlargementPair').disabled=busy;$('chooseEnlargementPair').setAttribute('aria-pressed',String(intent==='enlargement-pair'));
+  $('addPairLine').disabled=busy||!f.canAddLine;$('undoPairLine').disabled=busy||!f.lines.length;
+  $('demoStatus').textContent=enlargementInstruction(f);
+}
+function selectEnlargementPair(){stopAnimation();intent='enlargement-pair';sync();animate();}
+function addPairLine(){
+  const f=active.session.enlargementFinding;if(animation||!f?.canAddLine)return;
+  stopAnimation();if(!f.addLine())return;intent='enlargement-pair';animation={kind:'pair-line',graph:active,start:performance.now(),duration:1100};changed();
+}
+$('chooseEnlargementPair').onclick=selectEnlargementPair;$('addPairLine').onclick=addPairLine;
+$('findEnlargement').onclick=()=>{stopAnimation();const s=active.session;s.enlargementStudyEnabled=true;intent='enlargement-pair';changed();fitActive(true);};
+$('freeEnlargement').onclick=()=>{stopAnimation();active.session.enlargementStudyEnabled=false;changed();};
+$('undoPairLine').onclick=()=>{stopAnimation();active.session.enlargementFinding.undoLine();intent='enlargement-pair';changed();};
 function distanceText(f){
   const [a,b]=f.distanceFractions;if(a<1)return '';
   const first=`${f.objects[0].labels?.[f.compareIndex]||f.objects[0].name+(f.compareIndex+1)}: ${lengthText(f.distances[0])} units`;
@@ -246,7 +281,7 @@ $('demoNext').onclick=()=>{
   }
 };
 $('demoBack').onclick=()=>{stopAnimation();const s=active.session,l=s.lesson;if(s.usesConstruction){if(l.angle)l.scrub(0);else l.previousConstruction();}else if(s.mode==='enlargement')l.goTo(l.stage-1);changed();};
-$('demoReset').onclick=()=>{stopAnimation();if(active.session.findingCentre){active.session.centreFinding.reset();intent='find-pair';}else active.session.reset();changed();};
+$('demoReset').onclick=()=>{stopAnimation();if(active.session.findingEnlargement){active.session.enlargementFinding.reset();intent='enlargement-pair';}else if(active.session.findingCentre){active.session.centreFinding.reset();intent='find-pair';}else active.session.reset();changed();};
 function closeDemo(){stopAnimation();$('demoPanel').hidden=true;for(const g of graphs)g.button.setAttribute('aria-pressed','false');active=null;$('questionSummary').hidden=true;save();api.requestDraw(true);}
 $('demoClose').onclick=closeDemo;$('demoFit').onclick=()=>fitActive(true);
 $('clockToggle').onclick=()=>{active.session.lesson.toggleClock();changed();};
@@ -255,7 +290,7 @@ $('readVertex').onchange=e=>{active.readIndex=+e.target.value;};
 $('sourceObject').onchange=e=>{stopAnimation();if(e.target.value==='@image')active.session.keepImage();else active.session.chooseObject(e.target.value);active.readIndex=0;changed();};
 $('useImage').onclick=()=>{stopAnimation();active.session.keepImage();active.readIndex=0;changed();};
 $('deleteImage').onclick=()=>{stopAnimation();active.session.deleteSelected();active.readIndex=0;changed();};
-document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{stopAnimation();active.session.chooseMode(b.dataset.mode);changed();});
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{stopAnimation();active.session.chooseMode(b.dataset.mode);if(active.session.findingEnlargement)intent='enlargement-pair';changed();});
 const moves={up:['y',1],down:['y',-1],left:['x',-1],right:['x',1]};
 function nudge(direction){
   if(!active||animation||guide)return;const s=active.session,l=s.lesson,[axis,delta]=moves[direction];
@@ -293,10 +328,18 @@ $('scaleFactor').onchange=e=>{active.session.lesson.scrub(+e.target.value);chang
 // The workspace owns capture, touch cancellation and camera conversion. Demos
 // supply only the geometry interaction, leaving pen/eraser/history untouched.
 function beginGraphInteraction({point,view}){
-  if(!active||animation&&animation.kind!=='centre-distance'||guide)return null;
+  if(!active||animation&&!['centre-distance','pair-line'].includes(animation.kind)||guide)return null;
   const g=active,s=g.session,l=s.lesson,p=pageToGraph(g,point),b=g.bounds;
   if(p.x<b.xmin||p.x>b.xmax||p.y<b.ymin||p.y>b.ymax)return intent?{end(){}}:null;
   const snap=q=>({x:Math.round(q.x),y:Math.round(q.y)}),tolerance=15/(g.unit*view.zoom),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  if(s.findingEnlargement){
+    const f=s.enlargementFinding;
+    if(intent==='enlargement-pair'||api.tool==='select')for(const o of f.objects){
+      const index=o.points.findIndex(q=>distance(p,q)<tolerance);if(index<0)continue;
+      let moved=false;return {move(q){if(distance(pageToGraph(g,q),p)>tolerance)moved=true;},end(cancel){if(cancel||moved)return;stopAnimation();f.selectPair(index);intent='enlargement-pair';changed();}};
+    }
+    return intent?{end(){}}:null;
+  }
   if(s.findingCentre){
     const f=s.centreFinding;
     let pairHit=null,candidateHit=null;

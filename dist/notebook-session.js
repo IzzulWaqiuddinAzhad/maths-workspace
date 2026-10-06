@@ -1,4 +1,5 @@
-import {CentreFinding,givenRotationPair} from './notebook-centre.js?v=2';
+import {EnlargementFinding,givenEnlargementPair} from './notebook-enlargement.js?v=1';
+import {CentreFinding,givenRotationPair} from './notebook-centre.js?v=3';
 import {notebookQuestionPlans} from './notebook-questions.js';
 import {findModuleQuestion,TranslationLesson,ReflectionLesson,EnlargementLesson} from './module-lesson.js?v=15';
 import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=6';
@@ -62,8 +63,12 @@ export class NotebookSession {
     this.centreFinding=rotationPair?new CentreFinding(rotationPair,saved?.centreFinding):null;
     this.findingCentre=!!this.centreFinding&&this.mode==='rotation'&&saved?.findingCentre===true;
     this.trialVisible=saved?.trialVisible!==false;
+    const enlargementPair=givenEnlargementPair(this.base,this.plans);
+    this.enlargementFinding=enlargementPair?new EnlargementFinding(enlargementPair,saved?.enlargementFinding):null;
+    this.enlargementStudyEnabled=saved?.enlargementStudyEnabled!==false;
     if(legacy&&this.originalQuestion?.type==='rotation')this.saved[`${this.selected}:rotation`]=legacy;
   }
+  get findingEnlargement(){return !!this.enlargementFinding&&this.mode==='enlargement'&&this.enlargementStudyEnabled;}
   get plan(){return this.plans[this.planIndex];}
   get planSource(){return this.base.find(o=>o.id===this.plan.sourceId)??this.base[0];}
   get stepIndex(){
@@ -157,7 +162,7 @@ export class NotebookSession {
     this.kept=this.kept.filter(o=>o.id!==this.selected);this.selected=this.base[0].id;return true;
   }
   reset(){this.engines.delete(this.key);delete this.saved[this.key];}
-  save(){return {findingCentre:this.findingCentre,trialVisible:this.trialVisible,centreFinding:this.centreFinding?.save(),planIndex:this.planIndex,selected:this.selected,mode:this.mode,kept:this.kept,engines:{...this.saved,...Object.fromEntries([...this.engines].map(([k,l])=>[k,serialise(l)]))}};}
+  save(){return {enlargementStudyEnabled:this.enlargementStudyEnabled,enlargementFinding:this.enlargementFinding?.save(),findingCentre:this.findingCentre,trialVisible:this.trialVisible,centreFinding:this.centreFinding?.save(),planIndex:this.planIndex,selected:this.selected,mode:this.mode,kept:this.kept,engines:{...this.saved,...Object.fromEntries([...this.engines].map(([k,l])=>[k,serialise(l)]))}};}
 }
 // One-time migration keeps earlier A3 writing in its exact position on that page.
 export function migrateNotebookDocument(saved,page){

@@ -32,7 +32,7 @@ export class CentreFinding {
   constructor(objects,saved){
     this.objects=objects.slice(0,2);this.reset();
     if(!saved||!this.selectPair(saved.index,saved.side))return;
-    this.step=saved.step===1?1:.5;
+    this.step=saved.step===.5?.5:1;
     if(samePath(saved.path)&&near(saved.path[0],this.a))this.path=saved.path.map(copy);
     if(this.met&&['arms','check'].includes(saved.phase)){
       this.phase='arms';
@@ -45,7 +45,7 @@ export class CentreFinding {
       if([-90,90,180].includes(saved.testDegrees)){this.testDegrees=saved.testDegrees;this.testProgress=1;}
     }
   }
-  reset(){this.index=null;this.side=0;this.phase='pair';this.path=[];this.otherPath=[];this.step=.5;this.candidate=null;this.compareIndex=0;this.distancesVisible=false;this.distanceStage=0;this.distanceProgress=1;this.testDegrees=null;this.testProgress=0;}
+  reset(){this.index=null;this.side=0;this.phase='pair';this.path=[];this.otherPath=[];this.step=1;this.candidate=null;this.compareIndex=0;this.distancesVisible=false;this.distanceStage=0;this.distanceProgress=1;this.testDegrees=null;this.testProgress=0;}
   get source(){return this.objects[0].points;}
   get target(){return this.objects[1].points;}
   get a(){return this.objects[this.side].points[this.index];}

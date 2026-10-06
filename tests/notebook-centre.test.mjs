@@ -7,7 +7,7 @@ import {paintNotebookGraph} from '../dist/notebook-render.js';
 import {LabelLayout} from '../dist/label-layout.js';
 const graph=id=>NOTEBOOK_GRAPHS.find(g=>g.id===String(id));
 const session=id=>new NotebookSession(graph(id));
-const towards=(f,target,order=['x','y'])=>{for(const axis of order){let n=0;while(Math.abs(f.cursor[axis]-target[axis])>1e-8){assert.ok(n++<100);assert.ok(f.move(axis,Math.sign(target[axis]-f.cursor[axis])));}}};
+const towards=(f,target,order=['x','y'])=>{for(const axis of order){if(Math.abs(f.cursor[axis]-target[axis])%1)f.step=.5;let n=0;while(Math.abs(f.cursor[axis]-target[axis])>1e-8){assert.ok(n++<100);assert.ok(f.move(axis,Math.sign(target[axis]-f.cursor[axis])));}}};
 const complete=f=>{towards(f,f.midpoint);assert.ok(f.next());towards(f,f.candidates[1].point);assert.ok(f.next());};
 
 test('all Questions 33–40 and all corresponding pairs produce the correct centre without an answer key',()=>{
@@ -24,7 +24,7 @@ test('all Questions 33–40 and all corresponding pairs produce the correct cent
   }
 });
 test('half-square movement reaches fractional midpoints and preserves opposed cursors',()=>{
-  const f=session(39).centreFinding;f.selectPair(0);assert.deepEqual(f.midpoint,{x:-1.5,y:5.5});
+  const f=session(39).centreFinding;f.selectPair(0);f.step=.5;assert.deepEqual(f.midpoint,{x:-1.5,y:5.5});
   f.move('x',1);assert.deepEqual(f.cursor,{x:-3.5,y:4});assert.deepEqual(f.pairedCursor,{x:.5,y:7});assert.equal(f.canNext,false);
   towards(f,f.midpoint);assert.deepEqual(f.cursor,f.pairedCursor);assert.ok(f.canNext);
 });
@@ -105,4 +105,9 @@ test('find-centre rendering handles fractional centres, off-grid candidates, ani
       for(const progress of [0,.5,1]){f.testProgress=progress;paintNotebookGraph(ctx,g,{now:1e9,active:true});}}
     s.findingCentre=false;s.trialVisible=false;paintNotebookGraph(ctx,g);
   }
+});
+
+test('rotation centre construction defaults to one square and retains an explicit saved half-square choice',()=>{
+  const f=session(33).centreFinding;assert.equal(f.step,1);f.selectPair(0);assert.equal(f.step,1);const a={...f.a};f.move('x',1);assert.equal(f.cursor.x,a.x+1);
+  f.step=.5;const restored=new CentreFinding(f.objects,f.save());assert.equal(restored.step,.5);restored.reset();assert.equal(restored.step,1);
 });

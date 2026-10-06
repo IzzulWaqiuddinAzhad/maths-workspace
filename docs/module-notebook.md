@@ -43,7 +43,7 @@ The existing trial rotation and its chosen centre stay independent from **Find c
 Available wherever the printed question contains matching rotation polygons: Q33–40, Q47, Q49 (Q → R), Q50, Q60, Q62(i) (ABCD → EFGH), and Q64(ii). Availability checks all vertices against quarter/half-turn geometry, excluding translation, reflection and enlargement pairs.
 
 1. Choose **Find centre**, then tap a vertex on either printed polygon. Its corresponding vertex pulses too. **Choose vertex pair** stays active so another tap can change the pair. Using the game pad or changing the square step starts construction. The printed source → image direction stays unchanged when the image supplies the controlled tip.
-2. Move with the shared game pad (½ square by default, optionally 1 square). The other tip moves oppositely. Press **Next arms** only after the tips meet at their midpoint M.
+2. Move with the shared game pad (1 square by default, optionally ½ square). The other tip moves oppositely. Press **Next arms** only after the tips meet at their midpoint M.
 3. Construct the other two arms from M with quarter-turned lengths. Press **Check centres** once their tips reach the two 90° candidates. Undo move backs through movement and construction stages; Reset demo clears only this study.
 4. Choose M (180°), C₁ or C₂ (90°), then tap any vertex to pulse its matching pair. **Next: first distance** draws one radius; **Next: matching distance** draws the other. Lengths appear progressively in the graph summary and controls, without a comparison circle. Tapping a different vertex restarts only this reading, preserving the construction and chosen centre. The summary also supplies Next in clean view.
 5. Test clockwise/anticlockwise 90°, or 180° at M. A faint whole polygon rotates; a match requires every corresponding vertex to coincide. Equal radii on one pair never count as proof by themselves. Hide test removes this trial while preserving the construction.
@@ -53,3 +53,15 @@ Candidate centres come from M ± a quarter-turn of the selected half-vector; no 
 Architecture: `notebook-centre.js` owns pure construction/verification state; `NotebookSession` saves it alongside existing engines. `notebook-centre-render.js` uses the shared notebook label collector, graph coordinates and clip. The host's existing pointer intent, animation loop and game pad route input, so pen, pinch and ink undo remain shared.
 
 Validation: 242 automated tests cover every supported graph, all Q33–40 vertex pairs, both controlled sides, half-square movement, 180° rejection of 90° candidates, incomplete-step gating, save/restore, staged radii and circle removal. Browser checks cover pair switching, progressive distance lines, selection continuity and mixed-question availability in the tablet layout. Physical iPad/Safari touch and Apple Pencil remain device checks.
+
+## Describing enlargement: construct the centre from vertex pairs
+
+For every printed enlargement pair, Demo opens **Find centre** without automatic guides or a trial image. Tap a vertex on either printed shape to pulse the corresponding pair. **Add line** first joins those vertices, then extends the line in both directions to the graph edges. Each added line remains while the teacher chooses another pair; their intersection is left for students to identify. No answer-key centre is plotted or revealed.
+
+The panel and graph summary both offer Add line, including clean view. Choose vertex pair stays active after each line. Undo line removes the latest added line; Reset demo clears the line study independently of ink and trial enlargement. Trial enlargement retains the existing centre/scale controls; returning to Find centre restores the construction. Saved studies restore completed lines and the selected pair. Coincident corresponding vertices may be selected but cannot define a line; the UI requests another pair.
+
+This applies to Q41–50, Q55–60, Q61(ii), Q62 graph 1 (EFGH → JKLM), Q63(ii), and Q64(ii), selecting the printed enlargement stage inside mixed questions. Mixed questions retain their existing starting transformation; choose Enlargement to enter the study.
+
+`notebook-enlargement.js` owns validated printed-pair detection and persisted line state. `notebook-enlargement-render.js` reuses the existing infinite-line clipping utility and shared label collector. Pointer routing, animation, page transforms, pens, and pinch remain in the notebook's existing shared layers.
+
+Validation: 251 tests pass, including no automatic strokes, explicit line gating, both-end extension for all line directions, common-centre geometry for every supported pair, coincident points, save/restore and trial independence. Browser verification covers tablet layout, pair selection from both shapes, staged drawing, persistent lines, Undo line and clean-view controls. Physical iPad/Pencil validation remains a device check.
