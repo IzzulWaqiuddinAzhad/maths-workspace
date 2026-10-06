@@ -35,7 +35,10 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
       ctx.beginPath();ctx.moveTo(p.x+(dy?-3:0),p.y+(dx?-3:0));ctx.lineTo(p.x+(dy?3:0),p.y+(dx?3:0));ctx.stroke();
     }
     const n=index===lesson.buildIndex?lesson.displayedBuildCount():lesson.buildCounts[index];
-    requests.push({id:`count-${index}`,text:String(Math.abs(Number(n.toFixed(2)))),colour,candidates:edgeCandidates(a,b,index>=4?1:-1)});
+    const candidates=edgeCandidates(a,b,index>=4?1:-1),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    // A fallback ring clears axis numerals when short arms are tightly packed at low zoom.
+    candidates.push(...candidates.map(p=>({x:mid.x+(p.x-mid.x)*1.5,y:mid.y+(p.y-mid.y)*1.5})));
+    requests.push({id:`count-${index}`,text:String(Math.abs(Number(n.toFixed(2)))),colour,candidates});
   };
   for(const [i,path] of lesson.constructionPaths.entries()) {
     countSegment(path.centre,path.corner,i,orange);
@@ -55,7 +58,7 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
       const dx=p.x-c.x,dy=p.y-c.y,d=Math.hypot(dx,dy)||1,r=Math.max(d,clockRadius+30);
       return {x:c.x+dx*r/d,y:c.y+dy*r/d};
     })] : request.candidates;
-    const label=countLabels.place({...request,candidates,width:w,height:24});
+    const label=countLabels.place({...request,candidates,width:w+2,height:24});
     paintLabel(ctx,label,{ink:request.colour,background:paper});
     obstacles.push({x:label.x-w/2-4,y:label.y-14,w:w+8,h:28});
   }

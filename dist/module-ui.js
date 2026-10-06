@@ -3,7 +3,7 @@ import { coordinateGuideFrame, paintCoordinateGuide, COORDINATE_GUIDE_DURATION }
 import { bindRepeatingButton } from './direction-pad.js?v=1';
 import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=14';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
-import { paintRotationLesson } from './module-rotation-render.js?v=4';
+import { paintRotationLesson } from './module-rotation-render.js?v=5';
 import { paintReflectionLesson } from './module-reflection-render.js?v=6';
 import { createTransformationRenderer } from './transform-render.js?v=36';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
@@ -620,7 +620,7 @@ function draw() {
       { id: 'given', points: [activity().given], labels: [tracing(activity().given,lesson.givenLabel)?'':lesson.givenLabel], image: lesson.inverse, role:sequence?.index===1?'intermediate':undefined, coordinates: !tracing(activity().given,lesson.givenLabel) && (lesson.stage > 0 || sequence?.index===1 || readPoints.has(pointKey(activity().given,lesson.givenLabel))), labelPlacement: enlargement && lesson.inverse ? 'below' : undefined }],
     preview: visibleImage ? { id: 'moving', points: [image], labels: [tracing(image,lesson.answerLabel)?'':complete ? (reflection || rotation || enlargement) && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, role:sequence?.index===0?'intermediate':undefined, coordinates: lesson.answerVisible && !tracing(image,lesson.answerLabel), labelPlacement: enlargement ? 'below' : undefined } : null,
     annotations: erased ?? inkStore.document.objects, ink, overlays: obstacles,
-    geometryOverlay: enlargement ? (ctx,base) => paintEnlargementLesson(ctx, {lesson,view,dark,width:canvas.clientWidth,height:canvas.clientHeight,overlays:[...obstacles,...base.obstacles],centreLabel:activity().label==='C'?tr('Centre','Pusat'):'C'}) : rotation ? ctx => paintRotationLesson(ctx, { lesson, view, dark, width:canvas.clientWidth,height:canvas.clientHeight,overlays:obstacles,clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: {xmin:screenToGraph({x:0,y:0},view).x,xmax:screenToGraph({x:canvas.clientWidth,y:0},view).x,ymin:screenToGraph({x:0,y:canvas.clientHeight},view).y,ymax:screenToGraph({x:0,y:0},view).y}, dark, pulse,handlesActive:tool==='pan' }) : null,
+    geometryOverlay: enlargement ? (ctx,base) => paintEnlargementLesson(ctx, {lesson,view,dark,width:canvas.clientWidth,height:canvas.clientHeight,overlays:[...obstacles,...base.obstacles],centreLabel:activity().label==='C'?tr('Centre','Pusat'):'C'}) : rotation ? (ctx,base) => paintRotationLesson(ctx, { lesson, view, dark, width:canvas.clientWidth,height:canvas.clientHeight,overlays:[...obstacles,...base.obstacles],clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: {xmin:screenToGraph({x:0,y:0},view).x,xmax:screenToGraph({x:canvas.clientWidth,y:0},view).x,ymin:screenToGraph({x:0,y:canvas.clientHeight},view).y,ymax:screenToGraph({x:0,y:0},view).y}, dark, pulse,handlesActive:tool==='pan' }) : null,
   });
   if(enlargement||reflection||rotation||!visibleImage){
     drawCoordinateGuide();

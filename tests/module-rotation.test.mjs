@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ROTATION_QUESTIONS, RotationLesson, createModuleLesson, findModuleQuestion } from '../dist/module-lesson.js';
-import { rotatePoint, RotationSnap } from '../dist/transform-model.js';
+import { rotatePoint, RotationSnap, graphToScreen } from '../dist/transform-model.js';
 import { clockHandAt, paintRotationLesson } from '../dist/module-rotation-render.js';
 const length = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
 const near = (a,b) => assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
@@ -166,4 +166,22 @@ test('incorrect trial lengths cannot reveal a correct answer, and completing twi
   l.advanceConstruction();assert.equal(l.buildIndex,8);
   l.previousConstruction();const {axis,target}=l.segmentInfo();l.setBuildCount(axis,target);l.advanceConstruction();
   assert.equal(l.constructionMatches,true);l.scrub(l.movementDegrees);assert.equal(l.reveal(),true);
+});
+
+
+test('cross count labels avoid the graph axis-number rectangles',()=>{
+  const lesson=new RotationLesson();lesson.goTo(5);
+  for(const zoom of [.4,.7,1]){
+    const view={x:300,y:300,zoom};
+    const overlays=[-2,2].flatMap(n=>{
+      const x=graphToScreen({x:n,y:0},view),y=graphToScreen({x:0,y:n},view);
+      return [{x:x.x-12,y:x.y+8,w:24,h:16},{x:y.x-28,y:y.y-8,w:24,h:16}];
+    });
+    const ctx=new Proxy({measureText:s=>({width:s.length*11})},{get:(t,k)=>t[k]??(()=>{})});
+    const drawn=paintRotationLesson(ctx,{lesson,view,dark:false,width:700,height:600,overlays});
+    for(const label of drawn.obstacles)for(const axis of overlays){
+      const overlap=label.x<axis.x+axis.w&&label.x+label.w>axis.x&&label.y<axis.y+axis.h&&label.y+label.h>axis.y;
+      assert.equal(overlap,false,'count must not obscure a coordinate');
+    }
+  }
 });
