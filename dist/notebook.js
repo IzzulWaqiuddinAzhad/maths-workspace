@@ -1,10 +1,10 @@
 import {formatPair,transformationText} from './notebook-questions.js';
 import {bindLineEquationInput} from './line-equation-input.js';
 import {workspaceHost as host} from './workspace-host.js';
-import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,constrainPage} from './notebook-model.js?v=4';
-import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=4';
-import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=4';
-import {coordinateGuideDuration} from './module-coordinate-guide.js?v=2';
+import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,constrainPage} from './notebook-model.js?v=5';
+import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=5';
+import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=5';
+import {coordinateGuideDuration} from './module-coordinate-guide.js?v=3';
 import {RotationSnap,ReflectionScrub,lineFoot,objectHit,parseMirrorEquation,lineHandles} from './transform-model.js?v=29';
 import {EnlargementSnap,squareCountAt} from './module-lesson.js?v=15';
 import {bindDirectionPad} from './direction-pad.js?v=2';
@@ -30,7 +30,7 @@ function visible(p,view,height){return (p.y+p.height)*view.zoom+view.y>=-100&&p.
 Object.assign(host,{
   documentKey:DOCUMENT_KEY,preferencesKey:'module-notebook:tools:v1',title:'BIJAK SPM - Transformations',theme:'light',scrollPage:true,hideExplorations:true,
   defaultOptions:{widths:{ball:1.2,pressure:1.2,pencil:.65},highWidth:10,fontSize:12,touchDraw:false},constrainView:constrainPage,
-  resize:({view,old,width,height,saved})=>clean&&active?fitGraph(active,width,height):old.width||saved?view:fitPage(width,height),
+  resize:({view,old,width,height,saved})=>clean&&active?fitGraph(active,width,height,{bottom:146,top:-62}):old.width||saved?view:fitPage(width,height),
   paintBackground(ctx){
     const view=api?.view??fitPage(innerWidth,innerHeight),height=api?.size.height??innerHeight;
     ctx.save();ctx.fillStyle='#fff';
@@ -45,6 +45,7 @@ Object.assign(host,{
     currentPage=pageAt(screenToWorld({x:width/2,y:Math.min(height/2,220)},view).y).id-1;
     $('pagePicker').value=String(currentPage);$('previousPage').disabled=!currentPage;$('nextPage').disabled=currentPage===pages.length-1;
     $('questionSummary').hidden=!active||clean||!visible(active,view,height);
+    positionSummary();document.body.dataset.tool=api.tool;
     if(active&&visible(active,view,height)&&(active.session.lesson.clockVisible||active.session.usesConstruction&&active.session.lesson.stage&&!active.session.lesson.constructionComplete))animate();
     for(const g of graphs){
       const a=worldToScreen({x:g.x,y:g.y},view),b=worldToScreen({x:g.x+g.width,y:g.y+g.height},view),image=pages[g.page].image;
@@ -74,7 +75,7 @@ function frame(time){
     else l.scrub(a.from+(a.to-a.from)*(p*p*(3-2*p)));
     if(p===1){if(a.kind==='count'){l.givenCounts[a.axis]=a.to;l.counting=false;l.countAnimation=null;}animation=null;save();sync();}
   }
-  if(guide&&time-guide.start>=coordinateGuideDuration(guide.mode)){
+  if(guide&&time-guide.start>=coordinateGuideDuration(guide.mode,guide.point)){
     const l=guide.graph.session.lesson;if(guide.mode==='plot')l.stage=Math.max(1,l.stage);l.readPoints[guide.key]=true;
     guide=null;save();sync();
   }
@@ -91,9 +92,20 @@ function showCoordinates(mode,kind='source',index=active?.readIndex??0){
   sync();animate();
 }
 function openGraph(g){stopAnimation();active=g;g.started=true;g.readIndex=0;api.setTool('select');$('demoPanel').hidden=false;for(const a of graphs)a.button.setAttribute('aria-pressed',String(a===g));sync();fitActive(true);animate();}
+function positionSummary(){
+  const root=$('questionSummary');if(!active||root.hidden)return;
+  const {width,height}=api.size,b=graphSummaryBounds(active,api.view,width,height,root.offsetHeight,width>700?290:0);
+  root.style.left=`${b.left}px`;root.style.width=`${b.width}px`;root.style.top=`${b.top}px`;
+  root.style.visibility=b.width<100?'hidden':'visible';
+}
 function fitActive(closer=false){
-  if(!active)return;const {width,height}=api.size,bottom=width<=700&&!clean?Math.min(height*.48,$('demoPanel').offsetHeight)+66:0;
-  api.setView((closer||clean?fitGraph:fitQuestion)(active,width,height,{right:width>700&&!clean?290:0,bottom,top:$('questionSummary').hidden?0:$('questionSummary').offsetHeight+12}));
+  if(!active)return;const {width,height}=api.size,bottom=width<=700&&!clean?Math.min(height*.48,$('demoPanel').offsetHeight)+66:clean?146:0;
+  // A second measurement accounts for wrapping at the graph's fitted width.
+  for(let pass=0;pass<2;pass++){
+    positionSummary();
+    api.setView((closer||clean?fitGraph:fitQuestion)(active,width,height,{right:width>700&&!clean?290:0,bottom,top:clean?-62:$('questionSummary').hidden?0:$('questionSummary').offsetHeight+12}));
+  }
+  positionSummary();
 }
 function changed(){save();sync();api.requestDraw(true);animate();}
 function syncSummary(){
@@ -139,7 +151,7 @@ function sync(){
   $('constructionControls').hidden=!pad;
   document.querySelectorAll('[data-nudge]').forEach(b=>b.disabled=busy||rot&&!l.stage||ref&&!l.choice);
   if(m==='translation'){$('countValue').textContent=`Horizontal ${fmt(l.vector.x)}\nVertical ${fmt(l.vector.y)}`;$('countCaption').textContent='Move the image';}
-  if(rot){$('countValue').textContent=`${l.completedArms} / 4`;$('countCaption').textContent='Arms kept';$('rotationSlider').value=l.angle;$('rotationValue').textContent=`${fmt(Math.abs(l.angle))}°${l.angle<0?' clockwise':l.angle>0?' anticlockwise':''}`;document.querySelectorAll('[data-angle]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(+b.dataset.angle===l.angle));});}
+  if(rot){$('countValue').textContent=`${l.completedArms} / 4`;$('countCaption').textContent='Complete arms';$('rotationSlider').value=l.angle;$('rotationValue').textContent=`${fmt(Math.abs(l.angle))}°${l.angle<0?' clockwise':l.angle>0?' anticlockwise':''}`;document.querySelectorAll('[data-angle]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(+b.dataset.angle===l.angle));});}
   if(ref){$('mirrorEquation').textContent=l.equation||'Choose or draw a line';$('reflectionSlider').disabled=busy||!l.choice;$('reflectionSlider').value=l.progress;$('countValue').textContent='Shift line';$('countCaption').textContent='Drag the end points to tilt';$('mirrorGuides').setAttribute('aria-pressed',String(l.guideVisible));$('drawMirror').setAttribute('aria-pressed',String(intent==='line'));document.querySelectorAll('[data-mirror]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mirror===l.choice?.kind)));}
   if(enl){$('scaleSlider').value=l.factor;$('scaleFactor').value=l.factor;$('countValue').textContent=`Horizontal ${fmt(l.imageCounts.x)}\nVertical ${fmt(l.imageCounts.y)}`;$('countCaption').textContent='Count from the centre';document.querySelectorAll('[data-enlarge]').forEach(b=>{b.hidden=s.polygon&&b.dataset.enlarge==='count';b.setAttribute('aria-pressed',String(b.dataset.enlarge===l.mode));});}
   $('rotationSlider').disabled=busy;$('scaleSlider').disabled=busy;
@@ -147,7 +159,7 @@ function sync(){
   $('showCentre').hidden=!(rot||enl);$('showImage').hidden=!s.imageReady;
   for(const id of ['showPoint','showImage','showCentre'])$(id).disabled=busy;
   $('readVertex').hidden=!s.polygon;$('readVertex').replaceChildren(...s.source.points.map((_,i)=>{const option=document.createElement('option');option.value=i;option.textContent=vertexLabel(s,i);return option;}));$('readVertex').value=active.readIndex;
-  $('demoStatus').textContent=guide?'Follow x, then y.':intent==='centre'?'Tap the graph to place the centre.':intent==='line'?'Drag on the graph to draw the mirror line.':rot&&!l.stage?'Plot or pick the centre.':s.usesConstruction&&!l.constructionComplete?'Move freely. Next keeps this arm and returns to the centre.':ref?'Move the line or its handles. Use the lever to flip.':enl&&!l.ready?'Follow the counts from the centre.':'';
+  $('demoStatus').textContent=guide?(guide.point.x===0&&guide.point.y===0?'Origin.':'Follow x, then y.'):intent==='centre'?'Tap the graph to place the centre.':intent==='line'?'Drag on the graph to draw the mirror line.':rot&&!l.stage?'Plot or pick the centre.':s.usesConstruction&&!l.constructionComplete?'Move freely. Next visits the next arm or its unfinished tip.':ref?'Move the line or its handles. Use the lever to flip.':enl&&!l.ready?'Follow the counts from the centre.':'';
 }
 $('demoNext').onclick=()=>{
   if(!active||animation||guide)return;const s=active.session,l=s.lesson;
@@ -238,7 +250,7 @@ $('pageFit').onclick=()=>pageFit();$('home').onclick=()=>pageFit();$('zoomvalue'
 $('previousPage').onclick=()=>pageFit(currentPage-1);$('nextPage').onclick=()=>pageFit(currentPage+1);$('pagePicker').onchange=e=>pageFit(+e.target.value);
 function setClean(value,{focus=false}={}){
   clean=value;$('questionSummary').hidden=clean||!active;document.body.classList.toggle('clean-view',clean);$('showTools').hidden=!clean;$('exitClean').hidden=!clean;
-  if(clean){padBinding.stop();calculatorPanel().hide();}$('fullscreen').ariaLabel=full?'Exit full screen':'Full screen';
+  if(clean){padBinding.stop();calculatorPanel().hide();$('writingDock').append($('tools'),$('historyControls'));}else {document.querySelector('header').prepend($('tools'));$('menu').before($('historyControls'));}$('writingDock').hidden=!clean;$('fullscreen').ariaLabel=full?'Exit full screen':'Full screen';
   if(active&&(focus||!clean))requestAnimationFrame(()=>requestAnimationFrame(()=>fitActive(true)));
 }
 $('hideTools').onclick=()=>setClean(true);$('showTools').onclick=()=>setClean(false);

@@ -8,7 +8,7 @@ export function clockHandAt(elapsed, radius = 1) {
   return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
 }
 
-export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, width, height, overlays=[], countLabels=defaultCountLabels, cursorPulse=0 }) {
+export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, width, height, overlays=[], countLabels=defaultCountLabels, cursorPulse=0, traceWidth=3.2 }) {
   const segments = [], points = [], obstacles = [];
   if (!lesson.stage) return { segments, points, obstacles };
   const screen = p => graphToScreen(p, view), c = screen(lesson.question.centre);
@@ -28,7 +28,7 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
   const orange=dark?'#f9bd77':'#a95c14', requests=[];
   const countSegment=(from,to,index,colour)=>{
     if(Math.hypot(to.x-from.x,to.y-from.y)<1e-8)return;
-    line([from,to],colour,3.2);
+    line([from,to],colour,traceWidth);
     const a=screen(from),b=screen(to);
     const n=index===lesson.buildIndex?lesson.displayedBuildCount():lesson.buildCounts[index];
     const candidates=edgeCandidates(a,b,index%2?1:-1),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
@@ -61,7 +61,7 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
   }
   countLabels.end();
   if (lesson.angle !== 0) {
-    line([lesson.question.centre, lesson.cornerAt(), lesson.pointAt()], blue, 3.5);
+    line([lesson.question.centre, lesson.cornerAt(), lesson.pointAt()], blue, Math.max(3.5,traceWidth));
     const start = Math.atan2(source.y-c.y,source.x-c.x), sweep = -lesson.angle * Math.PI / 180;
     const radius = Math.min(distance * .8, Math.max(lesson.clockVisible ? clockRadius+12 : 18, Math.min(64,distance*.5)));
     if (radius > 3) {

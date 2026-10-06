@@ -1,7 +1,8 @@
 import { graphToScreen } from './transform-model.js?v=29';
 
 export const COORDINATE_GUIDE_DURATION = 3400;
-export const coordinateGuideDuration = mode => mode === 'read' ? 4800 : COORDINATE_GUIDE_DURATION;
+export const isOrigin = point => point && Math.abs(point.x)<1e-9 && Math.abs(point.y)<1e-9;
+export const coordinateGuideDuration = (mode,point) => isOrigin(point)?900:mode === 'read' ? 4800 : COORDINATE_GUIDE_DURATION;
 const clamp = x => Math.max(0, Math.min(1, x));
 const progress = (t, a, b) => clamp((t-a)/(b-a));
 const mix = (a, b, t) => ({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
@@ -12,6 +13,7 @@ const fmt = n => String(Number(n.toFixed(2))).replace('-', '−');
 export function coordinateGuideFrame(point, mode, elapsed) {
   const plot = mode === 'plot', t = Math.max(0, elapsed);
   const xAxis = {x:point.x,y:0}, yAxis = {x:0,y:point.y};
+  if(isOrigin(point))return {origin:true,phase:'origin',done:t>=900,xAxis,yAxis,xLine:[point,point],yLine:[point,point],xProgress:0,yProgress:0,xFlight:0,yFlight:0,xRead:true,yRead:true,xEmphasis:false,yEmphasis:false,xAxisVisible:false,yAxisVisible:false,opacity:1-progress(t,650,900),showPoint:true,pulse:.5+.5*Math.sin(t*Math.PI/180)};
   if(!plot){
     const xProgress=progress(t,500,1200),yProgress=progress(t,2300,3000);
     return {
@@ -47,15 +49,24 @@ export function coordinateGuideFrame(point, mode, elapsed) {
 
 // The coordinate pair has stable slots: numbers travel into them, then remain.
 // This renderer is also used after the temporary projection lines are removed.
-export function paintCoordinateReadout(ctx,{point,label,view,dark,width,height,pointColour,xRead=true,yRead=true}){
-  const c=graphToScreen(point,view),paper=dark?'#15181d':'#fff',ink=pointColour||(dark?'#edf0f5':'#20242c');
-  ctx.save();ctx.font='600 22px system-ui';ctx.textAlign='left';ctx.textBaseline='middle';
-  const parts=[`${label} (`,fmt(point.x),', ',fmt(point.y),')'];
-  const widths=parts.map((s,i)=>Math.max(i===1||i===3?20:0,ctx.measureText(s).width));
-  const total=widths.reduce((a,b)=>a+b,0),left=Math.max(6,Math.min(width-total-6,c.x-total/2));
-  const top=c.y+36>height-30?c.y-36:c.y+36;
-  const y=Math.max(20,Math.min(height-25,top));
-  ctx.fillStyle=paper;ctx.fillRect(left-5,y-16,total+10,32);
+export function coordinateReadoutLayout(ctx,{point,label,view,width,height,placement}){
+  const c=graphToScreen(point,view),fontSize=placement?.fontSize??22;
+  const prefix=placement?.omitLabel?'(' : `${label} (`;
+  ctx.save();ctx.font=`600 ${fontSize}px Arial, sans-serif`;
+  const parts=[prefix,fmt(point.x),', ',fmt(point.y),')'];
+  const widths=parts.map((s,i)=>Math.max(i===1||i===3?fontSize*.7:0,ctx.measureText(s).width));ctx.restore();
+  const total=widths.reduce((a,b)=>a+b,0),half=fontSize*.7;
+  // Notebook callers place a suffix beside the existing printed letter. Other
+  // callers retain the usual standalone label, above the projection lines.
+  const x=placement?.x??(c.x+total+20<width?c.x+18:c.x-total-18);
+  const y=placement?.y??c.y-fontSize*1.6;
+  return {parts,widths,total,fontSize,left:placement?.preserveAnchor?x:Math.max(6,Math.min(width-total-6,x)),y:placement?.preserveAnchor?y:Math.max(half+4,Math.min(height-half-4,y))};
+}
+export function paintCoordinateReadout(ctx,options){
+  const {dark,pointColour,xRead=true,yRead=true}=options;
+  const {parts,widths,total,fontSize,left,y}=coordinateReadoutLayout(ctx,options),paper=dark?'#15181d':'#fff',ink=pointColour||(dark?'#edf0f5':'#20242c');
+  ctx.save();ctx.font=`600 ${fontSize}px Arial, sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle=paper;ctx.fillRect(left-3,y-fontSize*.65,total+6,fontSize*1.3);
   let x=left;const slots=[];
   parts.forEach((text,i)=>{
     if(i===1||i===3)slots.push({x:x+widths[i]/2,y});
@@ -66,7 +77,7 @@ export function paintCoordinateReadout(ctx,{point,label,view,dark,width,height,p
   ctx.restore();return {x:slots[0],y:slots[1]};
 }
 
-export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,width,height,pointColour}) {
+export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,width,height,pointColour,placement}) {
   const frame=coordinateGuideFrame(point,mode,elapsed),screen=p=>graphToScreen(p,view);
   const c=screen(point),x=screen(frame.xAxis),y=screen(frame.yAxis);
   const paper=dark?'#15181d':'#fff',ink=dark?'#edf0f5':'#20242c';
@@ -93,13 +104,13 @@ export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,wid
     ctx.beginPath();ctx.arc(c.x,c.y,9+frame.pulse*7,0,Math.PI*2);ctx.strokeStyle=pointColour||ink;ctx.lineWidth=2;ctx.stroke();
     ctx.beginPath();ctx.arc(c.x,c.y,5,0,Math.PI*2);ctx.fillStyle=pointColour||ink;ctx.fill();
   }
-  if(frame.showPoint&&mode==='plot'){
+  if(frame.showPoint&&mode==='plot'&&!placement&&!frame.origin){
     const text=frame.xRead?`${label} (${fmt(point.x)}, ${frame.yRead?fmt(point.y):'?'})`:label;
     badge(text,c.x,c.y-34,pointColour||ink,false);
   }
   ctx.restore();
-  if(mode==='read'){
-    const slots=paintCoordinateReadout(ctx,{point,label,view,dark,width,height,pointColour,xRead:frame.xRead,yRead:frame.yRead});
+  if(!frame.origin&&(mode==='read'||placement)){
+    const slots=paintCoordinateReadout(ctx,{point,label,view,dark,width,height,pointColour,placement,xRead:frame.xRead,yRead:frame.yRead});
     ctx.save();
     for(const [amount,start,end,value,colour]of[[frame.xFlight,xBadge,slots.x,point.x,orange],[frame.yFlight,yBadge,slots.y,point.y,blue]]){
       if(start&&amount>0&&amount<1){const p=mix(start,end,amount);badge(fmt(value),p.x,p.y,colour,true);}

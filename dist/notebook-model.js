@@ -27,6 +27,11 @@ export function fitQuestion(graph,width,height,reserved={right:0,bottom:0}){
 export function fitGraph(graph,width,height,reserved={}){
   return fitQuestion({...graph,questionBox:{x:graph.x-18,y:graph.y-18,w:(graph.width??200)+36,h:(graph.height??200)+44}},width,height,reserved);
 }
+export function graphSummaryBounds(graph,view,width,height,summaryHeight=80,right=0){
+  const left=Math.max(12,graph.x*view.zoom+view.x);
+  const edge=Math.min(width-right-12,(graph.x+graph.width)*view.zoom+view.x);
+  return {left,width:Math.max(0,edge-left),top:Math.max(58,Math.min(height-summaryHeight-12,graph.y*view.zoom+view.y-summaryHeight-10))};
+}
 export function constrainPage(view,width,height){
   const paperWidth=NOTEBOOK_SIZE.width*view.zoom,paperHeight=NOTEBOOK_SIZE.height*view.zoom;
   const side=Math.min(160,width/3);
@@ -37,37 +42,45 @@ export function constrainPage(view,width,height){
 // Notebook teachers can annotate the reasoning themselves. Both coordinates of
 // the current arm remain editable; the guided module keeps its segment workflow.
 export class NotebookRotationLesson extends RotationLesson {
-  reset(){super.reset();this.readPoints={source:false,image:false};}
-  get completedArms(){return Math.floor(this.buildIndex/2);}
-  get constructionCursor(){return this.constructionComplete?null:this.constructionPaths[this.completedArms].end;}
+  reset(){super.reset();this.readPoints={source:false,image:false};this.visitedArms=0;}
+  get activeArm(){return Math.min(3,Math.floor(this.buildIndex/2));}
+  armComplete(arm){return [arm*2,arm*2+1].every(i=>this.buildCounts[i]!==0||this.segmentInfo(i).target===0);}
+  get completedArms(){return this.constructionComplete?4:[0,1,2,3].filter(i=>(this.visitedArms&(1<<i))&&this.armComplete(i)).length;}
+  get constructionCursor(){return this.constructionComplete?null:this.constructionPaths[this.activeArm].end;}
   moveConstruction(axis,delta){
     if(!this.stage||this.constructionComplete||!['x','y'].includes(axis)||!Number.isInteger(delta))return false;
-    if(!this.buildIndex&&this.buildCounts.every(n=>n===0))this.selectFirstAxis(axis);
-    const start=this.completedArms*2,index=start+(this.segmentInfo(start).axis===axis?0:1);
+    if(!this.visitedArms&&this.buildCounts.every(n=>n===0))this.selectFirstAxis(axis);
+    const start=this.activeArm*2,index=start+(this.segmentInfo(start).axis===axis?0:1);
     this.buildCounts[index]=Math.max(-100,Math.min(100,this.buildCounts[index]+delta));
     this.buildIndex=start;this.stage=Math.min(8,start+2);this.answerVisible=false;
     return true;
   }
-  get armReady(){return this.stage>0&&!this.constructionComplete&&this.buildCounts.slice(this.completedArms*2,this.completedArms*2+2).some(n=>n!==0);}
+  get armReady(){return this.stage>0&&!this.constructionComplete&&this.buildCounts.slice(this.activeArm*2,this.activeArm*2+2).some(n=>n!==0);}
   advanceArm(){
-    if(!this.stage||this.constructionComplete)return false;
-    const start=this.completedArms*2;
     if(!this.armReady)return false;
-    // Next keeps this complete L and returns the cursor to the centre.
-    this.buildIndex=start+2;this.stage=this.constructionComplete?9:Math.min(8,this.buildIndex+2);return true;
+    const arm=this.activeArm;this.visitedArms|=1<<arm;
+    const order=[1,2,3,4].map(n=>(arm+n)%4);
+    // Visit untouched arms first, then return to the saved tip of any arm
+    // missing a bend. Both cross-first and complete-L-first use this path.
+    const next=order.find(i=>!(this.visitedArms&(1<<i)))??order.find(i=>!this.armComplete(i));
+    this.buildIndex=next===undefined?8:next*2;
+    this.stage=this.constructionComplete?9:Math.min(8,this.buildIndex+2);return true;
   }
   previousConstruction(){
-    const start=this.constructionComplete?6:this.completedArms*2;
-    const hasCurrent=!this.constructionComplete&&this.buildCounts.slice(start,start+2).some(n=>n!==0);
-    this.buildIndex=hasCurrent?start:Math.max(0,start-(this.constructionComplete?0:2));
-    this.buildCounts.fill(0,this.buildIndex);this.stage=this.buildIndex?Math.min(8,this.buildIndex+2):1;
+    if(this.constructionComplete)this.visitedArms=15;
+    const arm=this.constructionComplete?3:this.activeArm;
+    const hasCurrent=this.buildCounts.slice(arm*2,arm*2+2).some(n=>n!==0);
+    const previous=hasCurrent?arm:Math.max(0,arm-1);
+    this.buildIndex=previous*2;this.buildCounts.fill(0,this.buildIndex,this.buildIndex+2);
+    this.visitedArms&=~(1<<previous);this.stage=this.buildIndex?Math.min(8,this.buildIndex+2):1;
     this.progress=0;this.answerVisible=false;this.clockVisible=false;this.readPoints.image=false;
   }
+
 }
 export function saveLesson(lesson){
   return {stage:lesson.stage,buildIndex:lesson.buildIndex,buildCounts:[...lesson.buildCounts],
     firstAxis:lesson.firstAxis,progress:lesson.progress,answerVisible:lesson.answerVisible,clockVisible:lesson.clockVisible,
-    readPoints:{...lesson.readPoints},constructionVersion:2};
+    readPoints:{...lesson.readPoints},visitedArms:lesson.constructionComplete?15:lesson.visitedArms,constructionVersion:3};
 }
 export function restoreLesson(question,data){
   const l=new NotebookRotationLesson(question);
@@ -78,12 +91,19 @@ export function restoreLesson(question,data){
     !Number.isFinite(data.progress)||Math.abs(data.progress)>360)return l;
   Object.assign(l,{stage:data.stage,buildIndex:data.buildIndex,buildCounts:[...data.buildCounts],firstAxis:data.firstAxis});
   l.readPoints={source:data.readPoints?.source===true,image:data.readPoints?.image===true};
-  // Ignore inconsistent future segments and never restore an unearned answer.
   if(!l.stage){const source=l.readPoints.source;l.reset();l.readPoints.source=source;return l;}
-  if(!l.constructionComplete){
+  const currentVersion=data.constructionVersion===3;
+  l.visitedArms=currentVersion&&Number.isInteger(data.visitedArms)?data.visitedArms&15:(1<<Math.floor(l.buildIndex/2))-1;
+  if(!currentVersion&&!l.constructionComplete){
     if(data.constructionVersion!==2)l.buildCounts.fill(0,l.buildIndex+1);
-    l.buildIndex=Math.floor(l.buildIndex/2)*2;l.buildCounts.fill(0,l.buildIndex+2);l.stage=Math.min(8,l.buildIndex+2);l.readPoints.image=false;
+    l.buildIndex=Math.floor(l.buildIndex/2)*2;l.buildCounts.fill(0,l.buildIndex+2);
   }
+  if(l.constructionComplete){
+    const unfinished=[0,1,2,3].find(i=>!l.armComplete(i));
+    if(unfinished!==undefined)l.buildIndex=unfinished*2;
+  }
+  if(!l.constructionComplete){l.buildIndex=Math.floor(l.buildIndex/2)*2;l.stage=Math.min(8,l.buildIndex+2);l.readPoints.image=false;}
   else {l.scrub(data.progress);l.clockVisible=!!data.clockVisible;if(data.answerVisible)l.reveal();}
+
   return l;
 }

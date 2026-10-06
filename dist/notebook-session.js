@@ -1,6 +1,6 @@
 import {notebookQuestionPlans} from './notebook-questions.js';
 import {findModuleQuestion,TranslationLesson,ReflectionLesson,EnlargementLesson} from './module-lesson.js?v=15';
-import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=4';
+import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=5';
 import {translatePoint,rotatePoint,flipPoint,completedImage} from './transform-model.js?v=29';
 import {enlargePoint} from './module-lesson.js?v=15';
 
@@ -102,6 +102,21 @@ export class NotebookSession {
       return translatePoint(p,{x:l.pointAt().x-l.question.given.x,y:l.pointAt().y-l.question.given.y});
     });
   }
+  // Earlier transformations stay visible when their image becomes the next
+  // source. Reuse the saved engines so reset, reload and editing stay coherent.
+  get presentations(){
+    const layers=[];
+    for(const key of new Set([...Object.keys(this.saved),...this.engines.keys()])){
+      if(key===this.key)continue;
+      const match=key.match(/^(?:(\d+):)?(.+):(translation|reflection|rotation|enlargement)$/);
+      if(!match||!this.objects.some(o=>o.id===match[2]))continue;
+      const layer=Object.create(this);
+      Object.assign(layer,{planIndex:+(match[1]||0),selected:match[2],mode:match[3]});
+      if(!this.plans[layer.planIndex])continue;
+      if(layer.imageReady||layer.usesConstruction&&layer.lesson.constructionComplete)layers.push(layer);
+    }
+    return layers;
+  }
   get canKeepImage(){return this.imageReady&&(this.mode!=='reflection'||this.lesson.progress===1)&&this.kept.length<40;}
   choosePlan(index){if(!this.plans[index])return false;this.planIndex=index;this.selected=this.planSource.id;this.mode=this.plan.steps[0].type??this.graph.defaultType;return true;}
   sourceForStep(index){const step=this.plan.steps[index];return [...this.kept].reverse().find(o=>o.planIndex===this.planIndex&&o.stepIndex===index)??this.kept.find(o=>o.planIndex===undefined&&o.name===step?.sourceName)??this.base.find(o=>o.id===this.plan.sourceId&&index===0)??this.base.find(o=>o.name===step?.sourceName);}
@@ -124,12 +139,16 @@ export class NotebookSession {
     if(!this.canKeepImage)return false;
     const source=this.source,points=this.imagePoints,name=this.lesson.answerLabel,nextStep=this.stepIndex+1;
     let object=this.kept.find(o=>o.parentId===source.id&&o.planIndex===this.planIndex&&o.name===name&&JSON.stringify(o.points)===JSON.stringify(points));
-    if(!object){object={...completedImage(source,points,this.objects),name,parentId:source.id,planIndex:this.planIndex,stepIndex:nextStep};this.kept.push(object);}
+    if(!object){object={...completedImage(source,points,this.objects),name,parentId:source.id,presentationKey:this.key,planIndex:this.planIndex,stepIndex:nextStep};this.kept.push(object);}
     this.selected=object.id;if(this.plan.steps[nextStep]?.type)this.mode=this.plan.steps[nextStep].type;
     this.lesson.readPoints.source=true;return true;
   }
   deleteSelected(){
     if(!this.kept.some(o=>o.id===this.selected))return false;
+    const object=this.source;
+    const originKeys=new Set(this.presentations.filter(layer=>layer.source.id===object.parentId&&layer.lesson.answerLabel===object.name&&JSON.stringify(layer.imagePoints)===JSON.stringify(object.points)).map(layer=>layer.key));
+    if(object.presentationKey)originKeys.add(object.presentationKey);
+    for(const key of new Set([...Object.keys(this.saved),...this.engines.keys()]))if(originKeys.has(key)||key.includes(`${object.id}:`)){this.engines.delete(key);delete this.saved[key];}
     this.kept=this.kept.filter(o=>o.id!==this.selected);this.selected=this.base[0].id;return true;
   }
   reset(){this.engines.delete(this.key);delete this.saved[this.key];}

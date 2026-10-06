@@ -1,5 +1,5 @@
 import { createSequenceOverview } from './module-sequence-view.js?v=1';
-import { coordinateGuideFrame, paintCoordinateGuide, coordinateGuideDuration } from './module-coordinate-guide.js?v=2';
+import { coordinateGuideFrame, paintCoordinateGuide, coordinateGuideDuration } from './module-coordinate-guide.js?v=3';
 import { bindRepeatingButton } from './direction-pad.js?v=1';
 import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=15';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';

@@ -62,7 +62,7 @@ body.clean-view header{display:none}body.clean-view main{height:100dvh}body.clea
 .count-actions output{font-size:19px;white-space:pre-line;text-align:center}.demo-panel .centre-inputs button{font-size:11px;padding:3px;flex:1}#useImage{font-size:11px;padding:4px}#deleteImage{flex:0 0 40px}
 @media(max-width:900px){#pagePicker{max-width:96px}.module-notebook header>button{padding:4px}}
 
-.question-summary{position:absolute;top:58px;left:12px;width:calc(100% - 314px);max-height:30%;overflow:auto;z-index:5;background:#fff;border:1px solid #d7e2ee;border-radius:12px;padding:7px 10px;box-shadow:0 3px 12px #18294512;user-select:none;-webkit-user-select:none}
+.question-summary{position:absolute;top:58px;left:12px;width:400px;box-sizing:border-box;max-height:30%;overflow:auto;z-index:5;background:#fff;border:1px solid #d7e2ee;border-radius:12px;padding:7px 10px;box-shadow:0 3px 12px #18294512;user-select:none;-webkit-user-select:none}
 .summary-heading{display:flex;align-items:center;gap:10px;font-size:12px;color:#697586;padding:0 4px}
 .summary-heading select{font-size:13px;min-height:38px;max-width:75%;background:white;border:1px solid #d7e2ee;border-radius:6px}
 .summary-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:4px 0;border-top:1px solid #edf0f4}
@@ -72,3 +72,9 @@ body.clean-view header{display:none}body.clean-view main{height:100dvh}body.clea
 .summary-order{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#e8eef6;font-size:12px;flex-shrink:0}
 body.clean-view .question-summary{display:none!important}
 @media(max-width:700px){.question-summary{width:calc(100% - 24px);top:54px;max-height:26%;padding:5px}.summary-row{gap:3px}.summary-row button{font-size:12px;padding:4px 6px}}
+
+/* Full-page writing stays within reach, away from the browser's top exit. */
+#writingDock{display:flex;align-items:center;gap:6px;position:absolute;bottom:max(12px,env(safe-area-inset-bottom));left:94px;right:74px;z-index:10;padding:5px 8px;background:#ffffffed;border:1px solid #dce0e7;border-radius:16px;box-shadow:0 2px 12px #0002}
+.module-notebook #writingDock #tools{justify-content:flex-start;overflow-x:auto}
+body.clean-view[data-tool=pen] .context,body.clean-view[data-tool=highlighter] .context,body.clean-view[data-tool=eraser] .context{display:flex!important;top:auto;bottom:max(74px,calc(env(safe-area-inset-bottom) + 62px));left:94px;max-width:calc(100% - 168px)}
+.question-summary button{max-width:100%;overflow-wrap:anywhere;white-space:normal}

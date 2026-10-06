@@ -47,7 +47,7 @@ test('translation is freely adjustable in both directions, including inverse que
 });
 test('Next keeps a free trial arm but an incorrect construction cannot reveal the question answer',()=>{
   const s=session('9'),l=s.lesson;l.stage=1;assert.equal(l.advanceArm(),false);
-  for(let i=0;i<4;i++){l.moveConstruction('x',7);assert.equal(l.completedArms,i);assert.equal(l.advanceArm(),true);assert.deepEqual(l.constructionCursor,i===3?null:l.question.centre);}
+  for(let i=0;i<4;i++){l.moveConstruction('x',7);l.moveConstruction('y',5);assert.equal(l.completedArms,i);assert.equal(l.advanceArm(),true);assert.deepEqual(l.constructionCursor,i===3?null:l.question.centre);}
   assert.equal(l.constructionComplete,true);assert.equal(l.constructionMatches,false);l.scrub(l.movementDegrees);assert.equal(l.reveal(),false);
 });
 test('all source objects can use all four existing transformation models and preserve valid state',()=>{
@@ -101,7 +101,7 @@ test('the pulsing halo follows the active tip, returns to the centre on Next, an
   const paint=()=>{arcs.length=0;paintRotationLesson(ctx,{lesson:l,view:{x:320,y:320,zoom:1},width:640,height:640,dark:false,cursorPulse:1,countLabels:new LabelLayout()});return arcs.filter(a=>a[2]===14);};
   l.moveConstruction('x',3);l.moveConstruction('y',2);assert.deepEqual(paint().map(a=>a.slice(0,2)),[[440,240]]);
   l.advanceArm();assert.deepEqual(paint().map(a=>a.slice(0,2)),[[320,320]]);
-  for(let i=1;i<4;i++){l.moveConstruction('x',1);l.advanceArm();}assert.deepEqual(paint(),[]);
+  for(let i=1;i<4;i++){l.moveConstruction('x',1);l.moveConstruction('y',1);l.advanceArm();}assert.deepEqual(paint(),[]);
 });
 
 test('combined summaries preserve application order and seed the next tool with its givens',()=>{
