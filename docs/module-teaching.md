@@ -1,4 +1,4 @@
-# Module teaching: translation 1–4, reflection 5–8, rotation 9–16 and enlargement 17–20
+# Module teaching: transformations 1–24
 
 Open `module.html?question=1`, or Explore → Transformations → Module teaching · Translation 1–4. This separate full-page teaching view preserves the existing free exploration.
 
@@ -33,7 +33,7 @@ The question card collapses to enlarge the graph. Fit restores the printed grid.
 
 Run `npm test`. In a browser, check all four direct links, question navigation and browser Back; verify hidden answers, every teaching step, forward final mappings, reverse/scrub/reset, separate annotation histories, pan/zoom, EN/BM and light/dark. Inspect desktop, tablet and phone layouts, collapsed questions and fullscreen.
 
-Translation Questions 1–4, Reflection Questions 5–8, Rotation Questions 9–16 and Enlargement Questions 17–20 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Polygon Questions 41–44, combined transformations and area demonstrations remain future module work.
+Translation Questions 1–4, Reflection Questions 5–8, Rotation Questions 9–16 Enlargement Questions 17–20 and Combined Questions 21–24 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Polygon Questions 25–44 and area demonstrations remain future module work.
 
 ## Reflection questions 5–8
 
@@ -136,3 +136,24 @@ The regression checks cover all four source diagrams/answers, inverse recovery a
 The count model owns independent given/image x/y distances and the selected component. `squareCountAt` advances one unit, pauses at that square, then continues; reduced-motion preferences apply the chosen component immediately. Only one component animates at a time. Reset/question navigation cancels the animation. During automatic counting the game pad and other count controls are disabled to prevent overlapping actions, while Reset remains available. Manual pad steps update immediately and use the same shared hold/cancellation helper and pad styling as the transformation explorer. Original and image paths reuse the existing enlargement overlay and world-coordinate camera.
 
 Regression checks cover all four staged constructions, no vertical path during a horizontal step, preserved original paths, wrong-scale collinear trials, live reveal invalidation, independent count restoration after free scale, and positive/negative/fractional animation endpoints. Browser verification covers Q17–20, manual corrections, reset during movement, backtracking, pan/zoom, EN/BM, light/dark and phone/tablet layouts. Physical iPad input remains a device check.
+
+## Combined transformations 21–24
+
+A6, printed page 6 (PDF page 7), completes the coordinate section. Open `module.html?question=21`, choose Combined 21–24, or use the new Explore library entry. Original diagrams and both intermediate/final coordinates were checked against the question booklet and answer scheme.
+
+| Question | Original | First operation | Intermediate | Second operation | Final |
+| --- | --- | --- | --- | --- | --- |
+| 21 · TP | P(−3, 2) | P: reflection in y = 1 | P′(−3, 0) | T: translation (4, −1) | P″(1, −1) |
+| 22 · RT | Q(4, 3) | T: translation (−2, 1) | Q′(2, 4) | R: 90° clockwise about (1, 1) | Q″(4, 0) |
+| 23 · RP | R(−2, 4) | P: reflection in y = −x | R′(−4, 2) | R: 90° anticlockwise about (2, −1) | R″(−1, −7) |
+| 24 · K² | S(−5, 5) | K: translation (3, −2) | S′(−2, 3) | K: translation (3, −2) | S″(1, 1) |
+
+Begin with the question only. Show order explains right-to-left composition, or applying K twice. Each operation then uses its existing teacher-controlled lesson: trial mirror lines and flip, component translation, or counted rotation construction with both counting orders, clock and free angles. The first result must be revealed before the second operation is available. Wrong reflection lines or rotation angles cannot unlock the next step.
+
+The original point remains black/light; the intermediate image is orange; the final image is blue. During the second step, the intermediate point becomes the new object while the original stays visible. The question card reserves its answer for the final point. Completing both operations reveals a two-arrow mapping on the graph, with each operation above its own arrow. The two mappings are stacked in execution order in a reserved part of the canvas: beside the diagram on wide screens and below it on narrow screens. Fit accounts for that space; manual pan/zoom remain available. A stable initial camera includes the original, both images and the rotation sweep without revealing their labels early.
+
+First/Then controls revisit the operations. Reviewing a completed step preserves work, but changing the first operation clears the second lesson and hides its answer. Back from the start of the second lesson returns to the first. Reset restarts the whole question, using the existing undoable ink reset. Navigation and browser history keep annotation histories separate per module question.
+
+`CombinedLesson` composes two existing lesson instances instead of duplicating geometry, drag handlers or transformation engines. Its question data explicitly stores execution order; labels use one prime for the intermediate point and a double prime for the final point. The shared renderer adds an optional intermediate role, retaining previous colours for all other callers. No worksheet PDFs are changed.
+
+Verification: all 171 automated checks pass, including six combined-lesson checks for source answers, order, reveal gating, invalidation, camera bounds and colour roles. Browser checks completed all four questions, wrong/refined reflection trials, first-step revision, backward navigation, annotation Undo/Redo, per-question ink history, the Explore entry and the existing inverse translation mapping. Layouts were inspected at desktop, 1024 × 768 and 390 × 844 sizes, including BM and dark mode. No browser errors were observed. Physical iPad/stylus input still needs a real-device check.

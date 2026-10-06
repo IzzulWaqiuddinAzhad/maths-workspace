@@ -37,7 +37,7 @@ export function createTransformationRenderer(canvas) {
     }
     if (xvisible && yvisible && state.originLabel !== false) { const p = screen({ x: 0, y: 0 }); text('0', p.x - 13, p.y + 15); }
     function object(o, isImage = false) {
-      const ps = o.points.map(screen), active = o.id === selected, colour = (o.image ?? isImage) ? blue : ink;
+      const ps = o.points.map(screen), active = o.id === selected, colour = o.role==='intermediate' ? (dark?'#ffc47f':'#a95c14') : (o.image ?? isImage) ? blue : ink;
       if (ps.length > 1) {
         ctx.beginPath(); ps.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
         if (ps.length > 2) { ctx.closePath(); ctx.fillStyle = isImage ? (dark ? '#699feb26' : '#4e92f226') : active ? (dark ? '#edf0f509' : '#24304705') : 'transparent'; ctx.fill(); }

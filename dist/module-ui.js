@@ -1,16 +1,18 @@
 import { bindRepeatingButton } from './direction-pad.js?v=1';
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=10';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=11';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
 import { paintRotationLesson } from './module-rotation-render.js?v=3';
-import { paintReflectionLesson } from './module-reflection-render.js?v=2';
-import { createTransformationRenderer } from './transform-render.js?v=35';
+import { paintReflectionLesson } from './module-reflection-render.js?v=3';
+import { createTransformationRenderer } from './transform-render.js?v=36';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
 import { installCanvasOwnership } from './interaction.js?v=13';
 
 const $ = id => document.getElementById(id);
 const requested = new URLSearchParams(location.search).get('question');
-let q = findModuleQuestion(requested) || QUESTION_ONE, lesson = createModuleLesson(q);
+let q = findModuleQuestion(requested) || QUESTION_ONE, rootLesson = createModuleLesson(q);
+let sequence = q.type === 'combined' ? rootLesson : null, lesson = sequence?.current || rootLesson;
+const activity = () => lesson.question;
 const canvas = $('graph'), board = $('board'), drawGraph = createTransformationRenderer(canvas);
 // The lesson does not write into the free exploration's saved document.
 let inkStore = new DocumentStore(), unsubscribeInk;
@@ -23,6 +25,7 @@ const countWords=(n,horizontal)=>{
 };
 const visibleBounds=()=>{const a=screenToGraph({x:50,y:65},view),b=screenToGraph({x:Math.max(100,canvas.clientWidth-90),y:Math.max(120,canvas.clientHeight-70)},view);return {xmin:a.x,xmax:b.x,ymin:b.y,ymax:a.y};};
 const stopCountPad=()=>countRepeats.forEach(control=>control.stop());
+let mappingReserved = false;
 let fitted = true, previousSize, drag = null, ink = null, erased = null, frame = 0, animation = 0, statusTimer;
 try { language = JSON.parse(localStorage.getItem('maths-workspace:language')) === 'bm' ? 'bm' : 'en'; dark = (localStorage.getItem('maths-workspace:theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'; } catch {}
 const tr = (en, bm) => language === 'bm' ? bm : en;
@@ -30,13 +33,14 @@ const fmt = n => String(n).replace('-', '−');
 const coord = p => `(${fmt(p.x)}, ${fmt(p.y)})`;
 const signed = n => n > 0 ? `+${fmt(n)}` : fmt(n);
 const calculation = (given, delta, answer) => `${fmt(given)} ${delta < 0 ? '−' : '+'} ${fmt(Math.abs(delta))} = ${fmt(answer)}`;
-const isReflection = () => q.type === 'reflection';
-const isRotation = () => q.type === 'rotation';
-const isEnlargement = () => q.type === 'enlargement';
-const enlargementDescription = () => `${tr('Scale factor','Faktor skala')} ${fmt(q.factor)} · ${tr('centre','pusat')} ${coord(q.centre)}`;
+const isReflection = () => activity().type === 'reflection';
+const isRotation = () => activity().type === 'rotation';
+const isEnlargement = () => activity().type === 'enlargement';
+const enlargementDescription = () => `${tr('Scale factor','Faktor skala')} ${fmt(activity().factor)} · ${tr('centre','pusat')} ${coord(activity().centre)}`;
 const factorLabel = () => `${lesson.inverse ? tr('From image × ', 'Dari imej × ') : 'k = '}${fmt(Number(lesson.factor.toFixed(2)))}`;
 const graphBounds = () => lesson.bounds || q.bounds;
-const rotationDescription = () => `${Math.abs(q.degrees)}° ${q.degrees === 180 ? tr('half-turn', 'separuh pusingan') : q.degrees < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam')}`;
+const cameraBounds = () => sequence?.started ? sequence.focusBounds : graphBounds();
+const rotationDescription = () => `${Math.abs(activity().degrees)}° ${activity().degrees === 180 ? tr('half-turn', 'separuh pusingan') : activity().degrees < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam')}`;
 const angleWords = angle => `${Math.round(Math.abs(angle))}°${angle === 0 ? '' : ' ' + (angle < 0 ? tr('clockwise', 'ikut arah jam') : tr('anticlockwise', 'lawan arah jam'))}`;
 const rotationProgressLabel = () => angleWords(lesson.angle);
 let clockStarted = 0;
@@ -51,7 +55,8 @@ function renderCopy() {
   document.body.classList.toggle('dark', dark);
   document.title = tr(`Question ${q.id} · BIJAK Transformations`, `Soalan ${q.id} · Transformasi BIJAK`);
   text('back', '← Workspace', '← Ruang kerja'); text('pageTitle', 'Transformations', 'Transformasi');
-  const reflection = isReflection(), rotation = isRotation(), enlargement = isEnlargement(), topic = enlargement ? tr('Enlargement','Pembesaran') : rotation ? tr('Rotation', 'Putaran') : reflection ? tr('Reflection', 'Pantulan') : tr('Translation', 'Translasi');
+  const reflection = isReflection(), rotation = isRotation(), enlargement = isEnlargement(), topic = sequence ? tr('Combined transformations','Gabungan transformasi') : enlargement ? tr('Enlargement','Pembesaran') : rotation ? tr('Rotation', 'Putaran') : reflection ? tr('Reflection', 'Pantulan') : tr('Translation', 'Translasi');
+  document.body.classList.toggle('combined-lesson', !!sequence);
   document.body.classList.toggle('rotation-lesson', rotation);
   document.body.classList.toggle('enlargement-lesson', enlargement);
   $('enlargementControls').hidden = !enlargement;
@@ -67,19 +72,20 @@ function renderCopy() {
   $('questionGroup').options[1].textContent = tr('Reflection · 5–8', 'Pantulan · 5–8');
   $('questionGroup').options[2].textContent = tr('Rotation · 9–16', 'Putaran · 9–16');
   $('questionGroup').options[3].textContent = tr('Enlargement · 17–20', 'Pembesaran · 17–20');
+  $('questionGroup').options[4].textContent = tr('Combined · 21–24', 'Gabungan · 21–24');
   $('questionBadge').textContent = tr(`Question ${q.number}`, `Soalan ${q.number}`) + ' · ' + topic;
   $('section').textContent = `${q.section} / ${topic.toUpperCase()} · ${q.number}`;
   text('questionTitle', lesson.inverse ? 'Find the original point' : 'Find the image', lesson.inverse ? 'Cari koordinat objek' : 'Cari koordinat imej'); $('prompt').textContent = q.prompt[language];
   text('answerHeading', lesson.inverse ? 'Coordinates of the object' : 'Coordinates of the image', lesson.inverse ? 'Koordinat objek' : 'Koordinat imej');
-  text('sourceNote', `Module page ${enlargement ? 5 : rotation ? Number(q.id) < 13 ? 3 : 4 : reflection ? 2 : 1} · Question ${q.id}. One square = one unit.`, `Halaman modul ${enlargement ? 5 : rotation ? Number(q.id) < 13 ? 3 : 4 : reflection ? 2 : 1} · Soalan ${q.id}. Satu petak = satu unit.`);
-  document.querySelector('.given-vector').hidden = reflection || rotation || enlargement;
-  $('givenEnlargement').hidden = !enlargement;
+  text('sourceNote', `Module page ${sequence ? 6 : enlargement ? 5 : rotation ? Number(q.id) < 13 ? 3 : 4 : reflection ? 2 : 1} · Question ${q.id}. One square = one unit.`, `Halaman modul ${sequence ? 6 : enlargement ? 5 : rotation ? Number(q.id) < 13 ? 3 : 4 : reflection ? 2 : 1} · Soalan ${q.id}. Satu petak = satu unit.`);
+  document.querySelector('.given-vector').hidden = !!sequence || reflection || rotation || enlargement;
+  $('givenEnlargement').hidden = !!sequence || !enlargement;
   if (enlargement) $('givenEnlargement').textContent = enlargementDescription();
-  $('givenRotation').hidden = !rotation;
-  if (rotation) $('givenRotation').textContent = `${rotationDescription()} · ${tr('Centre', 'Pusat')} ${coord(q.centre)}`;
-  $('givenMirror').hidden = !reflection;
-  if (reflection) $('givenMirror').textContent = reflectionEquation(q.mirror);
-  else if (!rotation && !enlargement) { $('givenDX').textContent = fmt(q.vector.x); $('givenDY').textContent = fmt(q.vector.y); }
+  $('givenRotation').hidden = !!sequence || !rotation;
+  if (rotation) $('givenRotation').textContent = `${rotationDescription()} · ${tr('Centre', 'Pusat')} ${coord(activity().centre)}`;
+  $('givenMirror').hidden = !!sequence || !reflection;
+  if (reflection) $('givenMirror').textContent = reflectionEquation(activity().mirror);
+  else if (!rotation && !enlargement) { $('givenDX').textContent = fmt(activity().vector.x); $('givenDY').textContent = fmt(activity().vector.y); }
   $('questionNav').innerHTML = MODULE_QUESTIONS.filter(question => question.type === q.type).map(question => `<button type="button" data-question="${question.id}">${question.number}</button>`).join('');
   $('questionNav').setAttribute('aria-label', tr('Module questions', 'Soalan modul'));
   for (const button of $('questionNav').querySelectorAll('button')) {
@@ -103,8 +109,9 @@ function renderCopy() {
   $('progress').max = enlargement ? 3 : rotation ? 360 : reflection ? 1 : 2;
   $('progress').step = rotation ? 1 : .01;
   $('progress').setAttribute('aria-label', enlargement ? tr('Control scale factor', 'Kawal faktor skala') : rotation ? tr('Rotation angle: left clockwise, right anticlockwise', 'Sudut putaran: kiri ikut arah jam, kanan lawan arah jam') : reflection ? tr('Control reflection', 'Kawal pantulan') : tr('Translation movement, horizontal then vertical', 'Pergerakan translasi, mengufuk kemudian menegak'));
-  if (!reflection && !rotation && !enlargement) document.querySelector('.given-vector').setAttribute('aria-label', tr(`Translation vector ${coord(q.vector)}`, `Vektor translasi ${coord(q.vector)}`));
-  else if (reflection) $('givenMirror').setAttribute('aria-label', tr(`Question line: ${reflectionEquation(q.mirror)}`, `Garis soalan: ${reflectionEquation(q.mirror)}`));
+  if (!reflection && !rotation && !enlargement) document.querySelector('.given-vector').setAttribute('aria-label', tr(`Translation vector ${coord(activity().vector)}`, `Vektor translasi ${coord(activity().vector)}`));
+  else if (reflection) $('givenMirror').setAttribute('aria-label', tr(`Question line: ${reflectionEquation(activity().mirror)}`, `Garis soalan: ${reflectionEquation(activity().mirror)}`));
+  renderSequenceCopy();
   syncFullscreen(); sync();
 }
 
@@ -113,11 +120,11 @@ function syncTranslation() {
   const horizontal = v.x < 0 ? tr('left', 'kiri') : tr('right', 'kanan');
   const vertical = v.y < 0 ? tr('down', 'bawah') : tr('up', 'atas');
   const stages = [
-    [lesson.inverse ? `Where was ${q.label}?` : `Where will ${q.label} move?`, lesson.inverse ? 'The image is given. Find the original point.' : 'Read the vector before revealing the image.', lesson.inverse ? `Di manakah ${q.label} asal?` : `Ke manakah ${q.label} bergerak?`, lesson.inverse ? 'Imej diberi. Cari titik asal.' : 'Baca vektor sebelum mendedahkan imej.'],
-    [`Start at ${lesson.givenLabel} ${coord(q.given)}`, lesson.inverse ? `Work backwards: use the inverse vector ${coord(v)}.` : 'Read x first, then y.', `Mula di ${lesson.givenLabel} ${coord(q.given)}`, lesson.inverse ? `Undur semula: guna vektor songsang ${coord(v)}.` : 'Baca x dahulu, kemudian y.'],
+    [lesson.inverse ? `Where was ${activity().label}?` : `Where will ${activity().label} move?`, lesson.inverse ? 'The image is given. Find the original point.' : 'Read the vector before revealing the image.', lesson.inverse ? `Di manakah ${activity().label} asal?` : `Ke manakah ${activity().label} bergerak?`, lesson.inverse ? 'Imej diberi. Cari titik asal.' : 'Baca vektor sebelum mendedahkan imej.'],
+    [`Start at ${lesson.givenLabel} ${coord(activity().given)}`, lesson.inverse ? `Work backwards: use the inverse vector ${coord(v)}.` : 'Read x first, then y.', `Mula di ${lesson.givenLabel} ${coord(activity().given)}`, lesson.inverse ? `Undur semula: guna vektor songsang ${coord(v)}.` : 'Baca x dahulu, kemudian y.'],
     [`${Math.abs(v.x)} units to the ${horizontal}`, `${lesson.inverse ? 'Inverse movement' : 'Horizontal component'}: ${signed(v.x)}.`, `${Math.abs(v.x)} unit ke ${horizontal}`, `${lesson.inverse ? 'Gerakan songsang' : 'Komponen mengufuk'}: ${signed(v.x)}.`],
     [`${Math.abs(v.y)} units ${vertical}`, `${lesson.inverse ? 'Inverse movement' : 'Vertical component'}: ${signed(v.y)}.`, `${Math.abs(v.y)} unit ke ${vertical}`, `${lesson.inverse ? 'Gerakan songsang' : 'Komponen menegak'}: ${signed(v.y)}.`],
-    [`${lesson.answerLabel} = ${coord(lesson.answer)}`, `x: ${calculation(q.given.x, v.x, lesson.answer.x)} · y: ${calculation(q.given.y, v.y, lesson.answer.y)}`, `${lesson.answerLabel} = ${coord(lesson.answer)}`, `x: ${calculation(q.given.x, v.x, lesson.answer.x)} · y: ${calculation(q.given.y, v.y, lesson.answer.y)}`],
+    [`${lesson.answerLabel} = ${coord(lesson.answer)}`, `x: ${calculation(activity().given.x, v.x, lesson.answer.x)} · y: ${calculation(activity().given.y, v.y, lesson.answer.y)}`, `${lesson.answerLabel} = ${coord(lesson.answer)}`, `x: ${calculation(activity().given.x, v.x, lesson.answer.x)} · y: ${calculation(activity().given.y, v.y, lesson.answer.y)}`],
   ];
   const s = stages[lesson.stage];
   text('stepTitle', s[0], s[2]); text('stepDetail', s[1], s[3]);
@@ -151,9 +158,9 @@ function syncReflection() {
   text('stepNumber', lesson.answerVisible ? 'ANSWER REVEALED' : choice ? 'TRY • DISCUSS • REFLECT' : 'PREDICT THE LINE', lesson.answerVisible ? 'JAWAPAN DIDEDAHKAN' : choice ? 'CUBA • BINCANG • PANTUL' : 'RAMALKAN GARIS');
   text('stepTitle', choice ? lesson.progress === 1 ? (lesson.answerVisible ? `${lesson.answerLabel} = ${coord(lesson.answer)}` : lesson.matchesQuestion ? 'Ready to reveal' : 'Compare the two equations') : lesson.progress > 0 ? 'Control the flip' : lesson.guideVisible ? 'Perpendicular to the mirror line' : `Try ${equation}` : 'Horizontal, vertical or slanted?',
     choice ? lesson.progress === 1 ? (lesson.answerVisible ? `${lesson.answerLabel} = ${coord(lesson.answer)}` : lesson.matchesQuestion ? 'Sedia untuk didedahkan' : 'Bandingkan kedua-dua persamaan') : lesson.progress > 0 ? 'Kawal lipatan' : lesson.guideVisible ? 'Serenjang dengan garis pantulan' : `Cuba ${equation}` : 'Mengufuk, menegak atau condong?');
-  text('stepDetail', !choice ? 'Choose a suggestion from the class.' : lesson.answerVisible ? 'Equal perpendicular distances on both sides.' : `Question: ${reflectionEquation(q.mirror)} · Trying: ${equation}` + (lesson.inverse ? ' · Recover the original point.' : ''),
-    !choice ? 'Pilih cadangan daripada kelas.' : lesson.answerVisible ? 'Jarak serenjang sama pada kedua-dua belah.' : `Soalan: ${reflectionEquation(q.mirror)} · Mencuba: ${equation}` + (lesson.inverse ? ' · Cari titik asal.' : ''));
-  if (choice && lesson.progress > 0 && Math.hypot(lesson.trialAnswer.x - q.given.x, lesson.trialAnswer.y - q.given.y) < 1e-8) {
+  text('stepDetail', !choice ? 'Choose a suggestion from the class.' : lesson.answerVisible ? 'Equal perpendicular distances on both sides.' : `Question: ${reflectionEquation(activity().mirror)} · Trying: ${equation}` + (lesson.inverse ? ' · Recover the original point.' : ''),
+    !choice ? 'Pilih cadangan daripada kelas.' : lesson.answerVisible ? 'Jarak serenjang sama pada kedua-dua belah.' : `Soalan: ${reflectionEquation(activity().mirror)} · Mencuba: ${equation}` + (lesson.inverse ? ' · Cari titik asal.' : ''));
+  if (choice && lesson.progress > 0 && Math.hypot(lesson.trialAnswer.x - activity().given.x, lesson.trialAnswer.y - activity().given.y) < 1e-8) {
     text('stepTitle', 'A point on the mirror stays in place', 'Titik pada garis pantulan kekal di tempatnya');
   }
   const action = !choice ? ['Choose a line', 'Pilih garis'] : lesson.answerVisible ? (nextQuestion() ? ['Next question →', 'Soalan seterusnya →'] : ['Answer revealed', 'Jawapan didedahkan']) : lesson.progress === 1 ? (lesson.matchesQuestion ? ['Reveal answer', 'Dedahkan jawapan'] : ['Match the question line', 'Padankan garis soalan']) : !lesson.progress && !lesson.guideVisible ? ['Show guide', 'Tunjuk panduan'] : [lesson.progress ? 'Finish reflection →' : 'Reflect →', lesson.progress ? 'Lengkapkan pantulan →' : 'Pantulkan →'];
@@ -200,7 +207,7 @@ function syncRotation() {
       lesson.atStart ? (lesson.angle ? 'Satu pusingan penuh: kembali ke kedudukan asal.' : 'Seret ke mana-mana arah, atau pilih arah dan sudut.') : `Kedudukan sama seperti ${angleWords(lesson.equivalentAngle)}.`);
   }
   $('rotationControls').setAttribute('aria-label',tr('Rotation guide','Panduan putaran'));
-  text('rotationCentre',`Centre ${coord(q.centre)} · Question: ${rotationDescription()}`,`Pusat ${coord(q.centre)} · Soalan: ${rotationDescription()}`);
+  text('rotationCentre',`Centre ${coord(activity().centre)} · Question: ${rotationDescription()}`,`Pusat ${coord(activity().centre)} · Soalan: ${rotationDescription()}`);
   text('clockGuide','Clock guide','Panduan jam'); $('clockGuide').disabled = !lesson.constructionComplete;
   $('clockGuide').setAttribute('aria-pressed', String(lesson.clockVisible));
   a11y('clockGuide',lesson.clockVisible ? 'Hide clock guide':'Show clock guide',lesson.clockVisible ? 'Sembunyikan panduan jam':'Tunjukkan panduan jam');
@@ -212,22 +219,22 @@ function syncEnlargement() {
   const stage=lesson.stage, counting=lesson.mode==='count';
   const imageName=lesson.inverse?tr('Object','Objek'):tr('Image','Imej');
   $('enlargementControls').setAttribute('aria-label',tr('Enlargement guide','Panduan pembesaran'));
-  text('enlargementCentre',`Centre ${coord(q.centre)} · Question: k = ${fmt(q.factor)}`,`Pusat ${coord(q.centre)} · Soalan: k = ${fmt(q.factor)}`);
+  text('enlargementCentre',`Centre ${coord(activity().centre)} · Question: k = ${fmt(activity().factor)}`,`Pusat ${coord(activity().centre)} · Soalan: k = ${fmt(activity().factor)}`);
   text('enlargementHint','Orange: given distances · Blue: your construction. Start both paths at the centre.','Jingga: jarak diberi · Biru: binaan anda. Mulakan kedua-dua laluan di pusat.');
-  if(lesson.inverse) text('enlargementHint',`Work back from ${lesson.givenLabel}: divide both distances by ${fmt(q.factor)}.`,`Undur dari ${lesson.givenLabel}: bahagi kedua-dua jarak dengan ${fmt(q.factor)}.`);
+  if(lesson.inverse) text('enlargementHint',`Work back from ${lesson.givenLabel}: divide both distances by ${fmt(activity().factor)}.`,`Undur dari ${lesson.givenLabel}: bahagi kedua-dua jarak dengan ${fmt(activity().factor)}.`);
   $('enlargementMode').hidden=!lesson.ready;
   text('enlargementMode',counting?'Explore scale factor':'Back to counting',counting?'Teroka faktor skala':'Kembali mengira');
   $('countControls').hidden=!lesson.ready || !counting;
   $('countControls').setAttribute('aria-label',tr('Count squares','Kira petak'));
   const axis=lesson.countAxis, horizontal=axis==='x';
-  const titles=[tr('Where is the centre?','Di manakah pusat pembesaran?'),`${tr('Centre','Pusat')} ${coord(q.centre)}`,tr('Centre → given point','Pusat → titik diberi'),
+  const titles=[tr('Where is the centre?','Di manakah pusat pembesaran?'),`${tr('Centre','Pusat')} ${coord(activity().centre)}`,tr('Centre → given point','Pusat → titik diberi'),
     `${lesson.givenLabel}: ${countWords(lesson.displayedCount('given','x'),true)}`,`${lesson.givenLabel}: ${countWords(lesson.displayedCount('given','y'),false)}`,
     `${imageName}: ${countWords(lesson.displayedCount('image','x'),true)}`,`${imageName}: ${countWords(lesson.displayedCount('image','y'),false)}`,`${lesson.answerLabel} = ${coord(lesson.answer)}`];
   $('stepTitle').textContent= counting ? titles[stage] : factorLabel();
   let detail=stage<2?tr('Start at the stated centre, not the origin.','Mulakan di pusat yang diberi, bukan asalan.') : stage===2?tr('The centre, object and image lie on the same straight line.','Pusat, objek dan imej terletak pada garis lurus yang sama.') : stage===3?tr('First count horizontally. Keep the vertical count for the next step.','Kira mengufuk dahulu. Kiraan menegak pada langkah seterusnya.') : tr('Use Next for an automatic count, or adjust either direction yourself.','Guna Seterusnya untuk kiraan automatik, atau laraskan sendiri setiap arah.');
   if(counting && lesson.imageStarted) detail=lesson.counting?tr('Count one square at a time…','Kira satu petak demi satu…') : lesson.canReveal?tr('Both distances match. The point meets the guide at the correct scale.','Kedua-dua jarak betul. Titik bertemu garis panduan pada skala yang betul.') : lesson.onGuide?tr('On the guide. Now check that both distances use the question’s scale.','Pada garis panduan. Semak kedua-dua jarak menggunakan skala soalan.') : tr('Adjust the horizontal and vertical counts until both distances match the scale.','Laraskan kiraan mengufuk dan menegak sehingga kedua-dua jarak mengikut skala.');
   if(!counting) detail=tr('Change the factor freely. Return to counting to continue your construction.','Ubah faktor dengan bebas. Kembali mengira untuk menyambung binaan anda.');
-  if(lesson.answerVisible) { const d=lesson.requiredCounts; detail=`x: ${calculation(q.centre.x,d.x,lesson.answer.x)} · y: ${calculation(q.centre.y,d.y,lesson.answer.y)}`; }
+  if(lesson.answerVisible) { const d=lesson.requiredCounts; detail=`x: ${calculation(activity().centre.x,d.x,lesson.answer.x)} · y: ${calculation(activity().centre.y,d.y,lesson.answer.y)}`; }
   $('stepDetail').textContent=detail;
   text('stepNumber',stage?`STEP ${stage} / 7`:`QUESTION ${q.number}`,stage?`LANGKAH ${stage} / 7`:`SOALAN ${q.number}`);
   const actions=[['Mark the centre →','Tandakan pusat →'],['Draw guide →','Lukis garis panduan →'],['Count horizontal →','Kira mengufuk →'],['Count vertical →','Kira menegak →'],['Count image horizontal →','Kira imej mengufuk →'],['Count image vertical →','Kira imej menegak →']];
@@ -282,14 +289,86 @@ function syncCountingPad() {
       text(`countAxis${axis}`,axis==='x'?'Horizontal ↔':'Vertical ↕',axis==='x'?'Mengufuk ↔':'Menegak ↕');
       $(`countAxis${axis}`).setAttribute('aria-pressed',String(info.axis===axis));
       $(`countAxis${axis}`).disabled=true;
-      const value=axis===info.axis?lesson.displayedBuildCount():path.end[axis]-q.centre[axis];
+      const value=axis===info.axis?lesson.displayedBuildCount():path.end[axis]-activity().centre[axis];
       $(`countValue${axis}`).textContent=countWords(value,axis==='x');
     }
     text('countAuto','Auto current segment','Auto bahagian semasa');$('countAuto').disabled=!!animation;
   }
 }
 
+// Operation descriptions and mappings share the same question model as the engines.
+function operationName(operation) {
+  return operation.type==='translation'?tr('Translation','Translasi'):operation.type==='reflection'?tr('Reflection','Pantulan'):tr('Rotation','Putaran');
+}
+function operationDetail(operation) {
+  if(operation.type==='translation')return tr(`vector ${coord(operation.vector)}`,`vektor ${coord(operation.vector)}`);
+  if(operation.type==='reflection')return reflectionEquation(operation.mirror);
+  return `${angleWords(operation.degrees)} · ${tr('centre','pusat')} ${coord(operation.centre)}`;
+}
+function operationHTML(operation) {
+  const detail=operation.type==='translation'
+    ? `<span class="mapping-vector"><span>${fmt(operation.vector.x)}</span><span>${fmt(operation.vector.y)}</span></span>`
+    : `<span>${operationDetail(operation)}</span>`;
+  return `<span class="sequence-operation"><b>${operation.symbol}</b><span>${operationName(operation)}</span>${detail}</span>`;
+}
+function renderSequenceCopy() {
+  $('givenCombined').hidden=!sequence;
+  if(!sequence)return;
+  $('givenCombined').innerHTML=q.definitions.map(i=>`<div>${operationHTML(q.steps[i])}</div>`).join('');
+  $('combinedControls').setAttribute('aria-label',tr('Order of transformations','Urutan transformasi'));
+  text('sequenceFirst','First','Pertama');text('sequenceSecond','Then','Kemudian');
+  const [first,second]=q.steps;
+  $('sequenceFirstName').textContent=`${first.symbol} · ${operationName(first)}`;
+  $('sequenceSecondName').textContent=`${second.symbol} · ${operationName(second)}`;
+  $('sequenceOrder').textContent=q.composition==='K²'?'K² = K K':q.composition;
+  text('sequenceRule',q.composition==='K²'?'Apply K twice.':'Apply the right-hand transformation first.',q.composition==='K²'?'Lakukan K dua kali.':'Lakukan transformasi di sebelah kanan dahulu.');
+  const labels=[q.label,q.label+'′',sequence.answerLabel],points=[q.given,sequence.intermediate,sequence.answer];
+  $('combinedMapping').innerHTML=q.steps.map((operation,i)=>`<div class="chain-row"><span class="mapping-point ${i?'chain-repeat intermediate':''}">${labels[i]}${coord(points[i])}</span><span class="mapping-transform">${operationHTML(operation)}<svg class="mapping-arrow" viewBox="0 0 160 20" preserveAspectRatio="none" aria-hidden="true"><path d="M2 10H156M146 2L156 10L146 18"/></svg></span><span class="mapping-point ${i?'mapping-image':'intermediate'}">${labels[i+1]}${coord(points[i+1])}</span></div>`).join('');
+  $('combinedMapping').setAttribute('aria-label',q.steps.map((op,i)=>`${labels[i]} ${coord(points[i])} → ${labels[i+1]} ${coord(points[i+1])}: ${op.symbol}, ${operationName(op)}, ${operationDetail(op)}.`).join(' '));
+}
+function syncSequence() {
+  $('combinedControls').hidden=!sequence?.started;
+  $('combinedMapping').hidden=!sequence?.answerVisible;
+  $('finalMapping').classList.toggle('intermediate-mapping',!!sequence&&sequence.index===0);
+  if(!sequence)return;
+  const {index,started}=sequence,firstDone=sequence.lessons[0].answerVisible;
+  $('sequenceStep0').setAttribute('aria-pressed',String(index===0));
+  $('sequenceStep1').setAttribute('aria-pressed',String(index===1));
+  $('sequenceStep0').disabled=!!animation;$('sequenceStep1').disabled=!!animation||!firstDone;
+  $('sequencePoint0').textContent=firstDone?`${q.label}′ ${coord(sequence.intermediate)}`:tr('Intermediate image','Imej perantaraan');
+  $('sequencePoint1').textContent=sequence.answerVisible?`${sequence.answerLabel} ${coord(sequence.answer)}`:tr('Final image','Imej akhir');
+  text('answerHeading','Final image','Imej akhir');
+  $('answer').textContent=`${sequence.answerLabel} = ${sequence.answerVisible?coord(sequence.answer):'(      ,      )'}`;
+  $('answerBox').classList.toggle('revealed',sequence.answerVisible);
+  if(sequence.answerVisible)$('finalMapping').hidden=true;
+  if(!started) {
+    for(const id of ['reflectionControls','rotationControls','enlargementControls','countControls','scrubber','mirrorHint'])$(id).hidden=true;
+    text('stepNumber',`QUESTION ${q.number}`,`SOALAN ${q.number}`);
+    text('stepTitle','Which transformation comes first?','Transformasi manakah dilakukan dahulu?');
+    text('stepDetail',q.composition==='K²'?'What does K² mean?':'Read the combined transformation before moving the point.',q.composition==='K²'?'Apakah maksud K²?':'Baca gabungan transformasi sebelum menggerakkan titik.');
+    text('next','Show order →','Tunjukkan urutan →');$('next').disabled=false;$('previous').disabled=true;
+  } else {
+    if(!lesson.stage)$('previous').disabled=!!animation;
+    if(lesson.answerVisible) {
+      text('stepNumber',index===0?'FIRST TRANSFORMATION COMPLETE':'FINAL ANSWER',index===0?'TRANSFORMASI PERTAMA SELESAI':'JAWAPAN AKHIR');
+      if(index===0){text('next',`Apply ${q.steps[1].symbol} next →`,`Lakukan ${q.steps[1].symbol} pula →`);$('next').disabled=!!animation;}
+    } else if(lesson.canReveal || (!isReflection()&&!isRotation()&&lesson.stage===3&&lesson.progress===2)) {
+      text('next',index===0?'Reveal intermediate point':'Reveal final answer',index===0?'Dedahkan titik perantaraan':'Dedahkan jawapan akhir');
+    }
+    text('canvasCaption',index===0?`ORIGINAL ${q.label} STAYS IN PLACE`:`${q.label} → ${q.label}′ → ${sequence.answerLabel} · USE ${q.label}′ AS THE NEW OBJECT`,index===0?`TITIK ASAL ${q.label} DIKEKALKAN`:`${q.label} → ${q.label}′ → ${sequence.answerLabel} · GUNA ${q.label}′ SEBAGAI OBJEK BAHARU`);
+    if(index===1)$('diagramDescription').textContent+=tr(` Original ${q.label} ${coord(q.given)} is preserved. First transformation ${q.steps[0].symbol} produced ${q.label}′ ${coord(sequence.intermediate)}.`,` Titik asal ${q.label} ${coord(q.given)} dikekalkan. Transformasi pertama ${q.steps[0].symbol} menghasilkan ${q.label}′ ${coord(sequence.intermediate)}.`);
+  }
+}
+function selectSequenceStep(index) {
+  if(!sequence || animation || !sequence.select(index))return;
+  stopCountPad();stopAnimation();pointers.clear();discard();clearScrub();
+  lesson=sequence.current;axisPulseUntil=0;setTool('pan');renderCopy();fit();
+}
+$('sequenceStep0').onclick=()=>selectSequenceStep(0);
+$('sequenceStep1').onclick=()=>selectSequenceStep(1);
+
 function sync() {
+  sequence?.reconcile();
   if (isEnlargement()) syncEnlargement(); else if (isRotation()) syncRotation(); else if (isReflection()) syncReflection(); else syncTranslation();
   syncCountingPad();
   $('answer').textContent = `${lesson.answerLabel} = ${lesson.answerVisible ? coord(lesson.answer) : '(      ,      )'}`;
@@ -297,25 +376,28 @@ function sync() {
   $('answerBox').classList.toggle('revealed', lesson.answerVisible);
   $('finalMapping').hidden = !lesson.answerVisible;
   if (lesson.answerVisible) {
-    $('mappingSource').textContent = `${q.label}${coord(lesson.object)}`;
-    $('mappingImage').textContent = `${q.label}′${coord(lesson.image)}`;
+    $('mappingSource').textContent = `${activity().label}${coord(lesson.object)}`;
+    $('mappingImage').textContent = `${sequence?lesson.answerLabel:activity().label+'′'}${coord(lesson.image)}`;
     const reflection = isReflection(), rotation = isRotation(), enlargement = isEnlargement();
     $('mappingVector').hidden = reflection || rotation || enlargement; $('mappingEnlargement').hidden = !enlargement;
     if (enlargement) $('mappingEnlargement').textContent = enlargementDescription();
     $('mappingMirror').hidden = !reflection; $('mappingRotation').hidden = !rotation;
-    if (rotation) $('mappingRotation').textContent = `${rotationDescription()} · ${tr('centre', 'pusat')} ${coord(q.centre)}`;
-    if (reflection) $('mappingMirror').textContent = reflectionEquation(q.mirror);
-    else if (!rotation && !enlargement) { $('mappingDX').textContent = fmt(q.vector.x); $('mappingDY').textContent = fmt(q.vector.y); }
+    if (rotation) $('mappingRotation').textContent = `${rotationDescription()} · ${tr('centre', 'pusat')} ${coord(activity().centre)}`;
+    if (reflection) $('mappingMirror').textContent = reflectionEquation(activity().mirror);
+    else if (!rotation && !enlargement) { $('mappingDX').textContent = fmt(activity().vector.x); $('mappingDY').textContent = fmt(activity().vector.y); }
     text('mappingName', enlargement ? 'Enlargement' : rotation ? 'Rotation' : reflection ? 'Reflection in' : 'Translation', enlargement ? 'Pembesaran' : rotation ? 'Putaran' : reflection ? 'Pantulan pada' : 'Translasi');
-    const operation = enlargement ? enlargementDescription() : rotation ? `${rotationDescription()} ${tr('about', 'berpusat di')} ${coord(q.centre)}` : reflection ? tr(`reflection in ${reflectionEquation(q.mirror)}`, `pantulan pada ${reflectionEquation(q.mirror)}`) : tr(`translation vector ${coord(q.vector)}`, `vektor translasi ${coord(q.vector)}`);
+    const operation = enlargement ? enlargementDescription() : rotation ? `${rotationDescription()} ${tr('about', 'berpusat di')} ${coord(activity().centre)}` : reflection ? tr(`reflection in ${reflectionEquation(activity().mirror)}`, `pantulan pada ${reflectionEquation(activity().mirror)}`) : tr(`translation vector ${coord(activity().vector)}`, `vektor translasi ${coord(activity().vector)}`);
     $('finalMapping').setAttribute('aria-label', tr(
-      `${q.label} ${coord(lesson.object)} maps to ${q.label}′ ${coord(lesson.image)} under ${operation}.`,
-      `${q.label} ${coord(lesson.object)} dipetakan kepada ${q.label}′ ${coord(lesson.image)} di bawah ${operation}.`));
+      `${activity().label} ${coord(lesson.object)} maps to ${activity().label}′ ${coord(lesson.image)} under ${operation}.`,
+      `${activity().label} ${coord(lesson.object)} dipetakan kepada ${activity().label}′ ${coord(lesson.image)} di bawah ${operation}.`));
   }
   text('canvasCaption', lesson.stage ? `GIVEN ${lesson.givenLabel} STAYS IN PLACE` : `GIVEN DIAGRAM · QUESTION ${q.number}`, lesson.stage ? `TITIK DIBERI ${lesson.givenLabel} DIKEKALKAN` : `RAJAH DIBERI · SOALAN ${q.number}`);
   $('undo').disabled = !inkStore.past.length; $('redo').disabled = !inkStore.future.length;
   const b=graphBounds();
-  $('diagramDescription').textContent = tr(`Grid: x from ${fmt(b.xmin)} to ${fmt(b.xmax)}, y from ${fmt(b.ymin)} to ${fmt(b.ymax)}. Given point ${lesson.givenLabel} at ${coord(q.given)}.`, `Graf: x dari ${fmt(b.xmin)} hingga ${fmt(b.xmax)}, y dari ${fmt(b.ymin)} hingga ${fmt(b.ymax)}. Titik diberi ${lesson.givenLabel} pada ${coord(q.given)}.`) + (lesson.answerVisible ? ` ${lesson.answerLabel} = ${coord(lesson.answer)}.` : '');
+  $('diagramDescription').textContent = tr(`Grid: x from ${fmt(b.xmin)} to ${fmt(b.xmax)}, y from ${fmt(b.ymin)} to ${fmt(b.ymax)}. Given point ${lesson.givenLabel} at ${coord(activity().given)}.`, `Graf: x dari ${fmt(b.xmin)} hingga ${fmt(b.xmax)}, y dari ${fmt(b.ymin)} hingga ${fmt(b.ymax)}. Titik diberi ${lesson.givenLabel} pada ${coord(activity().given)}.`) + (lesson.answerVisible ? ` ${lesson.answerLabel} = ${coord(lesson.answer)}.` : '');
+  syncSequence();
+  const reserve=!!sequence?.answerVisible;
+  if(reserve!==mappingReserved){mappingReserved=reserve;if(fitted)fit();}
   schedule();
 }
 
@@ -369,7 +451,7 @@ function countImage(axis,target,{manual=false}={}) {
   const from=lesson.imageCounts[axis];lesson.setCount(axis,target);
   const destination=lesson.imageCounts[axis];lesson.imageCounts[axis]=from;
   // Keep the camera steady unless the teacher's own count goes off-screen.
-  const end=graphToScreen({...q.centre,[axis]:q.centre[axis]+destination},view);
+  const end=graphToScreen({...activity().centre,[axis]:activity().centre[axis]+destination},view);
   if(end.x<35||end.x>canvas.clientWidth-35||end.y<35||end.y>canvas.clientHeight-70) {
     lesson.imageCounts[axis]=destination;fit();lesson.imageCounts[axis]=from;
   }
@@ -401,20 +483,22 @@ function ensureTrialVisible() {
 
 function draw() {
   frame = 0;
-  const image = lesson.pointAt(), visibleImage = (isEnlargement() ? lesson.ready && (lesson.mode==='count' ? lesson.canReveal : lesson.factor !== 1) : isRotation() ? lesson.angle !== 0 : lesson.progress > 0) && (!(isReflection() || isRotation() || isEnlargement()) || Math.hypot(image.x - q.given.x, image.y - q.given.y) > 1e-8);
+  const image = lesson.pointAt(), visibleImage = (isEnlargement() ? lesson.ready && (lesson.mode==='count' ? lesson.canReveal : lesson.factor !== 1) : isRotation() ? lesson.angle !== 0 : lesson.progress > 0) && (!(isReflection() || isRotation() || isEnlargement()) || Math.hypot(image.x - activity().given.x, image.y - activity().given.y) > 1e-8);
   const reflection = isReflection(), rotation = isRotation(), enlargement = isEnlargement(), v = reflection || rotation || enlargement ? { x: 0, y: 0 } : lesson.movementVector;
-  const a = graphToScreen(q.given, view), corner = graphToScreen({ x: q.given.x + v.x, y: q.given.y }, view), p = graphToScreen(image, view);
+  const a = graphToScreen(activity().given, view), corner = graphToScreen({ x: activity().given.x + v.x, y: activity().given.y }, view), p = graphToScreen(image, view);
   const obstacles = [...board.querySelectorAll('button:not([hidden]),.ink-tools,.view-tools,.canvas-caption,.mirror-hint')].filter(el => el.getClientRects().length).map(el => { const r = el.getBoundingClientRect(), b = board.getBoundingClientRect(); return { x: r.left - b.left, y: r.top - b.top, w: r.width, h: r.height }; });
-  if (lesson.answerVisible) obstacles.push(positionMapping([a, p], obstacles));
+  if(sequence?.index===1){const original=graphToScreen(q.given,view);obstacles.push({x:original.x-10,y:original.y-10,w:20,h:20});}
+  if (lesson.answerVisible) obstacles.push(positionMapping(sequence?.answerVisible ? [graphToScreen(q.given,view),a,p] : [a,p], obstacles));
   if (!reflection && !rotation && !enlargement && lesson.progress >= 1) obstacles.push({ x: (a.x + corner.x) / 2 - 23, y: a.y - 32, w: 46, h: 28 });
   if (!reflection && !rotation && !enlargement && lesson.progress === 2) obstacles.push({ x: corner.x + 2, y: (corner.y + p.y) / 2 - 14, w: 44, h: 28 });
   const complete = rotation || enlargement ? true : lesson.progress === (reflection ? 1 : 2);
   const pulse = reducedMotion.matches ? 0 : Math.max(0, (axisPulseUntil - performance.now()) / 600);
-  drawGraph({ view, labelOverlapPenalty: enlargement ? 2000 : undefined, pointLabelSpread: enlargement ? Math.PI/2 : undefined, pointLabelRings: enlargement ? 12 : undefined, originLabel: !(reflection && lesson.choice && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: enlargement && GRID_UNIT*view.zoom<14 ? 5 : 2, axisFontSize: 15, labelFontSize: (reflection || rotation || enlargement) && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
-    objects: [{ id: 'given', points: [q.given], labels: [lesson.givenLabel], image: lesson.inverse, coordinates: lesson.stage > 0, labelPlacement: enlargement && lesson.inverse ? 'below' : undefined }],
-    preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? (reflection || rotation || enlargement) && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, coordinates: lesson.answerVisible, labelPlacement: enlargement ? 'below' : undefined } : null,
+  drawGraph({ view, labelOverlapPenalty: (sequence || enlargement) ? 2000 : undefined, pointLabelSpread: (sequence || enlargement) ? Math.PI/2 : undefined, pointLabelRings: (sequence || enlargement) ? 12 : undefined, originLabel: !(reflection && lesson.choice && lesson.choice.k === 0), gridBounds: graphBounds(), tickStride: enlargement && GRID_UNIT*view.zoom<14 ? 5 : 2, axisFontSize: 15, labelFontSize: (reflection || rotation || enlargement) && canvas.clientWidth < 500 ? 19 : 23, pointRadius: 5,
+    objects: [...(sequence?.index===1 ? [{id:'original',points:[q.given],labels:[q.label],coordinates:true}] : []),
+      { id: 'given', points: [activity().given], labels: [lesson.givenLabel], image: lesson.inverse, role:sequence?.index===1?'intermediate':undefined, coordinates: lesson.stage > 0 || sequence?.index===1, labelPlacement: enlargement && lesson.inverse ? 'below' : undefined }],
+    preview: visibleImage ? { id: 'moving', points: [image], labels: [complete ? (reflection || rotation || enlargement) && !lesson.matchesQuestion ? tr('Trial', 'Cubaan') : lesson.answerLabel : ''], image: !lesson.inverse, role:sequence?.index===0?'intermediate':undefined, coordinates: lesson.answerVisible, labelPlacement: enlargement ? 'below' : undefined } : null,
     annotations: erased ?? inkStore.document.objects, ink, overlays: obstacles,
-    geometryOverlay: enlargement ? (ctx,base) => paintEnlargementLesson(ctx, {lesson,view,dark,width:canvas.clientWidth,height:canvas.clientHeight,overlays:[...obstacles,...base.obstacles],centreLabel:q.label==='C'?tr('Centre','Pusat'):'C'}) : rotation ? ctx => paintRotationLesson(ctx, { lesson, view, dark, width:canvas.clientWidth,height:canvas.clientHeight,overlays:obstacles,clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: {xmin:screenToGraph({x:0,y:0},view).x,xmax:screenToGraph({x:canvas.clientWidth,y:0},view).x,ymin:screenToGraph({x:0,y:canvas.clientHeight},view).y,ymax:screenToGraph({x:0,y:0},view).y}, dark, pulse,handlesActive:tool==='pan' }) : null,
+    geometryOverlay: enlargement ? (ctx,base) => paintEnlargementLesson(ctx, {lesson,view,dark,width:canvas.clientWidth,height:canvas.clientHeight,overlays:[...obstacles,...base.obstacles],centreLabel:activity().label==='C'?tr('Centre','Pusat'):'C'}) : rotation ? ctx => paintRotationLesson(ctx, { lesson, view, dark, width:canvas.clientWidth,height:canvas.clientHeight,overlays:obstacles,clockTime: reducedMotion.matches ? 750 : performance.now() - clockStarted }) : reflection ? ctx => paintReflectionLesson(ctx, { lesson, view, bounds: {xmin:screenToGraph({x:0,y:0},view).x,xmax:screenToGraph({x:canvas.clientWidth,y:0},view).x,ymin:screenToGraph({x:0,y:canvas.clientHeight},view).y,ymax:screenToGraph({x:0,y:0},view).y}, dark, pulse,handlesActive:tool==='pan' }) : null,
   });
   if (enlargement) return;
   if (reflection) { if (pulse > 0) schedule(); return; }
@@ -430,8 +514,12 @@ function draw() {
 }
 
 function positionMapping(points, controls) {
-  const el = $('finalMapping'), w = el.offsetWidth, h = el.offsetHeight;
+  const el = sequence?.answerVisible ? $('combinedMapping') : $('finalMapping'), w = el.offsetWidth, h = el.offsetHeight;
   const width = canvas.clientWidth, height = canvas.clientHeight;
+  if(sequence?.answerVisible){
+    const side=width>=740,best={x:side?width-w-100:(width-w)/2,y:side?Math.max(12,(height-h-60)/2):height-h-70,w,h};
+    el.style.left=`${best.x}px`;el.style.top=`${best.y}px`;return best;
+  }
   const origin = graphToScreen({ x: 0, y: 0 }, view);
   const midX = (points[0].x + points[1].x) / 2;
   // Prefer the empty area below the construction and horizontal axis. If the
@@ -449,10 +537,10 @@ function positionMapping(points, controls) {
   for (let y = 64; y <= height - h - 76; y += 20) options.push(clamp({ x: midX - w / 2, y }));
   const avoid = controls.concat(points.map(p => ({ x: p.x - 88, y: p.y - 40, w: 176, h: 70 })));
   if ((isRotation() || isEnlargement()) && lesson.stage) {
-    const c = graphToScreen(q.centre, view);
+    const c = graphToScreen(activity().centre, view);
     avoid.push({ x: c.x - 48, y: c.y - 48, w: 96, h: 96 });
     if (isEnlargement()) avoid.push({x:c.x-100,y:c.y+12,w:100,h:28});
-    for (const arm of (isRotation() ? lesson.arms : [{corner:{x:q.given.x,y:q.centre.y},end:q.given},{corner:{x:lesson.pointAt().x,y:q.centre.y},end:lesson.pointAt()}])) {
+    for (const arm of (isRotation() ? lesson.arms : [{corner:{x:activity().given.x,y:activity().centre.y},end:activity().given},{corner:{x:lesson.pointAt().x,y:activity().centre.y},end:lesson.pointAt()}])) {
       const b = graphToScreen(arm.corner, view), e = graphToScreen(arm.end, view);
       for (const [a,z] of [[c,b],[b,e]]) avoid.push({x:Math.min(a.x,z.x)-6,y:Math.min(a.y,z.y)-6,w:Math.abs(a.x-z.x)+12,h:Math.abs(a.y-z.y)+12});
     }
@@ -471,7 +559,15 @@ function positionMapping(points, controls) {
   return best;
 }
 
-function fit() { fitted = true; view = fitQuestion(graphBounds(), canvas.clientWidth, canvas.clientHeight); schedule(); }
+function fittedView(width=canvas.clientWidth,height=canvas.clientHeight) {
+  if(sequence?.answerVisible){
+    const card=$('combinedMapping');
+    if(width>=740)width-=card.offsetWidth+110;
+    else height-=card.offsetHeight+80;
+  }
+  return fitQuestion(cameraBounds(),Math.max(180,width),Math.max(180,height));
+}
+function fit() { fitted = true; view = fittedView(); schedule(); }
 function zoom(factor, point = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 }) {
   fitted = false; const scale = Math.max(.2, Math.min(3, view.zoom * factor)); view = zoomAt(view, point, scale / view.zoom); schedule();
 }
@@ -542,14 +638,18 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); if (!drag) zoom(Math
 canvas.onkeydown = e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); discard(); e.shiftKey ? inkStore.redo() : inkStore.undo(); }
   else if (e.key === 'Escape') { pointers.clear(); discard(); }
-  else if ((e.key === 'ArrowRight' || e.key === 'Enter') && !animation && lesson.stage < (isRotation() ? 11 : isEnlargement() ? 5 : 4)) { e.preventDefault(); advance(); }
-  else if (e.key === 'ArrowLeft' && !animation && lesson.stage > 0) { e.preventDefault(); previousStep(); }
+  else if ((e.key === 'ArrowRight' || e.key === 'Enter') && !animation && (sequence || lesson.stage < (isRotation() ? 11 : isEnlargement() ? 5 : 4))) { e.preventDefault(); advance(); }
+  else if (e.key === 'ArrowLeft' && !animation && (lesson.stage > 0 || sequence?.started)) { e.preventDefault(); previousStep(); }
 };
 
 function advance() {
   if(animation) return;
   stopCountPad();
-  if (lesson.answerVisible) { if (nextQuestion()) selectQuestion(nextQuestion().id); return; }
+  if(sequence&&!sequence.started){sequence.start();renderCopy();fit();return;}
+  if (lesson.answerVisible) {
+    if(sequence&&sequence.index===0){selectSequenceStep(1);return;}
+    if (nextQuestion()) selectQuestion(nextQuestion().id); return;
+  }
   if (isEnlargement()) {
     if (!lesson.ready) goTo(lesson.stage+1);
     else if (lesson.canReveal) { lesson.reveal(); sync(); }
@@ -578,6 +678,11 @@ function advance() {
 function previousStep() {
   if(animation) return;
   stopCountPad();
+  if(sequence&&lesson.stage===0){
+    if(sequence.index===1)selectSequenceStep(0);
+    else {sequence.started=false;renderCopy();}
+    return;
+  }
   if (isEnlargement()) {
     if (lesson.answerVisible) { lesson.answerVisible=false;lesson.stage=6;sync(); }
     else if(lesson.mode==='scale') { lesson.setMode('count');if(fitted)fit();sync(); }
@@ -693,14 +798,14 @@ $('progress').onkeydown = e => {
   const values = {ArrowRight:lesson.angle+1,ArrowUp:lesson.angle+1,ArrowLeft:lesson.angle-1,ArrowDown:lesson.angle-1,PageUp:lesson.angle+90,PageDown:lesson.angle-90,Home:0,End:360*lesson.direction};
   if (Object.hasOwn(values,e.key)) { e.preventDefault(); changeFreeTransform(() => lesson.scrub(values[e.key])); }
 };
-$('reset').onclick = () => { stopCountPad();stopAnimation(); pointers.clear(); discard(); lesson.reset(); clearScrub(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); fit(); sync(); };
+$('reset').onclick = () => { stopCountPad();stopAnimation(); pointers.clear(); discard(); if(sequence){sequence.reset();lesson=sequence.current;}else lesson.reset(); clearScrub(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); renderCopy(); fit(); };
 for (const name of ['pan', 'pen', 'eraser']) $(name).onclick = () => setTool(name);
 $('undo').onclick = () => { discard(); inkStore.undo(); }; $('redo').onclick = () => { discard(); inkStore.redo(); };
 unsubscribeInk = inkStore.subscribe(sync);
 function selectQuestion(id, updateUrl = true) {
   const next = findModuleQuestion(id); if (!next) return;
   stopCountPad();stopAnimation(); pointers.clear(); discard(); unsubscribeInk();
-  q = next; lesson = createModuleLesson(q); axisPulseUntil = 0; clearScrub();
+  q = next; rootLesson = createModuleLesson(q);sequence=q.type==='combined'?rootLesson:null;lesson=sequence?.current||rootLesson; axisPulseUntil = 0; clearScrub();
   if (!questionInk.has(q.id)) questionInk.set(q.id, new DocumentStore());
   inkStore = questionInk.get(q.id); unsubscribeInk = inkStore.subscribe(sync);
   $('status').hidden = true;
@@ -708,7 +813,7 @@ function selectQuestion(id, updateUrl = true) {
   setTool('pan'); renderCopy(); fit();
 }
 $('questionNav').onclick = e => { const button = e.target.closest('[data-question]'); if (button && button.dataset.question !== q.id) selectQuestion(button.dataset.question); };
-$('questionGroup').onchange = e => selectQuestion(({translation:'1',reflection:'5',rotation:'9',enlargement:'17'})[e.target.value]);
+$('questionGroup').onchange = e => selectQuestion(({translation:'1',reflection:'5',rotation:'9',enlargement:'17',combined:'21'})[e.target.value]);
 window.addEventListener('popstate', () => selectQuestion(findModuleQuestion(new URLSearchParams(location.search).get('question'))?.id || QUESTION_ONE.id, false));
 $('zoomOut').onclick = () => zoom(.8); $('zoomIn').onclick = () => zoom(1.25); $('fit').onclick = fit;
 function toggleQuestion() {
@@ -728,7 +833,7 @@ $('fullscreen').onclick = async () => {
 document.addEventListener('fullscreenchange', syncFullscreen);
 const resize = new ResizeObserver(() => {
   const width = canvas.clientWidth, height = canvas.clientHeight;
-  if (fitted || !previousSize) view = fitQuestion(graphBounds(), width, height);
+  if (fitted || !previousSize) view = fittedView(width,height);
   else { view.x += (width - previousSize.width) / 2; view.y += (height - previousSize.height) / 2; }
   previousSize = { width, height }; schedule();
 });
@@ -738,4 +843,4 @@ document.addEventListener('visibilitychange', () => { if(document.hidden){stopCo
 window.addEventListener('pageshow',e=>{if(e.persisted)sync();});
 reducedMotion.addEventListener('change', sync);
 renderCopy(); setTool('pan');
-if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–20. Showing Question 1.', 'Modul ini mengandungi Soalan 1–20. Memaparkan Soalan 1.'); }
+if (requested && !findModuleQuestion(requested)) { $('status').hidden = false; text('status', 'This module contains Questions 1–24. Showing Question 1.', 'Modul ini mengandungi Soalan 1–24. Memaparkan Soalan 1.'); }

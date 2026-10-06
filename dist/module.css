@@ -53,3 +53,23 @@
 .mirror-hint{position:absolute;top:12px;left:14px;max-width:calc(100% - 105px);padding:6px 9px;background:var(--paper);border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px;line-height:1.4;pointer-events:none;user-select:none}
 .question-collapsed .mirror-hint{top:65px}
 @media(max-width:760px){.reflection-lesson .count-controls{width:132px;flex-basis:132px}.reflection-lesson .scrubber{flex:1;width:auto;min-width:150px}.mirror-hint{top:68px;left:10px;max-width:calc(100% - 20px);font-size:11px}.question-collapsed .mirror-hint{top:68px}}
+/* A sequence reuses each activity's controls and keeps both transformations in view. */
+.given-combined{display:grid;gap:12px;margin:18px 0;padding:14px;background:var(--soft);border-radius:10px}
+.sequence-operation{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;font-size:12px;line-height:1.45;text-align:center}
+.sequence-operation>b{font:italic 22px Georgia,serif}.given-combined .sequence-operation{justify-content:flex-start;text-align:left}.given-combined .mapping-vector{font-size:19px}
+.sequence-controls{display:flex;align-items:center;gap:16px;padding:10px 22px;border-bottom:1px solid var(--line);background:var(--paper);flex-shrink:0;user-select:none}
+.sequence-order{display:grid;gap:3px;max-width:240px}.sequence-order strong{font:italic 25px Georgia,serif}.sequence-order span{font-size:11px;line-height:1.4;color:var(--muted)}
+.sequence-steps{display:flex;align-items:center;gap:12px;flex:1;justify-content:flex-end}.sequence-steps button{display:grid;gap:3px;text-align:left;min-width:165px;padding:8px 12px}.sequence-steps small{font-size:10px;text-transform:uppercase;letter-spacing:1px}.sequence-steps strong{font-size:13px}.sequence-steps button>span{font-size:11px}.sequence-steps button:disabled{opacity:.6}.sequence-arrow{color:var(--muted)}
+.intermediate,.intermediate-mapping .mapping-image{color:#a95c14}.dark .intermediate,.dark .intermediate-mapping .mapping-image{color:#ffc47f}
+.combined-lesson .lesson-controls{flex-wrap:wrap;gap:16px}.combined-lesson .step-actions{margin-left:auto}
+@media(max-width:1100px){.sequence-controls{padding:8px 12px;gap:10px}.sequence-order{max-width:175px}.sequence-steps{gap:6px}.sequence-steps button{min-width:135px;padding:6px 8px}}
+@media(max-width:760px){.combined-lesson .lesson-layout{overflow-y:auto}.combined-lesson .graph-section{flex:1 0 auto;min-height:1050px}.combined-lesson .graph-board{min-height:520px}.combined-lesson .question-text,.given-combined{grid-column:1/-1}.given-combined{margin:7px 0;padding:8px;gap:7px}.given-combined .sequence-operation{font-size:12px}.sequence-controls{display:block}.sequence-order{display:flex;align-items:center;max-width:none;gap:10px;margin-bottom:7px}.sequence-order strong{font-size:21px}.sequence-steps{justify-content:stretch;gap:6px}.sequence-steps button{flex:1;min-width:0}.sequence-steps strong{font-size:12px}.sequence-steps button>span{font-size:10px}.combined-lesson .canvas-caption{max-width:calc(100% - 165px);overflow:hidden;white-space:nowrap}.combined-lesson .step-copy{flex-basis:100%}}
+/* Keep the final chain in a reserved canvas area beside the diagram (below on phones). */
+.combined-mapping{display:grid;gap:12px;width:340px;padding:12px;align-items:flex-end}
+.combined-mapping .chain-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.combined-mapping .chain-repeat{display:block}
+.combined-mapping .mapping-point{font-size:20px}
+.combined-mapping .mapping-transform{min-width:76px;max-width:none;gap:3px;padding-bottom:5px}
+.combined-mapping .sequence-operation{font-size:10px}
+
+.combined-mapping .mapping-vector{font-size:17px}

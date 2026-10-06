@@ -1,4 +1,4 @@
-import { reflectionLine } from './module-lesson.js?v=10';
+import { reflectionLine } from './module-lesson.js?v=11';
 import { graphToScreen } from './transform-model.js?v=29';
 import { angleMark } from './angle-renderer.js';
 

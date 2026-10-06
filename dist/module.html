@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
-  <link rel="stylesheet" href="module.css?v=10">
+  <link rel="stylesheet" href="module.css?v=11">
   <link rel="stylesheet" href="direction-pad.css?v=1">
 </head>
 <body>
@@ -22,7 +22,7 @@
   <main id="lesson" class="lesson-layout">
     <aside class="question-panel" id="questionPanel">
       <div class="panel-heading"><span class="eyebrow" id="section">A1 / TRANSLATION</span><button id="collapse" aria-controls="questionPanel" aria-expanded="true" aria-label="Hide question">‹</button></div>
-      <select id="questionGroup" class="question-group" aria-label="Module activity"><option value="translation">Translation · 1–4</option><option value="reflection">Reflection · 5–8</option><option value="rotation">Rotation · 9–16</option><option value="enlargement">Enlargement · 17–20</option></select>
+      <select id="questionGroup" class="question-group" aria-label="Module activity"><option value="translation">Translation · 1–4</option><option value="reflection">Reflection · 5–8</option><option value="rotation">Rotation · 9–16</option><option value="enlargement">Enlargement · 17–20</option><option value="combined">Combined · 21–24</option></select>
       <nav id="questionNav" class="question-nav" aria-label="Module questions">
         <button type="button" data-question="1">01</button><button type="button" data-question="2">02</button><button type="button" data-question="3">03</button><button type="button" data-question="4">04</button>
       </nav>
@@ -32,12 +32,17 @@
       <div id="givenEnlargement" class="given-rotation" hidden></div>
       <div id="givenRotation" class="given-rotation" hidden></div>
       <div id="givenMirror" class="given-mirror" hidden></div>
+      <div id="givenCombined" class="given-combined" hidden></div>
       <div class="answer-box" id="answerBox"><span id="answerHeading">Coordinates of the image</span><strong id="answer">A′ = ( &nbsp; , &nbsp; )</strong></div>
       <p class="source-note" id="sourceNote">Module page 1 · Question 1<br>Original diagram · one square = one unit</p>
       <div class="lesson-note"><span class="eyebrow" id="teachingLabel">TEACH TOGETHER</span><p id="teacherNote">Start with the given point. Reveal each step when your class is ready.</p></div>
       <div class="credit">Izzul Waqiuddin Azhad<br><span>SMK Telok Mas</span></div>
     </aside>
     <section class="graph-section" aria-label="Teaching canvas">
+      <section id="combinedControls" class="sequence-controls" hidden>
+        <div class="sequence-order"><strong id="sequenceOrder"></strong><span id="sequenceRule"></span></div>
+        <div class="sequence-steps"><button id="sequenceStep0"><small id="sequenceFirst"></small><strong id="sequenceFirstName"></strong><span id="sequencePoint0"></span></button><span class="sequence-arrow" aria-hidden="true">→</span><button id="sequenceStep1"><small id="sequenceSecond"></small><strong id="sequenceSecondName"></strong><span id="sequencePoint1"></span></button></div>
+      </section>
       <section id="reflectionControls" class="reflection-controls" aria-label="Try a reflection line" hidden>
         <div class="prediction-row"><strong id="predictionPrompt">What kind of line is it?</strong><div class="orientation-buttons" role="group" aria-label="Line orientation">
           <button id="horizontal" data-orientation="horizontal" aria-pressed="false">Horizontal</button><button id="vertical" data-orientation="vertical" aria-pressed="false">Vertical</button><button id="slanted" data-orientation="slanted" aria-pressed="false">Slanted</button>
@@ -65,6 +70,7 @@
           </span>
           <span id="mappingImage" class="mapping-point mapping-image" aria-hidden="true"></span>
         </div>
+        <div id="combinedMapping" class="final-mapping combined-mapping" role="img" hidden></div>
         <button id="expand" class="expand-question" aria-controls="questionPanel" aria-expanded="false" hidden>Question ›</button>
         <div class="ink-tools" role="toolbar" aria-label="Canvas tools">
           <button id="pan" aria-pressed="true" title="Move graph"><span aria-hidden="true">✥</span><small id="panText">Move</small></button>
@@ -105,6 +111,6 @@
     </section>
   </main>
   <p class="status" id="status" role="status" hidden></p>
-  <script type="module" src="module-ui.js?v=12"></script>
+  <script type="module" src="module-ui.js?v=13"></script>
 </body>
 </html>

@@ -70,9 +70,86 @@ export const ENLARGEMENT_QUESTIONS = Object.freeze([
     bm: `${q.label}′ ialah imej bagi ${q.label} di bawah pembesaran berpusat di (${q.centre.x}, ${q.centre.y}), faktor skala ${q.factor===.5?'½':q.factor}. Cari koordinat ${q.label}${q.find==='image'?'′':''}.`,
   }),
 })));
-export const MODULE_QUESTIONS = Object.freeze([...TRANSLATION_QUESTIONS, ...REFLECTION_QUESTIONS, ...ROTATION_QUESTIONS, ...ENLARGEMENT_QUESTIONS]);
+// A6, printed page 6 (PDF page 7). Steps are in EXECUTION order:
+// TP applies P first, then T. K² applies K twice; it does not square coordinates.
+export const COMBINED_QUESTIONS = Object.freeze([
+  { id:'21', label:'P', given:{x:-3,y:2}, composition:'TP', definitions:[1,0], steps:[
+    {symbol:'P',type:'reflection',mirror:{kind:'horizontal',k:1}},
+    {symbol:'T',type:'translation',vector:{x:4,y:-1}},
+  ]},
+  { id:'22', label:'Q', given:{x:4,y:3}, composition:'RT', definitions:[0,1], steps:[
+    {symbol:'T',type:'translation',vector:{x:-2,y:1}},
+    {symbol:'R',type:'rotation',centre:{x:1,y:1},degrees:-90},
+  ]},
+  { id:'23', label:'R', given:{x:-2,y:4}, composition:'RP', definitions:[0,1], steps:[
+    {symbol:'P',type:'reflection',mirror:{kind:'slanted',slope:-1}},
+    {symbol:'R',type:'rotation',centre:{x:2,y:-1},degrees:90},
+  ]},
+  { id:'24', label:'S', given:{x:-5,y:5}, composition:'K²', definitions:[0], steps:[
+    {symbol:'K',type:'translation',vector:{x:3,y:-2}},
+    {symbol:'K',type:'translation',vector:{x:3,y:-2}},
+  ]},
+].map(q=>Object.freeze({...q,type:'combined',find:'image',number:q.id,section:'A6',
+  given:Object.freeze(q.given),definitions:Object.freeze(q.definitions),
+  steps:Object.freeze(q.steps.map(step=>Object.freeze({...step,
+    ...(step.vector?{vector:Object.freeze(step.vector)}:{}),
+    ...(step.mirror?{mirror:Object.freeze(step.mirror)}:{}),
+    ...(step.centre?{centre:Object.freeze(step.centre)}:{}),
+  }))),
+  bounds:Object.freeze({xmin:-8,xmax:8,ymin:-8,ymax:8}),
+  prompt:Object.freeze({
+    en:`Find the image of ${q.label} under transformation ${q.composition}.`,
+    bm:`Cari imej ${q.label} di bawah transformasi ${q.composition}.`,
+  }),
+})));
+export const MODULE_QUESTIONS = Object.freeze([...TRANSLATION_QUESTIONS, ...REFLECTION_QUESTIONS, ...ROTATION_QUESTIONS, ...ENLARGEMENT_QUESTIONS, ...COMBINED_QUESTIONS]);
 export const findModuleQuestion = id => MODULE_QUESTIONS.find(q => q.id === id);
-export const createModuleLesson = q => q.type === 'enlargement' ? new EnlargementLesson(q) : q.type === 'rotation' ? new RotationLesson(q) : q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
+export const createModuleLesson = q => q.type === 'combined' ? new CombinedLesson(q) : q.type === 'enlargement' ? new EnlargementLesson(q) : q.type === 'rotation' ? new RotationLesson(q) : q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
+
+// Compose the existing lesson engines. Each owns its normal construction,
+// animation and trial state; the sequence only owns order and reveal gating.
+export class CombinedLesson {
+  constructor(question=COMBINED_QUESTIONS[0]) { this.question=question;this.reset(); }
+  reset() {
+    this.started=false;this.index=0;
+    let given=this.question.given;
+    this.lessons=this.question.steps.map((operation,i)=>{
+      const child=createModuleLesson({...this.question,...operation,find:'image',given,
+        label:this.question.label+(i?'′':''),
+        givenLabel:this.question.label+(i?'′':''),
+        answerLabel:this.question.label+(i?'″':'′'),
+      });
+      given=child.answer;
+      return child;
+    });
+  }
+  get current() { return this.lessons[this.index]; }
+  get intermediate() { return this.lessons[0].answer; }
+  get answer() { return this.lessons[1].answer; }
+  get answerLabel() { return this.question.label+'″'; }
+  get answerVisible() { return this.started && this.index===1 && this.lessons.every(l=>l.answerVisible); }
+  get focusBounds() {
+    const points=[this.question.given,this.intermediate,this.answer];
+    for(const child of this.lessons)if(child instanceof RotationLesson){
+      const c=child.question.centre,r=Math.hypot(child.offset.x,child.offset.y);
+      points.push({x:c.x-r,y:c.y-r},{x:c.x+r,y:c.y+r});
+    }
+    if(this.current.trialAnswer)points.push(this.current.trialAnswer);
+    // A stable camera includes both correct operations from the start. Moving
+    // trial mirrors can expand it, but ordinary step changes never crop a point.
+    return {xmin:Math.floor(Math.min(0,...points.map(p=>p.x)))-1,xmax:Math.ceil(Math.max(0,...points.map(p=>p.x)))+1,
+      ymin:Math.floor(Math.min(0,...points.map(p=>p.y)))-1,ymax:Math.ceil(Math.max(0,...points.map(p=>p.y)))+1};
+  }
+  start() { this.started=true; }
+  select(index) {
+    if(!this.started || ![0,1].includes(index) || (index===1&&!this.lessons[0].answerVisible))return false;
+    this.index=index;return true;
+  }
+  reconcile() {
+    // Revising the first operation invalidates all work based on its old reveal.
+    if(!this.lessons[0].answerVisible){this.lessons[1].reset();this.index=0;}
+  }
+}
 
 export function reflectionEquation(choice) {
   if(!choice)return '';
@@ -103,8 +180,8 @@ export function mirrorChoiceFromHandles(handles) {
 class PointLesson {
   constructor(question) { this.question = question; this.reset(); }
   get inverse() { return this.question.find === 'object'; }
-  get givenLabel() { return this.question.label + (this.inverse ? '′' : ''); }
-  get answerLabel() { return this.question.label + (this.inverse ? '' : '′'); }
+  get givenLabel() { return this.question.givenLabel ?? this.question.label + (this.inverse ? '′' : ''); }
+  get answerLabel() { return this.question.answerLabel ?? this.question.label + (this.inverse ? '' : '′'); }
   get object() { return this.inverse ? this.answer : this.question.given; }
   get image() { return this.inverse ? this.question.given : this.answer; }
 }
