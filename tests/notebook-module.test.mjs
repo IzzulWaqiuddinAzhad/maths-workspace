@@ -103,3 +103,45 @@ test('the pulsing halo follows the active tip, returns to the centre on Next, an
   l.advanceArm();assert.deepEqual(paint().map(a=>a.slice(0,2)),[[320,320]]);
   for(let i=1;i<4;i++){l.moveConstruction('x',1);l.advanceArm();}assert.deepEqual(paint(),[]);
 });
+
+test('combined summaries preserve application order and seed the next tool with its givens',()=>{
+  const s=session('22');assert.equal(s.plan.label,'RT');assert.deepEqual(s.plan.steps.map(x=>x.symbol),['T','R']);
+  s.lesson.move('x',-2);s.lesson.move('y',1);assert.ok(s.keepImage());
+  assert.equal(s.mode,'rotation');assert.deepEqual(s.source.points,[{x:2,y:4}]);assert.deepEqual(s.lesson.question.centre,{x:1,y:1});assert.equal(s.lesson.movementDegrees,-90);
+  s.lesson.goTo(9);s.lesson.scrub(-90);assert.deepEqual(s.imagePoints,[{x:4,y:0}]);assert.ok(s.keepImage());
+  const copy=new NotebookSession(graph('22'),s.save());assert.equal(copy.source.name,'Q′′');assert.ok(copy.activateStep(1));assert.equal(copy.source.name,'Q′');assert.deepEqual(copy.lesson.question.centre,{x:1,y:1});
+  assert.ok(copy.activateStep(0));assert.equal(copy.source.name,'Q');assert.deepEqual(copy.lesson.vector,{x:-2,y:1});
+});
+test('same-tool composition keeps two independent images and does not overwrite the first vector',()=>{
+  const s=session('24');for(let i=0;i<2;i++){s.lesson.move('x',3);s.lesson.move('y',-2);assert.ok(s.keepImage());}
+  assert.deepEqual(s.source.points,[{x:1,y:1}]);assert.equal(s.source.name,'S′′');assert.ok(s.activateStep(1));assert.deepEqual(s.lesson.vector,{x:3,y:-2});assert.equal(s.source.name,'S′');
+});
+test('an unfinished reflection cannot be promoted, while completed images remain selectable',()=>{
+  const s=session('21');s.lesson.chooseOrientation('horizontal');s.lesson.scrub(.5);assert.equal(s.keepImage(),false);
+  s.lesson.scrub(1);assert.equal(s.keepImage(),true);const kept=s.source.id;
+  s.chooseObject(s.base[0].id);s.chooseMode('reflection');s.lesson.scrub(1);assert.ok(s.keepImage());assert.equal(s.kept.length,1);assert.equal(s.source.id,kept);
+});
+test('every graph has a summary, while describe questions withhold unknown centres and vectors',()=>{
+  for(const g of NOTEBOOK_GRAPHS){const s=new NotebookSession(g);for(const [i,p]of s.plans.entries()){
+    assert.ok(s.choosePlan(i));assert.ok(p.steps.length);assert.ok(s.source);assert.ok(s.lesson);
+    for(const step of p.steps){assert.ok(step.sourceName);if(step.describe){assert.equal(step.centre,undefined);assert.equal(step.vector,undefined);assert.equal(step.factor,undefined);}}
+  }}
+  const s=session('33');assert.equal(s.plan.steps[0].heading,'90° rotation');s.setCentre({x:2,y:3});s.lesson.readPoints.centre=true;
+  const copy=new NotebookSession(graph('33'),s.save());assert.deepEqual(copy.lesson.question.centre,{x:2,y:3});assert.equal(copy.lesson.readPoints.centre,true);
+});
+test('practice parts use the correct point rather than a whole polygon and keep independent states',()=>{
+  const s=session('62-1');assert.equal(s.source.name,'A');assert.equal(s.source.points.length,1);assert.equal(s.mode,'reflection');
+  s.choosePlan(1);assert.equal(s.source.name,'ABCD');assert.equal(s.source.points.length,4);s.chooseMode('rotation');s.setCentre({x:2,y:3});
+  s.choosePlan(0);assert.equal(s.source.name,'A');assert.equal(s.mode,'reflection');s.choosePlan(1);s.chooseMode('rotation');assert.deepEqual(s.lesson.question.centre,{x:2,y:3});
+});
+test('graph fitting reserves room for stacked summaries above the graph and iPad controls',()=>{
+  for(const g of NOTEBOOK_GRAPHS){const v=fitGraph(g,1024,710,{right:290,top:160});const a=worldToScreen({x:g.x,y:g.y},v),b=worldToScreen({x:g.x+g.width,y:g.y+g.height},v);assert.ok(a.y>220);assert.ok(b.y<710);assert.ok(b.x<734);}
+});
+test('local-network HTTP can create collision-resistant document and image IDs without randomUUID',async()=>{
+  const {uniqueId}=await import('../dist/ids.js');const source={getRandomValues:bytes=>crypto.getRandomValues(bytes)};
+  const ids=Array.from({length:100},()=>uniqueId(source));assert.equal(new Set(ids).size,100);assert.ok(ids.every(id=>/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)));
+});
+test('source coordinate labels stay visible when continuing with a different transformation tool',()=>{
+  const s=session('1');s.lesson.readPoints.source=true;s.chooseMode('reflection');assert.ok(s.lesson.readPoints.source);
+  s.chooseMode('translation');s.lesson.move('x',2);s.keepImage();s.chooseMode('rotation');assert.ok(s.lesson.readPoints.source);
+});

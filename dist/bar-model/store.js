@@ -1,3 +1,4 @@
+import {uniqueId} from '../ids.js';
 import { DocumentStore, newDocument } from "../core.js?v=14";
 import { rat, div, display, num, sub, validateProblem, eq } from "./domain.js";
 import { planTimeline } from "./scene.js";
@@ -124,7 +125,7 @@ export function openStudio(language) {
   });
   return { store, dispose: unsubscribe };
 }
-const id = () => crypto.randomUUID();
+const id = () => uniqueId();
 export function addBar(
   scene,
   {

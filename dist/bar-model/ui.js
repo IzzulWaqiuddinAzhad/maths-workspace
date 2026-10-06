@@ -1,3 +1,4 @@
+import {uniqueId} from '../ids.js';
 import {
   generateProblem,
   FAMILIES,
@@ -310,7 +311,7 @@ export function mountBarStudio(host, { language = () => "en", back }) {
       transact((st) => {
         const copy = {
           ...s,
-          id: crypto.randomUUID(),
+          id: uniqueId(),
           x: s.x + s.w,
           value: s.value,
         };
@@ -635,7 +636,7 @@ export function mountBarStudio(host, { language = () => "en", back }) {
           family: get("[data-family]").value,
           tier: +get("[data-tier]").value,
           language: lang(),
-          seed: crypto.randomUUID().slice(0, 8),
+          seed: uniqueId().slice(0, 8),
         }),
       );
       entry = "question";
@@ -665,7 +666,7 @@ export function mountBarStudio(host, { language = () => "en", back }) {
           language: lang(),
           seed: p().seed,
           parameters: p().parameters,
-          contextSeed: crypto.randomUUID(),
+          contextSeed: uniqueId(),
         }),
       );
       render();

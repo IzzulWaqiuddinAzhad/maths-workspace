@@ -1,3 +1,4 @@
+import {uniqueId} from './ids.js';
 import {bindLineEquationInput} from './line-equation-input.js';
 import { bindRepeatingButton } from './direction-pad.js?v=1';
 import { zoomAt } from './core.js?v=14';
@@ -194,7 +195,7 @@ export function mountTransformations(host, { language = () => 'en', back }) {
   }
   function addObject(points, name) {
     if (data().objects.length >= 100) { say('Maximum 100 objects in this exploration.', 'Maksimum 100 objek dalam penerokaan ini.'); return; }
-    const id = crypto.randomUUID(), labels = nextLabels(data().objects, points.length);
+    const id = uniqueId(), labels = nextLabels(data().objects, points.length);
     store.transact(d => d.transformation.objects.push({ id, name: name + ' ' + labels[0], points, labels })); choose(id);
   }
   function finishPolygon() {

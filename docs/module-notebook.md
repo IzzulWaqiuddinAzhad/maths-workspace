@@ -1,6 +1,6 @@
 # Module notebook prototype
 
-Open `dist/notebook.html` through an HTTP server. All 23 original student-module pages are loaded, with 63 interactive Cartesian graphs across 64 questions. The production entry point remains `index.html`. Keep this work on `codex/module-notebook` until reviewed.
+Open `dist/notebook.html` through an HTTP server. All 23 original student-module pages are loaded, with 63 interactive Cartesian graphs across 64 questions. The production entry point remains `index.html`. This stays on `codex/module-notebook`, published independently under `/maths-workspace/notebook/notebook.html`; the main workspace remains at its original URL.
 
 ## Teacher workflow
 
@@ -12,7 +12,8 @@ Open `dist/notebook.html` through an HTTP server. All 23 original student-module
 - **Rotation of a polygon:** pick or enter the centre, then use the lever. A reference ray and angle arc follow the farthest vertex. Moving the centre resets the turn. Quarter turns snap in either direction.
 - **Reflection:** choose a horizontal, vertical or slanted mirror, draw one on the graph, or enter an equation with the in-app equation keypad. The straight presets start away from the axes. Use the pad or drag the line to shift it parallel to itself; drag either endpoint to change its slope. The displayed equation updates. The lever follows the drag and finishes the flip toward the last deliberate direction on release. Guides are optional.
 - **Enlargement:** point questions retain centre, guide and across/up counting steps. Then use the pad freely to count the image, or switch to the scale-factor lever. Polygon questions use the centre and scale-factor controls directly. Negative factors are supported.
-- **Combined transformations:** Use image keeps the current result and selects it as the next source. Choose the next transformation. The original printed object remains unchanged. Delete image removes only a generated copy.
+- **Question summary:** Demo opens a compact summary above the graph. Tap a point/object name to read its coordinates. Tap Centre to plot the current centre, or tap the centre itself to read it. Centre coordinates persist after the guides fade. Combined steps are stacked in application order; question-part selectors cover the practice-page subparts. Describe questions do not disclose their hidden transformation parameters.
+- **Combined transformations:** Tap a live image, select its “current image” entry, or use Use image to keep the current result and selects it as the next source. Choose the next transformation. The original printed object remains unchanged. Delete image removes only a generated copy.
 - **Read coordinates:** tap a source/image vertex or use Read object / Read image. The point blinks, the guide reaches the x-axis, the number appears there and moves into its coordinate slot; y follows. Only the guides fade. Coordinates stay visible, move with the image and survive reload. For a polygon, the vertex selector chooses which coordinate to read.
 - Full screen hides toolbar and panels for a clean projected page. Tools brings them back. Safari versions without the fullscreen API use the clean viewport layout but may retain browser chrome.
 
@@ -32,4 +33,4 @@ Run `npm test`. Coverage includes all page/grid bounds, all source objects in al
 
 Browser checks cover free translation, four rotation arms and reset-to-centre, mirror dragging/tilting/flipping, enlargement counting, later polygon pages, coordinate persistence, writing/Undo/Redo, calculator, page navigation and clean layout. Physical iPad/Pencil/Safari gesture testing still requires the device.
 
-Area-only questions without Cartesian graphs retain the printed diagrams and writing tools. This release does not add new area/tessellation lessons, arbitrary PDF import, annotated PDF export or cross-device sync. Off-grid trial geometry is clipped to the printed graph. The main GitHub Pages workflow is unchanged.
+Area-only questions without Cartesian graphs retain the printed diagrams and writing tools. This release does not add new area/tessellation lessons, arbitrary PDF import, annotated PDF export or cross-device sync. Off-grid trial geometry is clipped to the printed graph. The Pages workflow combines the unchanged main workspace with this branch in a separate notebook subdirectory. Local HTTP previews use random-byte UUID generation when the secure-context UUID API is unavailable. Startup failures display Reload instead of an endless loading message.

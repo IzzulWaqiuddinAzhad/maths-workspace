@@ -65,6 +65,7 @@ export function paintNotebookGraph(ctx,g,{now=0,active=false,guide=null}={}){
       else if(!s.polygon&&!l.readPoints[imageKey]&&reading!==imageKey)label(vertexLabel(s,i,true),{x:screen(image[i]).x+22,y:screen(image[i]).y+28});
     }
   });
+  if(l.readPoints.centre&&guide?.key!=='centre'&&l.question.centre)paintCoordinateReadout(ctx,{point:l.question.centre,label:'Centre',view,dark:false,width,height,pointColour:'#c23246'});
   if(guide)paintCoordinateGuide(ctx,{...guide,elapsed:now-guide.start,view,dark:false,width,height,pointColour:guide.mode==='plot'?'#c23246':'#2468c4'});
   ctx.restore();
 }

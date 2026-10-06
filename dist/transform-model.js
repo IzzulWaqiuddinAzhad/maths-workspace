@@ -1,3 +1,4 @@
+import {uniqueId} from './ids.js';
 import { DocumentStore, newDocument, createObject, screenToWorld, worldToScreen } from './core.js?v=14';
 import { pointInPolygon, segmentDistance } from './geometry.js?v=14';
 
@@ -68,7 +69,7 @@ export function rotationGuide(points, centre, degrees) {
 export const mirrorGrip = handles => ({ x: (handles[0].x + handles[1].x) / 2, y: (handles[0].y + handles[1].y) / 2 });
 export function moveMirror(handles, delta) { return handles.map(p => translatePoint(p, delta)); }
 export function completedImage(source, points, objects) {
-  return { id: crypto.randomUUID(), name: source.name.slice(0, 39) + '′', points: structuredClone(points), labels: imageLabels(source.labels, objects), image: true };
+  return { id: uniqueId(), name: source.name.slice(0, 39) + '′', points: structuredClone(points), labels: imageLabels(source.labels, objects), image: true };
 }
 export class ReflectionScrub {
   constructor(progress = 0) { this.start = progress; this.progress = progress; this.last = progress; this.direction = 0; }

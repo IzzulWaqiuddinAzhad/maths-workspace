@@ -20,9 +20,9 @@ export function fitPage(width,height,page=NOTEBOOK_PAGES[1]){
   return {zoom,x:(width-page.width*zoom)/2-page.x*zoom,y:70-page.y*zoom};
 }
 export function fitQuestion(graph,width,height,reserved={right:0,bottom:0}){
-  const b=graph.questionBox,w=Math.max(180,width-(reserved.right??0)),h=Math.max(180,height-(reserved.bottom??0));
-  const zoom=Math.max(.1,Math.min(8,(w-32)/b.w,(h-92)/b.h));
-  return {zoom,x:(w-b.w*zoom)/2-b.x*zoom,y:76+(h-92-b.h*zoom)/2-b.y*zoom};
+  const top=76+(reserved.top??0),b=graph.questionBox,w=Math.max(180,width-(reserved.right??0)),h=Math.max(180,height-(reserved.bottom??0));
+  const zoom=Math.max(.1,Math.min(8,(w-32)/b.w,(h-top-16)/b.h));
+  return {zoom,x:(w-b.w*zoom)/2-b.x*zoom,y:top+(h-top-16-b.h*zoom)/2-b.y*zoom};
 }
 export function fitGraph(graph,width,height,reserved={}){
   return fitQuestion({...graph,questionBox:{x:graph.x-18,y:graph.y-18,w:(graph.width??200)+36,h:(graph.height??200)+44}},width,height,reserved);

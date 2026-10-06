@@ -1,7 +1,8 @@
+import {uniqueId} from './ids.js';
 export const VERSION=1;
 export const TYPES=['InkStroke','VectorPath','ShapeObject','CartesianPlaneObject','TextObject','ImageObject','GuideObject'];
-export function createObject(type,properties={}){if(!TYPES.includes(type))throw Error('Unknown object type');return {...properties,id:crypto.randomUUID(),type,position:properties.position??{x:0,y:0},rotation:properties.rotation??0,scale:properties.scale??{x:1,y:1},strokeColour:properties.strokeColour??'#202124',strokeWidth:properties.strokeWidth??2,fill:properties.fill??null,opacity:properties.opacity??1,locked:properties.locked??false,zIndex:properties.zIndex??0};}
-export function newDocument(){return {schemaVersion:VERSION,id:crypto.randomUUID(),title:'Untitled notebook',objects:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};}
+export function createObject(type,properties={}){if(!TYPES.includes(type))throw Error('Unknown object type');return {...properties,id:uniqueId(),type,position:properties.position??{x:0,y:0},rotation:properties.rotation??0,scale:properties.scale??{x:1,y:1},strokeColour:properties.strokeColour??'#202124',strokeWidth:properties.strokeWidth??2,fill:properties.fill??null,opacity:properties.opacity??1,locked:properties.locked??false,zIndex:properties.zIndex??0};}
+export function newDocument(){return {schemaVersion:VERSION,id:uniqueId(),title:'Untitled notebook',objects:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};}
 export function validateDocument(d){
   const finite=n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<1e9;
   if(!d||d.schemaVersion!==VERSION||typeof d.id!=='string'||typeof d.title!=='string'||d.title.length>100||!Array.isArray(d.objects)||d.objects.length>20000)return false;

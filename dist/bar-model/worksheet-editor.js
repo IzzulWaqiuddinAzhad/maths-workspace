@@ -1,3 +1,4 @@
+import {uniqueId} from '../ids.js';
 import { generateProblem, FAMILIES } from "./generator.js";
 import { escape } from "./renderer.js";
 import { validateProblem } from "./domain.js";
@@ -170,7 +171,7 @@ export function mountQuestionEditor(host, model, rebuild) {
       qi = +item.dataset.index;
     item.querySelector("[data-new]").onclick = () =>
       run(() =>
-        editQuestion(model, pi, qi, null, crypto.randomUUID().slice(0, 8)),
+        editQuestion(model, pi, qi, null, uniqueId().slice(0, 8)),
       );
     item.querySelector("[data-apply]").onclick = () =>
       run(() => {

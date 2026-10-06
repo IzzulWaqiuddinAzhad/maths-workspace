@@ -1,5 +1,6 @@
+import {notebookQuestionPlans} from './notebook-questions.js';
 import {findModuleQuestion,TranslationLesson,ReflectionLesson,EnlargementLesson} from './module-lesson.js?v=15';
-import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=3';
+import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=4';
 import {translatePoint,rotatePoint,flipPoint,completedImage} from './transform-model.js?v=29';
 import {enlargePoint} from './module-lesson.js?v=15';
 
@@ -7,7 +8,7 @@ export const TRANSFORMATION_TYPES=['translation','reflection','rotation','enlarg
 const finitePoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<=1000&&Math.abs(p.y)<=1000;
 const pair=v=>finitePoint(v)?{x:v.x,y:v.y}:{x:0,y:0};
 const fromPair=p=>({x:p[0],y:p[1]});
-const readFlags=data=>Object.fromEntries(Object.entries(data??{}).filter(([k,v])=>/^(source|image)(-\d+)?$/.test(k)&&v===true));
+const readFlags=data=>Object.fromEntries(Object.entries(data??{}).filter(([k,v])=>/^(centre|(source|image)(-\d+)?)$/.test(k)&&v===true));
 export class NotebookTranslationLesson extends TranslationLesson {
   reset(){super.reset();this.vector={x:0,y:0};this.readPoints={source:false,image:false};this.stage=1;}
   move(axis,delta){if(['x','y'].includes(axis)&&Number.isFinite(delta)){this.vector[axis]=Math.max(-100,Math.min(100,this.vector[axis]+delta));this.answerVisible=false;}}
@@ -48,25 +49,38 @@ function restore(q,data,polygon){
 export class NotebookSession {
   constructor(graph,saved,legacy){
     this.graph=graph;this.originalQuestion=findModuleQuestion(graph.questionId);
+    this.plans=notebookQuestionPlans(graph);this.planIndex=Number.isInteger(saved?.planIndex)&&this.plans[saved.planIndex]?saved.planIndex:0;
     this.base=graph.objects.map(o=>({...o,points:o.points.map(fromPair)}));
+    for(const [i,plan]of this.plans.entries())if(plan.sourceVertex!==undefined){const o=this.base[0],v=plan.sourceVertex;this.base.push({id:`${graph.id}-plan-${i}`,name:o.labels[v],labels:[o.labels[v]],points:[o.points[v]],planIndex:i,stepIndex:0});plan.sourceId=this.base.at(-1).id;}
     this.kept=Array.isArray(saved?.kept)?saved.kept.filter(o=>typeof o.id==='string'&&typeof o.name==='string'&&Array.isArray(o.points)&&o.points.length>0&&o.points.length<=100&&o.points.every(finitePoint)).slice(0,40).map(o=>({...o,labels:Array.isArray(o.labels)?o.labels.map(String):[],points:o.points.map(pair)})):[];
-    this.selected=this.objects.some(o=>o.id===saved?.selected)?saved.selected:this.base[0]?.id;
-    const initial=this.originalQuestion?.type==='combined'?this.originalQuestion.steps[0].type:this.originalQuestion?.type??graph.defaultType;
+    this.selected=this.objects.some(o=>o.id===saved?.selected)?saved.selected:this.planSource?.id;
+    const initial=this.plan.steps[0].type??graph.defaultType;
     this.mode=TRANSFORMATION_TYPES.includes(saved?.mode)?saved.mode:initial;
     this.saved=saved?.engines??{};this.engines=new Map();
     if(legacy&&this.originalQuestion?.type==='rotation')this.saved[`${this.selected}:rotation`]=legacy;
   }
+  get plan(){return this.plans[this.planIndex];}
+  get planSource(){return this.base.find(o=>o.id===this.plan.sourceId)??this.base[0];}
+  get stepIndex(){
+    if(this.source.planIndex===this.planIndex&&Number.isInteger(this.source.stepIndex))return this.source.stepIndex;
+    const index=this.plan.steps.findIndex(step=>step.sourceName===this.source.name);
+    return index<0?this.plan.steps.length:index;
+  }
+  get step(){return this.plan.steps[this.stepIndex];}
   get objects(){return [...this.base,...this.kept];}
   get source(){return this.objects.find(o=>o.id===this.selected)??this.base[0];}
   get polygon(){return this.source.points.length>1;}
-  get key(){return `${this.selected}:${this.mode}`;}
+  get key(){return `${this.planIndex?this.planIndex+':':''}${this.selected}:${this.mode}`;}
   get lesson(){
     if(!this.engines.has(this.key)){
-      const original=this.originalQuestion,known=original&&original.type===this.mode&&this.source.id===this.base[0].id;
+      const original=this.originalQuestion,step=this.step,known=original&&original.type===this.mode&&this.source.id===this.base[0].id,planned=step&&!step.describe&&step.type===this.mode;
       const q={id:this.graph.id,type:this.mode,label:this.source.name,find:'image',given:this.source.points[0],bounds:this.graph.bounds,
-        centre:{x:0,y:0},degrees:90,vector:{x:0,y:0},factor:2,mirror:{kind:'vertical',k:0},...(known?original:{}),
-        givenLabel:this.source.name,answerLabel:known&&original.find==='object'?original.label:this.source.name+'′'};
-      this.engines.set(this.key,restore(q,this.saved[this.key],this.polygon));
+        centre:{x:0,y:0},degrees:90,vector:{x:0,y:0},factor:2,mirror:{kind:'vertical',k:0},...(planned?step:{}),...(known?original:{}),
+        givenLabel:this.source.name,answerLabel:known&&original.find==='object'?original.label:step?.targetName||this.source.name+'′'};
+      const lesson=restore(q,this.saved[this.key],this.polygon),prefix=this.key.slice(0,this.key.lastIndexOf(':')+1);
+      for(const [key,previous]of [...Object.entries(this.saved),...this.engines])if(key.startsWith(prefix))for(const [flag,value]of Object.entries(previous.readPoints??{}))if(flag.startsWith('source')&&value)lesson.readPoints[flag]=true;
+      if(this.source.image)lesson.readPoints.source=true;
+      this.engines.set(this.key,lesson);
     }
     return this.engines.get(this.key);
   }
@@ -88,6 +102,15 @@ export class NotebookSession {
       return translatePoint(p,{x:l.pointAt().x-l.question.given.x,y:l.pointAt().y-l.question.given.y});
     });
   }
+  get canKeepImage(){return this.imageReady&&(this.mode!=='reflection'||this.lesson.progress===1)&&this.kept.length<40;}
+  choosePlan(index){if(!this.plans[index])return false;this.planIndex=index;this.selected=this.planSource.id;this.mode=this.plan.steps[0].type??this.graph.defaultType;return true;}
+  sourceForStep(index){const step=this.plan.steps[index];return this.kept.find(o=>o.planIndex===this.planIndex&&o.stepIndex===index)??this.base.find(o=>o.id===this.plan.sourceId&&index===0)??this.base.find(o=>o.name===step?.sourceName);}
+  activateStep(index){
+    if(!this.plan.steps[index])return false;
+    let source=this.sourceForStep(index);
+    if(!source&&index===this.stepIndex+1&&this.canKeepImage){this.keepImage();source=this.source;}
+    if(!source)return false;this.selected=source.id;this.mode=this.plan.steps[index].type??this.mode;return true;
+  }
   chooseMode(mode){if(TRANSFORMATION_TYPES.includes(mode))this.mode=mode;}
   chooseObject(id){if(this.objects.some(o=>o.id===id))this.selected=id;}
   setCentre(p){
@@ -98,16 +121,19 @@ export class NotebookSession {
     else l.stage=1;
   }
   keepImage(){
-    if(!this.imageReady||this.kept.length>=40)return false;
-    const object=completedImage(this.source,this.imagePoints,this.objects);object.name=this.lesson.answerLabel;
-    this.kept.push(object);this.selected=object.id;return true;
+    if(!this.canKeepImage)return false;
+    const source=this.source,points=this.imagePoints,name=this.lesson.answerLabel,nextStep=this.stepIndex+1;
+    let object=this.kept.find(o=>o.parentId===source.id&&o.name===name&&JSON.stringify(o.points)===JSON.stringify(points));
+    if(!object){object={...completedImage(source,points,this.objects),name,parentId:source.id,planIndex:this.planIndex,stepIndex:nextStep};this.kept.push(object);}
+    this.selected=object.id;if(this.plan.steps[nextStep]?.type)this.mode=this.plan.steps[nextStep].type;
+    this.lesson.readPoints.source=true;return true;
   }
   deleteSelected(){
     if(!this.kept.some(o=>o.id===this.selected))return false;
     this.kept=this.kept.filter(o=>o.id!==this.selected);this.selected=this.base[0].id;return true;
   }
   reset(){this.engines.delete(this.key);delete this.saved[this.key];}
-  save(){return {selected:this.selected,mode:this.mode,kept:this.kept,engines:{...this.saved,...Object.fromEntries([...this.engines].map(([k,l])=>[k,serialise(l)]))}};}
+  save(){return {planIndex:this.planIndex,selected:this.selected,mode:this.mode,kept:this.kept,engines:{...this.saved,...Object.fromEntries([...this.engines].map(([k,l])=>[k,serialise(l)]))}};}
 }
 // One-time migration keeps earlier A3 writing in its exact position on that page.
 export function migrateNotebookDocument(saved,page){
