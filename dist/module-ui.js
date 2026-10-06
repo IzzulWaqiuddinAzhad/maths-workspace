@@ -1,10 +1,10 @@
 import { createSequenceOverview } from './module-sequence-view.js?v=1';
 import { coordinateGuideFrame, paintCoordinateGuide, COORDINATE_GUIDE_DURATION } from './module-coordinate-guide.js?v=1';
 import { bindRepeatingButton } from './direction-pad.js?v=1';
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=14';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=15';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
-import { paintRotationLesson } from './module-rotation-render.js?v=5';
-import { paintReflectionLesson } from './module-reflection-render.js?v=6';
+import { paintRotationLesson } from './module-rotation-render.js?v=6';
+import { paintReflectionLesson } from './module-reflection-render.js?v=7';
 import { createTransformationRenderer } from './transform-render.js?v=36';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
@@ -290,8 +290,8 @@ function syncRotation() {
     !stage?'Di manakah pusat putaran?':`${info.part?'Hujung bengkok':'Lengan lurus'} ${info.arm+1}: ${countWords(count,info.axis==='x')}`);
   text('stepDetail',!stage?'Measure from the rotation centre, not necessarily the origin.':lesson.counting?'Count one square at a time…':`Use the pad freely. Next keeps this ${info.part?'end':'arm'} and changes direction. Auto counts ${countWords(info.target,info.axis==='x')}.`,
     !stage?'Ukur dari pusat putaran, tidak semestinya asalan.':lesson.counting?'Kira satu petak demi satu…':`Guna pad dengan bebas. Seterusnya menyimpan ${info.part?'hujung':'lengan'} ini dan menukar arah. Auto mengira ${countWords(info.target,info.axis==='x')}.`);
-  text('stepNumber',!stage?`QUESTION ${q.number}`:lesson.constructionComplete?'ROTATE & DISCUSS':`${info.part?'BENT ENDS':'BUILD THE CROSS'} · ${info.arm+1} / 4`,!stage?`SOALAN ${q.number}`:lesson.constructionComplete?'PUTAR & BINCANG':`${info.part?'HUJUNG BENGKOK':'BINA PALANG'} · ${info.arm+1} / 4`);
-  text('next',!stage?'Mark the centre →':canKeep?(lesson.buildIndex===7?'Complete construction →':lesson.buildIndex===3?'Cross complete · add ends →':'Keep & next direction →'):'Count this segment →',!stage?'Tandakan pusat →':canKeep?(lesson.buildIndex===7?'Lengkapkan binaan →':lesson.buildIndex===3?'Palang lengkap · tambah hujung →':'Simpan & arah seterusnya →'):'Kira bahagian ini →');
+  text('stepNumber',!stage?`QUESTION ${q.number}`:lesson.constructionComplete?'ROTATE & DISCUSS':`ARM ${info.arm+1} / 4 · ${info.part?'BENT END':'STRAIGHT LINE'}`,!stage?`SOALAN ${q.number}`:lesson.constructionComplete?'PUTAR & BINCANG':`LENGAN ${info.arm+1} / 4 · ${info.part?'HUJUNG BENGKOK':'GARIS LURUS'}`);
+  text('next',!stage?'Mark the centre →':canKeep?(lesson.buildIndex===7?'Complete construction →':info.part?'Keep & next arm →':'Keep & add bend →'):'Count this segment →',!stage?'Tandakan pusat →':canKeep?(lesson.buildIndex===7?'Lengkapkan binaan →':info.part?'Simpan & lengan seterusnya →':'Simpan & tambah bengkok →'):'Kira bahagian ini →');
   if(lesson.constructionComplete)text('next',lesson.answerVisible?'Next question →':lesson.canReveal?'Read image coordinates →':'Show question’s turn →',lesson.answerVisible?'Soalan seterusnya →':lesson.canReveal?'Baca koordinat imej →':'Tunjuk putaran soalan →');
   if(lesson.answerVisible){text('stepTitle',`${lesson.answerLabel} = ${coord(lesson.answer)}`,`${lesson.answerLabel} = ${coord(lesson.answer)}`);text('stepDetail','Both counting orders give the same rotated point.','Kedua-dua urutan kiraan memberikan titik putaran yang sama.');}
   $('next').disabled=!!animation||lesson.constructionComplete&&!lesson.constructionMatches;$('previous').disabled=!stage || !!animation;

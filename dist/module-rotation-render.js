@@ -29,20 +29,16 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
   const countSegment=(from,to,index,colour)=>{
     if(Math.hypot(to.x-from.x,to.y-from.y)<1e-8)return;
     line([from,to],colour,3.2);
-    const a=screen(from),b=screen(to),dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy);
-    for(let i=1;i<len-1e-8;i++) {
-      const p=screen({x:from.x+dx*i/len,y:from.y+dy*i/len});
-      ctx.beginPath();ctx.moveTo(p.x+(dy?-3:0),p.y+(dx?-3:0));ctx.lineTo(p.x+(dy?3:0),p.y+(dx?3:0));ctx.stroke();
-    }
+    const a=screen(from),b=screen(to);
     const n=index===lesson.buildIndex?lesson.displayedBuildCount():lesson.buildCounts[index];
-    const candidates=edgeCandidates(a,b,index>=4?1:-1),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    const candidates=edgeCandidates(a,b,index%2?1:-1),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
     // A fallback ring clears axis numerals when short arms are tightly packed at low zoom.
     candidates.push(...candidates.map(p=>({x:mid.x+(p.x-mid.x)*1.5,y:mid.y+(p.y-mid.y)*1.5})));
     requests.push({id:`count-${index}`,text:String(Math.abs(Number(n.toFixed(2)))),colour,candidates});
   };
   for(const [i,path] of lesson.constructionPaths.entries()) {
-    countSegment(path.centre,path.corner,i,orange);
-    countSegment(path.corner,path.end,i+4,blue);
+    countSegment(path.centre,path.corner,i*2,orange);
+    countSegment(path.corner,path.end,i*2+1,blue);
   }
   if(!lesson.constructionComplete && lesson.stage) {
     const info=lesson.segmentInfo(),path=lesson.constructionPaths[info.arm],p=screen(info.part?path.end:path.corner);

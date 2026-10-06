@@ -44,8 +44,8 @@ test('construction is paced, clock is gated, scrubbing and backtracking hide ans
   assert.equal(lesson.toggleClock(),false);lesson.scrub(1);assert.equal(lesson.progress,0);
   for(let stage=0;stage<=9;stage++) {
     lesson.goTo(stage); assert.equal(lesson.answerVisible,false);assert.equal(lesson.progress,0);
-    assert.equal(lesson.armCount,Math.min(4,Math.max(0,stage-1)));
-    assert.equal(lesson.bendCount,Math.min(4,Math.max(0,stage-5)));
+    assert.equal(lesson.armCount,Math.min(4,Math.ceil(Math.max(0,stage-1)/2)));
+    assert.equal(lesson.bendCount,Math.min(4,Math.floor(Math.max(0,stage-1)/2)));
   }
   lesson.toggleClock();assert.equal(lesson.clockVisible,true);
   lesson.goTo(10);assert.deepEqual(lesson.pointAt(),lesson.answer);assert.equal(lesson.answerVisible,false);
@@ -128,8 +128,13 @@ test('both counting orders build the same four endpoints from every non-origin c
       assert.equal(l.constructionComplete,false);assert.equal(l.reveal(),false);
       l.setBuildCount(axis,target+1);assert.equal(l.segmentMatches,false);
       l.setBuildCount(axis,target);assert.equal(l.segmentMatches,true);
-      if(i>=4)assert.deepEqual(l.constructionPaths[i-4].end,rotatePoint(q.given,q.centre,(i-4)*90));
-      else assert.ok(l.constructionPaths.every(p=>length(p.corner,p.end)===0),'no bent ends before the full cross');
+      const arm=Math.floor(i/2);
+      if(i%2)assert.deepEqual(l.constructionPaths[arm].end,rotatePoint(q.given,q.centre,arm*90));
+      else assert.deepEqual(l.constructionPaths[arm].end,l.constructionPaths[arm].corner,'the bend waits for Next');
+      for(const path of l.constructionPaths.slice(arm+1)) {
+        assert.deepEqual(path.corner,q.centre,'later arms remain empty until the current bend is kept');
+        assert.deepEqual(path.end,q.centre);
+      }
       l.advanceConstruction();
     }
     assert.equal(l.constructionComplete,true);assert.equal(l.answerVisible,false);
@@ -146,16 +151,18 @@ test('manual first direction chooses order, corrections preserve earlier segment
   l.setBuildCount('x',NaN);assert.equal(l.buildCounts[1],0);l.reset();assert.equal(l.firstAxis,'x');assert.equal(l.stage,0);
 });
 
-test('only Next changes direction; free counts are retained while all four straight arms are built first',()=>{
+test('only Next changes segment; each straight arm is followed by its bend before the next arm',()=>{
   const l=new RotationLesson();l.advanceConstruction();l.nudgeConstruction('y',1);l.nudgeConstruction('y',1);
   assert.equal(l.firstAxis,'y');assert.equal(l.nudgeConstruction('x',1),false);
   assert.equal(l.buildIndex,0);assert.deepEqual(l.constructionPaths[0].corner,{x:0,y:2});
   l.advanceConstruction();assert.equal(l.buildIndex,1);assert.deepEqual(l.buildCounts,[2,0,0,0,0,0,0,0]);
   l.nudgeConstruction('x',-1);l.advanceConstruction();assert.equal(l.buildCounts[1],-1,'a trial count is kept without snapping to the answer');
+  assert.deepEqual(l.constructionPaths[0].end,{x:-1,y:2});
+  assert.equal(l.armCount,1);assert.equal(l.bendCount,1);
+  assert.deepEqual(l.constructionPaths[1].corner,l.question.centre);
   for(let i=2;i<4;i++){const {axis,target}=l.segmentInfo();l.setBuildCount(axis,target);l.advanceConstruction();}
-  assert.equal(l.armCount,4);assert.equal(l.bendCount,0);assert.equal(l.buildIndex,4);
-  assert.ok(l.constructionPaths.every(p=>length(p.corner,p.end)===0));
-  l.nudgeConstruction('x',1);assert.equal(l.bendCount,1);assert.equal(l.buildIndex,4);
+  assert.equal(l.armCount,2);assert.equal(l.bendCount,2);assert.equal(l.buildIndex,4);
+  l.nudgeConstruction('y',-1);assert.equal(l.armCount,3);assert.equal(l.bendCount,2);assert.equal(l.buildIndex,4);
 });
 
 test('incorrect trial lengths cannot reveal a correct answer, and completing twice cannot add a ninth segment',()=>{
@@ -169,8 +176,8 @@ test('incorrect trial lengths cannot reveal a correct answer, and completing twi
 });
 
 
-test('cross count labels avoid the graph axis-number rectangles',()=>{
-  const lesson=new RotationLesson();lesson.goTo(5);
+test('rotation count labels avoid the graph axis-number rectangles',()=>{
+  const lesson=new RotationLesson();lesson.goTo(9);
   for(const zoom of [.4,.7,1]){
     const view={x:300,y:300,zoom};
     const overlays=[-2,2].flatMap(n=>{
