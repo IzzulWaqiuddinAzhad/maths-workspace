@@ -38,6 +38,17 @@ test('combined sequence cannot skip the first transformation or accept a wrong t
   assert.equal(s.current.stage,0);assert.equal(s.answerVisible,false);assert.equal(s.select(2),false);
 });
 
+test('reflection presets start on whole grid lines in fractional fitted viewports',()=>{
+  const boundsList=[{xmin:-7.14,xmax:2.72,ymin:-2.86,ymax:2.69},{xmin:-9.3,xmax:-3.1,ymin:-7.2,ymax:-1.3},{xmin:1.4,xmax:5.7,ymin:2.3,ymax:7.8}];
+  for(const bounds of boundsList)for(const kind of ['horizontal','vertical']){
+    const l=new ReflectionLesson(COMBINED_QUESTIONS[0].steps[0]);l.chooseOrientation(kind,bounds);
+    const initial=l.choice.k;assert.ok(Number.isInteger(initial));assert.notEqual(initial,0);
+    const axis=kind==='horizontal'?'y':'x';l.shift(axis==='x'?1:0,axis==='y'?1:0);
+    assert.equal(l.choice.k,initial+1,'one pad step stays on whole grid lines');
+    l.resetLine(bounds);assert.equal(l.choice.k,initial);
+  }
+});
+
 test('editing the first operation invalidates second-step work; merely reviewing it preserves work',()=>{
   for(const q of COMBINED_QUESTIONS){
     const s=new CombinedLesson(q);s.start();reveal(s.current);s.select(1);reveal(s.current);

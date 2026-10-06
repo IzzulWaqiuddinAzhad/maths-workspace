@@ -214,7 +214,9 @@ export class ReflectionLesson extends PointLesson {
   chooseOrientation(kind, bounds=this.question.bounds) {
     if (!['horizontal', 'vertical', 'slanted'].includes(kind) || this.choice?.kind === kind) return false;
     const cx=Math.round((bounds.xmin+bounds.xmax)/2),cy=Math.round((bounds.ymin+bounds.ymax)/2);
-    const offset=(mid,min,max)=>Math.max(min+.5,Math.min(max-.5,mid+2)) || 1;
+    // View bounds can be fractional after fitting, resizing or zooming. Start on
+    // a whole grid line so the one-unit pad can still reach integer equations.
+    const offset=(mid,min,max)=>Math.round(Math.max(min+.5,Math.min(max-.5,mid+2))) || 1;
     const x=offset(cx,bounds.xmin,bounds.xmax),y=offset(cy,bounds.ymin,bounds.ymax);
     const span=Math.max(.5,Math.min(2,(bounds.xmax-bounds.xmin)/4,(bounds.ymax-bounds.ymin)/4));
     const handles=kind==='horizontal'?[{x:cx-span,y},{x:cx+span,y}]:kind==='vertical'?[{x,y:cy-span},{x,y:cy+span}]:[{x:cx-span,y:cy-span},{x:cx+span,y:cy+span}];

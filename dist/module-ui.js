@@ -1,8 +1,8 @@
 import { bindRepeatingButton } from './direction-pad.js?v=1';
-import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=11';
+import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=12';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
 import { paintRotationLesson } from './module-rotation-render.js?v=3';
-import { paintReflectionLesson } from './module-reflection-render.js?v=3';
+import { paintReflectionLesson } from './module-reflection-render.js?v=4';
 import { createTransformationRenderer } from './transform-render.js?v=36';
 import { graphToScreen, screenToGraph, GRID_UNIT, newAnnotation, eraseAnnotations, ReflectionScrub, RotationSnap } from './transform-model.js?v=29';
 import { DocumentStore, zoomAt } from './core.js?v=14';
