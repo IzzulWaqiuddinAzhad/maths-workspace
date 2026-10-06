@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
-  <link rel="stylesheet" href="module.css?v=6">
+  <link rel="stylesheet" href="module.css?v=7">
 </head>
 <body>
   <header class="lesson-header">
@@ -21,13 +21,14 @@
   <main id="lesson" class="lesson-layout">
     <aside class="question-panel" id="questionPanel">
       <div class="panel-heading"><span class="eyebrow" id="section">A1 / TRANSLATION</span><button id="collapse" aria-controls="questionPanel" aria-expanded="true" aria-label="Hide question">‹</button></div>
-      <select id="questionGroup" class="question-group" aria-label="Module activity"><option value="translation">Translation · 1–4</option><option value="reflection">Reflection · 5–8</option><option value="rotation">Rotation · 9–16</option></select>
+      <select id="questionGroup" class="question-group" aria-label="Module activity"><option value="translation">Translation · 1–4</option><option value="reflection">Reflection · 5–8</option><option value="rotation">Rotation · 9–16</option><option value="enlargement">Enlargement · 17</option></select>
       <nav id="questionNav" class="question-nav" aria-label="Module questions">
         <button type="button" data-question="1">01</button><button type="button" data-question="2">02</button><button type="button" data-question="3">03</button><button type="button" data-question="4">04</button>
       </nav>
       <h1 id="questionTitle">Find the image</h1>
       <p class="question-text" id="prompt"></p>
       <div class="given-vector" aria-label="Translation vector"><span>T =</span><span class="column-vector"><span id="givenDX"></span><span id="givenDY"></span></span></div>
+      <div id="givenEnlargement" class="given-rotation" hidden></div>
       <div id="givenRotation" class="given-rotation" hidden></div>
       <div id="givenMirror" class="given-mirror" hidden></div>
       <div class="answer-box" id="answerBox"><span id="answerHeading">Coordinates of the image</span><strong id="answer">A′ = ( &nbsp; , &nbsp; )</strong></div>
@@ -51,13 +52,14 @@
         <div><strong id="rotationCentre"></strong><span id="clockHint"></span></div>
         <button id="clockGuide" aria-pressed="false" disabled>Clock guide</button>
       </section>
+      <section id="enlargementControls" class="rotation-controls" aria-label="Enlargement guide" hidden><div><strong id="enlargementCentre"></strong><span id="enlargementHint"></span></div></section>
       <div class="graph-board" id="board">
         <canvas id="graph" tabindex="0" aria-describedby="diagramDescription">Cartesian diagram for Question 1.</canvas>
         <p id="diagramDescription" class="sr-only"></p>
         <div id="finalMapping" class="final-mapping" role="img" hidden>
           <span id="mappingSource" class="mapping-point" aria-hidden="true"></span>
           <span class="mapping-transform" aria-hidden="true">
-            <span class="mapping-operation"><span id="mappingName">Translation</span><span id="mappingVector" class="mapping-vector"><span id="mappingDX"></span><span id="mappingDY"></span></span><span id="mappingMirror" hidden></span><span id="mappingRotation" hidden></span></span>
+            <span class="mapping-operation"><span id="mappingName">Translation</span><span id="mappingVector" class="mapping-vector"><span id="mappingDX"></span><span id="mappingDY"></span></span><span id="mappingMirror" hidden></span><span id="mappingRotation" hidden></span><span id="mappingEnlargement" hidden></span></span>
             <svg class="mapping-arrow" viewBox="0 0 160 20" preserveAspectRatio="none"><path d="M2 10H156M146 2L156 10L146 18"/></svg>
           </span>
           <span id="mappingImage" class="mapping-point mapping-image" aria-hidden="true"></span>
@@ -79,12 +81,14 @@
         <div class="scrubber" id="scrubber" hidden><label id="scrubLabel" for="progress">Control the movement</label><input id="progress" type="range" min="0" max="2" step="0.01" value="0"><div class="scrub-labels"><span id="startLabel"></span><span id="horizontalStep"></span><span id="verticalStep"></span></div><div id="rotationShortcuts" class="rotation-shortcuts" hidden>
           <button id="rotationCW" aria-label="Clockwise" aria-pressed="false">↻</button><button id="rotationCCW" aria-label="Anticlockwise" aria-pressed="false">↺</button>
           <button data-rotation-angle="0">0°</button><button data-rotation-angle="90">90°</button><button data-rotation-angle="180">180°</button><button data-rotation-angle="270">270°</button><button data-rotation-angle="360">360°</button>
+        </div><div id="enlargementShortcuts" class="enlargement-shortcuts" hidden>
+          <button data-scale-factor="-2">−2</button><button data-scale-factor="-1">−1</button><button data-scale-factor="0">0</button><button data-scale-factor="0.5">½</button><button data-scale-factor="1">1</button><button data-scale-factor="2">2</button><button data-scale-factor="3">3</button>
         </div></div>
         <div class="step-actions"><button id="reset" class="quiet">Reset</button><button id="previous" aria-label="Previous step">←</button><button id="next" class="primary">Start teaching →</button></div>
       </footer>
     </section>
   </main>
   <p class="status" id="status" role="status" hidden></p>
-  <script type="module" src="module-ui.js?v=6"></script>
+  <script type="module" src="module-ui.js?v=7"></script>
 </body>
 </html>

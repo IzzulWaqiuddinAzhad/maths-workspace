@@ -48,7 +48,7 @@ export function createTransformationRenderer(canvas) {
       ps.forEach((p, i) => {
         ctx.beginPath(); ctx.arc(p.x, p.y, state.pointRadius || (active && !isImage ? 5 : 3.5), 0, Math.PI * 2); ctx.fillStyle = active && !isImage ? paper : colour; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = colour; ctx.stroke(); dots.push(p);
         const label = o.labels[i] + ((o.coordinates ?? coordinates) ? ` (${formatNumber(o.points[i].x)}, ${formatNumber(o.points[i].y)})` : '');
-        if (state.labels !== false) requests.push({ id: `${isImage ? 'image' : o.id}:${i}`, text: label, colour, candidates: polarCandidates(p, ps.length === 1 ? -Math.PI / 4 : Math.atan2(p.y - mid.y, p.x - mid.x), 21, { spread: .5, rings: 5 }) });
+        if (state.labels !== false) requests.push({ id: `${isImage ? 'image' : o.id}:${i}`, text: label, colour, candidates: polarCandidates(p, ps.length === 1 ? -Math.PI / 4 : Math.atan2(p.y - mid.y, p.x - mid.x), 21, { spread: state.pointLabelSpread ?? .5, rings: state.pointLabelRings ?? 5 }) });
       });
     }
     if (guides && preview) {

@@ -1,4 +1,4 @@
-# Module teaching: translation 1–4, reflection 5–8 and rotation 9–16
+# Module teaching: translation 1–4, reflection 5–8, rotation 9–16 and enlargement 17
 
 Open `module.html?question=1`, or Explore → Transformations → Module teaching · Translation 1–4. This separate full-page teaching view preserves the existing free exploration.
 
@@ -33,7 +33,7 @@ The question card collapses to enlarge the graph. Fit restores the printed grid.
 
 Run `npm test`. In a browser, check all four direct links, question navigation and browser Back; verify hidden answers, every teaching step, forward final mappings, reverse/scrub/reset, separate annotation histories, pan/zoom, EN/BM and light/dark. Inspect desktop, tablet and phone layouts, collapsed questions and fullscreen.
 
-Translation Questions 1–4, Reflection Questions 5–8 and Rotation Questions 9–16 are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Enlargement, combined transformations and area demonstrations remain future module work.
+Translation Questions 1–4, Reflection Questions 5–8, Rotation Questions 9–16 and the first Enlargement lesson (Question 17) are included. Physical stylus and multi-touch behaviour still needs actual-device testing. Enlargement Questions 18–20, polygon Questions 41–44, combined transformations and area demonstrations remain future module work.
 
 ## Reflection questions 5–8
 
@@ -92,3 +92,18 @@ After the construction is complete, the optional Clock guide toggle shows an ana
 `RotationLesson` extends the existing shared point lesson and stores rotation progress in signed degrees. `module-rotation-render.js` paints the construction and clock through the shared renderer's geometry overlay and returns label obstacles. The shared movement control uses pointer capture and the existing `RotationSnap` model; cancellation restores the starting angle. Fixed action widths prevent changing button captions from moving the slider during a drag. The original camera, annotations, question navigation, EN/BM, theme, mapping and Undo/Redo remain shared.
 
 Tests cover all eight independent answers, the rigid lengths and right angles of every copy, centre-relative construction, both full turns, arbitrary trial angles, equivalent endpoints, snapping hysteresis, reveal guards, back/reset behaviour and a clockwise screen-coordinate clock that cannot mutate lesson state. Browser checks include real slider drags through every snap point in both directions, exact keyboard adjustments, return-to-question/reveal, clock toggling, translation/reflection regressions, and desktop, 390px phone and 820px tablet layouts. Physical iPad/stylus/multi-touch testing remains a device check.
+
+
+## First enlargement lesson: Question 17
+
+Open `module.html?question=17`, choose Enlargement in the activity selector, or use Explore → Transformations → Module teaching · Enlargement 17. The source is A5, printed page 5 (PDF page 6) of the v4.2 booklet. The diagram gives A(3, 2); centre (1, −1), scale factor 2. The image A′(5, 5) was independently calculated and checked against the scheme. The booklet uses points in Questions 17–20 and polygons in Questions 41–44 (B5, printed page 11). This release intentionally starts with one point lesson for classroom review.
+
+1. Mark the stated centre, rather than defaulting to the origin.
+2. Draw the straight guide through the centre and given point.
+3. Count the two horizontal and three vertical squares from the centre. The original orange path remains visible.
+4. Demonstrate the question's factor, or explore using the slider from −3 to 3. Blue distances change live; negative factors put the image on the opposite side, 0 collapses to the centre and 1 leaves the original position unchanged. Shortcuts give −2, −1, 0, ½, 1, 2 and 3. Pointer dragging snaps near common factors; keyboard arrows adjust by 0.01, Page Up/Down by 0.5, Home resets to 1 and End selects 3.
+5. Reveal only when the factor matches the question. The graph displays A(3, 2) → A′(5, 5), with the centre and scale factor above the arrow. Any new trial hides this mapping and the answer. Show question’s scale restarts at 1 and demonstrates factor 2 again.
+
+`EnlargementLesson` retains source coordinates, computes centre-relative scaling and controls reveal eligibility separately from the trial factor. The rotation range handler is shared with enlargement, including pointer capture, cancellation and the stable slider layout. Bounds expand once when free control becomes available to include the entire scale range; dragging does not continually refit the camera. Pan, zoom, annotation Undo/Redo, EN/BM, theme and question navigation remain shared. The enlargement overlay uses the existing `LabelLayout` to keep distance labels apart. The shared point renderer accepts optional wider label candidates for crowded diagrams while retaining its previous defaults.
+
+Checks include exact source/answer data, positive/fractional/negative/zero factors, fixed-centre and collinearity properties, reveal protection, stable bounds, snapping and non-mutating rendering. Browser testing covers real pointer drags, keyboard entry, staged reveal/backtracking/reset, annotations, existing activities and desktop/phone/tablet layouts. An actual iPad/stylus remains a device check. Questions 18–20 and polygon lessons are not yet activated.

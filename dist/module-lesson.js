@@ -1,4 +1,4 @@
-import { translatePoint, reflectPoint, flipPoint, lineFoot, rotatePoint, snapRotation, GRID_UNIT } from './transform-model.js?v=29';
+import { translatePoint, reflectPoint, flipPoint, lineFoot, rotatePoint, snapRotation, tidyPoint, GRID_UNIT } from './transform-model.js?v=29';
 
 // A1, printed page 1 (PDF page 2), BIJAK Transformasi Bengkel v4.2.
 // Read each given point from the original diagram, not from the answer scheme.
@@ -55,9 +55,19 @@ export const ROTATION_QUESTIONS = Object.freeze([
     }),
   });
 }));
-export const MODULE_QUESTIONS = Object.freeze([...TRANSLATION_QUESTIONS, ...REFLECTION_QUESTIONS, ...ROTATION_QUESTIONS]);
+// First enlargement lesson: A5, printed page 5 (PDF page 6).
+export const ENLARGEMENT_QUESTIONS = Object.freeze([Object.freeze({
+  id: '17', number: '17', label: 'A', section: 'A5', type: 'enlargement', find: 'image',
+  given: Object.freeze({ x: 3, y: 2 }), centre: Object.freeze({ x: 1, y: -1 }), factor: 2,
+  bounds: Object.freeze({ xmin: -8, xmax: 8, ymin: -8, ymax: 8 }),
+  prompt: Object.freeze({
+    en: 'A′ is the image of A under an enlargement with centre (1, −1), scale factor 2. Find its coordinates.',
+    bm: 'A′ ialah imej bagi A di bawah pembesaran berpusat di (1, −1), faktor skala 2. Cari koordinat A′.',
+  }),
+})]);
+export const MODULE_QUESTIONS = Object.freeze([...TRANSLATION_QUESTIONS, ...REFLECTION_QUESTIONS, ...ROTATION_QUESTIONS, ...ENLARGEMENT_QUESTIONS]);
 export const findModuleQuestion = id => MODULE_QUESTIONS.find(q => q.id === id);
-export const createModuleLesson = q => q.type === 'rotation' ? new RotationLesson(q) : q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
+export const createModuleLesson = q => q.type === 'enlargement' ? new EnlargementLesson(q) : q.type === 'rotation' ? new RotationLesson(q) : q.type === 'reflection' ? new ReflectionLesson(q) : new TranslationLesson(q);
 
 export function reflectionEquation(choice) {
   if (!choice) return '';
@@ -221,6 +231,53 @@ export class RotationLesson extends PointLesson {
   cornerAt(progress = this.progress) {
     return rotatePoint(this.corner, this.question.centre, snapRotation(progress, false));
   }
+}
+
+export const ENLARGEMENT_STOPS = Object.freeze([-3, -2, -1, 0, .5, 1, 2, 3]);
+const limitFactor = value => Math.max(-3, Math.min(3, value));
+export const enlargePoint = (point, centre, factor) => tidyPoint({
+  x: centre.x + factor * (point.x - centre.x), y: centre.y + factor * (point.y - centre.y),
+});
+export class EnlargementSnap {
+  constructor(factor = 1) { this.held = ENLARGEMENT_STOPS.includes(factor) ? factor : null; }
+  move(value) {
+    const factor = limitFactor(value);
+    if (this.held !== null && Math.abs(factor - this.held) <= .12) return this.held;
+    const nearest = ENLARGEMENT_STOPS.reduce((a,b) => Math.abs(factor-a) <= Math.abs(factor-b) ? a : b);
+    this.held = Math.abs(factor-nearest) <= .06 ? nearest : null;
+    return this.held ?? factor;
+  }
+}
+export class EnlargementLesson extends PointLesson {
+  constructor(question = ENLARGEMENT_QUESTIONS[0]) { super(question); }
+  reset() { this.stage = 0; this.progress = 1; this.answerVisible = false; }
+  get factor() { return this.progress; }
+  get offset() { const p=this.question.given,c=this.question.centre; return {x:p.x-c.x,y:p.y-c.y}; }
+  get answer() { return enlargePoint(this.question.given,this.question.centre,this.question.factor); }
+  get ready() { return this.stage >= 3; }
+  get matchesQuestion() { return Math.abs(this.factor-this.question.factor) < 1e-9; }
+  get canReveal() { return this.ready && this.matchesQuestion; }
+  get targetProgress() { return this.stage >= 4 ? this.question.factor : 1; }
+  get bounds() {
+    const b = this.question.bounds;
+    if (!this.ready) return b;
+    // Fit once before free control; the camera stays still throughout a drag.
+    const ends = [-3,3].map(k => this.pointAt(k));
+    return {xmin:Math.min(b.xmin,...ends.map(p=>Math.floor(p.x)-1)),xmax:Math.max(b.xmax,...ends.map(p=>Math.ceil(p.x)+1)),
+      ymin:Math.min(b.ymin,...ends.map(p=>Math.floor(p.y)-1)),ymax:Math.max(b.ymax,...ends.map(p=>Math.ceil(p.y)+1))};
+  }
+  goTo(value) {
+    if (!Number.isFinite(value)) return;
+    this.stage = Math.max(0,Math.min(5,Math.round(value)));
+    this.progress = this.targetProgress; this.answerVisible = this.stage === 5;
+  }
+  scrub(value) {
+    if (!this.ready || !Number.isFinite(value)) return;
+    this.progress = Number(limitFactor(value).toFixed(10));
+    this.stage = this.progress === 1 ? 3 : 4; this.answerVisible = false;
+  }
+  reveal() { if (!this.canReveal) return false; this.stage=5; this.answerVisible=true; return true; }
+  pointAt(factor = this.factor) { return enlargePoint(this.question.given,this.question.centre,limitFactor(factor)); }
 }
 
 export function fitQuestion(bounds, width, height) {
