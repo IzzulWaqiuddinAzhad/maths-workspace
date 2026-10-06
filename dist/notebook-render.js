@@ -50,7 +50,11 @@ export function paintNotebookGraph(ctx,g,{now=0,active=false,guide=null,historic
     line([...points,points[0]],colour);ctx.fillStyle=colour+'18';ctx.fill();
     if(name){const p=points.reduce((a,b)=>({x:a.x+b.x/points.length,y:a.y+b.y/points.length}),{x:0,y:0});label(name,screen(p),colour);}
   };
-  if(!historical)for(const o of s.kept)shape(o.points,o.id===s.selected&&(l.readPoints.source||guide?.key==='source')?null:o.name,'#536f9e');
+  if(!historical)for(const o of s.kept){
+    const sourceRead=o.id===s.selected&&(l.readPoints.source||guide?.key==='source');
+    const currentImage=s.imageReady&&o.name===l.answerLabel&&JSON.stringify(o.points)===JSON.stringify(s.imagePoints);
+    shape(o.points,sourceRead||currentImage?null:o.name,'#536f9e');
+  }
   if(active&&s.polygon)line([...s.source.points,s.source.points[0]],'#8754bd',[5,4]);
   if(s.mode==='rotation'){
     if(s.usesConstruction)paintRotationLesson(ctx,{traceWidth:4.6,lesson:l,view,dark:false,width,height,clockTime:now,countLabels:g.layout,cursorPulse:active&&l.stage&&!l.constructionComplete?.5+.5*Math.sin(now/170):0});

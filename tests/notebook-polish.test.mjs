@@ -94,3 +94,10 @@ test('summary tracks the graph width through pan and zoom within iPad controls',
     assert.ok(b.top>=58);assert.ok(b.left+b.width<=width-290-12);
   }
 });
+
+test('returning to the original object does not duplicate the kept image label during a coordinate read',()=>{
+  const g=graph('1'),s=new NotebookSession(g);s.lesson.move('x',6);s.lesson.move('y',-2);s.keepImage();s.chooseObject(s.base[0].id);
+  s.lesson.readPoints.image=true;
+  const {ctx,texts}=canvas();paintNotebookGraph(ctx,{...g,session:s,layout:new LabelLayout()});
+  assert.equal(texts.filter(t=>t.text.includes('A′')).length,1);
+});

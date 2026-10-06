@@ -1,6 +1,6 @@
 // A failed module must show an actionable error instead of an endless spinner.
 try {
-  await import('./notebook.js?v=5');
+  await import('./notebook.js?v=6');
 } catch (error) {
   console.error('Notebook startup failed', error);
   const message=document.getElementById('pageLoading');

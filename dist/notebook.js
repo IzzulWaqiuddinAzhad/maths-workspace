@@ -3,7 +3,7 @@ import {bindLineEquationInput} from './line-equation-input.js';
 import {workspaceHost as host} from './workspace-host.js';
 import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,constrainPage} from './notebook-model.js?v=5';
 import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=5';
-import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=5';
+import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=6';
 import {coordinateGuideDuration} from './module-coordinate-guide.js?v=3';
 import {RotationSnap,ReflectionScrub,lineFoot,objectHit,parseMirrorEquation,lineHandles} from './transform-model.js?v=29';
 import {EnlargementSnap,squareCountAt} from './module-lesson.js?v=15';
