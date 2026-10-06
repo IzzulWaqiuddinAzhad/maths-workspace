@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Question 1 · BIJAK Transformations · Maths Workspace</title>
-  <link rel="stylesheet" href="module.css?v=8">
+  <link rel="stylesheet" href="module.css?v=9">
+  <link rel="stylesheet" href="direction-pad.css?v=1">
 </head>
 <body>
   <header class="lesson-header">
@@ -79,9 +80,18 @@
       <footer class="lesson-controls">
         <div class="step-copy" aria-live="polite"><span class="eyebrow" id="stepNumber">QUESTION</span><strong id="stepTitle">Where will A move?</strong><span id="stepDetail">Read the vector before revealing the image.</span></div>
         <div id="countControls" class="count-controls" aria-label="Count squares" hidden>
-          <div class="count-row"><button id="countAxisx" aria-pressed="true">Horizontal ↔</button><button id="countMinusx">−1</button><output id="countValuex">0 units right</output><button id="countPlusx">+1</button></div>
-          <div class="count-row"><button id="countAxisy" aria-pressed="false">Vertical ↕</button><button id="countMinusy">−1</button><output id="countValuey">0 units up</output><button id="countPlusy">+1</button></div>
-          <div class="count-options"><button id="countClear" class="quiet">Clear blue path</button><button id="countAuto">Auto horizontal</button></div>
+          <div id="countPad" class="direction-pad" role="group" aria-label="Move blue counting path">
+            <button id="countUp" data-direction="up" aria-label="One unit up">▲</button>
+            <button id="countLeft" data-direction="left" aria-label="One unit left">◀</button>
+            <button id="countClear" data-direction="reset" aria-label="Clear blue path">0</button>
+            <button id="countRight" data-direction="right" aria-label="One unit right">▶</button>
+            <button id="countDown" data-direction="down" aria-label="One unit down">▼</button>
+          </div>
+          <div class="count-readouts">
+            <div class="count-row"><button id="countAxisx" aria-pressed="true">Horizontal ↔</button><output id="countValuex">0 units</output></div>
+            <div class="count-row"><button id="countAxisy" aria-pressed="false">Vertical ↕</button><output id="countValuey">0 units</output></div>
+            <div class="count-options"><button id="countAuto">Auto horizontal</button></div>
+          </div>
         </div>
         <div class="scrubber" id="scrubber" hidden><label id="scrubLabel" for="progress">Control the movement</label><input id="progress" type="range" min="0" max="2" step="0.01" value="0"><div class="scrub-labels"><span id="startLabel"></span><span id="horizontalStep"></span><span id="verticalStep"></span></div><div id="rotationShortcuts" class="rotation-shortcuts" hidden>
           <button id="rotationCW" aria-label="Clockwise" aria-pressed="false">↻</button><button id="rotationCCW" aria-label="Anticlockwise" aria-pressed="false">↺</button>
@@ -94,6 +104,6 @@
     </section>
   </main>
   <p class="status" id="status" role="status" hidden></p>
-  <script type="module" src="module-ui.js?v=10"></script>
+  <script type="module" src="module-ui.js?v=11"></script>
 </body>
 </html>

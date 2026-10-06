@@ -1,3 +1,4 @@
+import { bindRepeatingButton } from './direction-pad.js?v=1';
 import { MODULE_QUESTIONS, QUESTION_ONE, findModuleQuestion, createModuleLesson, reflectionEquation, fitQuestion, EnlargementSnap, squareCountAt } from './module-lesson.js?v=9';
 import { paintEnlargementLesson } from './module-enlargement-render.js?v=4';
 import { paintRotationLesson } from './module-rotation-render.js?v=2';
@@ -15,6 +16,8 @@ const canvas = $('graph'), board = $('board'), drawGraph = createTransformationR
 let inkStore = new DocumentStore(), unsubscribeInk;
 const questionInk = new Map([[q.id, inkStore]]), pointers = new Map();
 let language = 'en', dark = false, collapsed = false, tool = 'pan', view = { x: 0, y: 0, zoom: 1 };
+const countRepeats=[];
+const stopCountPad=()=>countRepeats.forEach(control=>control.stop());
 let fitted = true, previousSize, drag = null, ink = null, erased = null, frame = 0, animation = 0, statusTimer;
 try { language = JSON.parse(localStorage.getItem('maths-workspace:language')) === 'bm' ? 'bm' : 'en'; dark = (localStorage.getItem('maths-workspace:theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark'; } catch {}
 const tr = (en, bm) => language === 'bm' ? bm : en;
@@ -249,11 +252,11 @@ function syncEnlargement() {
     text(`countAxis${a}`,h?'Horizontal ↔':'Vertical ↕',h?'Mengufuk ↔':'Menegak ↕');
     $(`countAxis${a}`).setAttribute('aria-pressed',String(axis===a));
     $(`countValue${a}`).textContent=countWords(lesson.displayedCount('image',a),h);
-    a11y(`countMinus${a}`,h?'One unit left':'One unit down',h?'Satu unit ke kiri':'Satu unit ke bawah');
-    a11y(`countPlus${a}`,h?'One unit right':'One unit up',h?'Satu unit ke kanan':'Satu unit ke atas');
   }
   text('countAuto',horizontal?'Auto horizontal':'Auto vertical',horizontal?'Auto mengufuk':'Auto menegak');
-  text('countClear','Clear blue path','Padam laluan biru');
+  a11y('countClear','Clear blue path','Padam laluan biru');
+  $('countPad').setAttribute('aria-label',tr('Move blue counting path. Tap or hold an arrow.','Alih laluan kiraan biru. Ketik atau tahan anak panah.'));
+  for(const [direction,en,bm] of [['Up','up','atas'],['Down','down','bawah'],['Left','left','kiri'],['Right','right','kanan']]) a11y(`count${direction}`,`One unit ${en}; hold to repeat`,`Satu unit ke ${bm}; tahan untuk mengulang`);
   for(const button of $('countControls').querySelectorAll('button')) button.disabled=!!animation;
   $('enlargementMode').disabled=!!animation;
   $('scrubber').hidden=!lesson.ready || counting;$('progress').value=lesson.factor;
@@ -334,7 +337,7 @@ function animateCount(source,axis,target) {
   };
   animation=requestAnimationFrame(tick);sync();
 }
-function countImage(axis,target) {
+function countImage(axis,target,{manual=false}={}) {
   if (!isEnlargement() || !lesson.ready || animation) return;
   const from=lesson.imageCounts[axis];lesson.setCount(axis,target);
   const destination=lesson.imageCounts[axis];lesson.imageCounts[axis]=from;
@@ -343,7 +346,8 @@ function countImage(axis,target) {
   if(end.x<35||end.x>canvas.clientWidth-35||end.y<35||end.y>canvas.clientHeight-70) {
     lesson.imageCounts[axis]=destination;fit();lesson.imageCounts[axis]=from;
   }
-  animateCount('image',axis,destination);
+  if(manual){lesson.imageCounts[axis]=destination;sync();}
+  else animateCount('image',axis,destination);
 }
 function goTo(stage) {
   if(isEnlargement()) {
@@ -516,6 +520,7 @@ canvas.onkeydown = e => {
 
 function advance() {
   if(animation) return;
+  stopCountPad();
   if (lesson.answerVisible) { if (nextQuestion()) selectQuestion(nextQuestion().id); return; }
   if (isEnlargement()) {
     if (!lesson.ready) goTo(lesson.stage+1);
@@ -544,6 +549,7 @@ function advance() {
 }
 function previousStep() {
   if(animation) return;
+  stopCountPad();
   if (isEnlargement()) {
     if (lesson.answerVisible) { lesson.answerVisible=false;lesson.stage=6;sync(); }
     else if(lesson.mode==='scale') { lesson.setMode('count');if(fitted)fit();sync(); }
@@ -577,14 +583,21 @@ $('slopePositive').onclick = () => changeTrial(() => lesson.setSlope(1));
 $('slopeNegative').onclick = () => changeTrial(() => lesson.setSlope(-1));
 $('clockGuide').onclick = () => { if (lesson.toggleClock()) { clockStarted = performance.now(); sync(); } };
 $('guides').onclick = () => { lesson.toggleGuides(); sync(); };
-$('enlargementMode').onclick=()=>{lesson.setMode(lesson.mode==='count'?'scale':'count');if(fitted)fit();sync();};
+$('enlargementMode').onclick=()=>{stopCountPad();lesson.setMode(lesson.mode==='count'?'scale':'count');if(fitted)fit();sync();};
 for(const axis of ['x','y']) {
   $(`countAxis${axis}`).onclick=()=>{lesson.selectCountAxis(axis);sync();};
-  $(`countMinus${axis}`).onclick=()=>countImage(axis,lesson.imageCounts[axis]-1);
-  $(`countPlus${axis}`).onclick=()=>countImage(axis,lesson.imageCounts[axis]+1);
 }
+for(const [direction,axis,delta] of [['Left','x',-1],['Right','x',1],['Up','y',1],['Down','y',-1]]) {
+  countRepeats.push(bindRepeatingButton($(`count${direction}`),()=>countImage(axis,lesson.imageCounts[axis]+delta,{manual:true}),{
+    delay:260,interval:160,enabled:()=>isEnlargement() && lesson.ready && lesson.mode==='count' && !animation,
+  }));
+}
+$('countPad').onkeydown=e=>{
+  const direction={ArrowLeft:['x',-1],ArrowRight:['x',1],ArrowUp:['y',1],ArrowDown:['y',-1]}[e.key];
+  if(direction){e.preventDefault();countImage(direction[0],lesson.imageCounts[direction[0]]+direction[1],{manual:true});}
+};
 $('countAuto').onclick=()=>countImage(lesson.countAxis,lesson.requiredCounts[lesson.countAxis]);
-$('countClear').onclick=()=>{lesson.goTo(4);sync();};
+$('countClear').onclick=()=>{stopCountPad();lesson.goTo(4);sync();};
 $('next').onclick = advance;
 $('previous').onclick = previousStep;
 function clearScrub() { reflectionScrub = null; freeScrub = null; scrubPointer = null; }
@@ -639,13 +652,13 @@ $('progress').onkeydown = e => {
   const values = {ArrowRight:lesson.angle+1,ArrowUp:lesson.angle+1,ArrowLeft:lesson.angle-1,ArrowDown:lesson.angle-1,PageUp:lesson.angle+90,PageDown:lesson.angle-90,Home:0,End:360*lesson.direction};
   if (Object.hasOwn(values,e.key)) { e.preventDefault(); changeFreeTransform(() => lesson.scrub(values[e.key])); }
 };
-$('reset').onclick = () => { stopAnimation(); pointers.clear(); discard(); lesson.reset(); clearScrub(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); fit(); sync(); };
+$('reset').onclick = () => { stopCountPad();stopAnimation(); pointers.clear(); discard(); lesson.reset(); clearScrub(); inkStore.transact(d => { d.objects = []; }); setTool('pan'); fit(); sync(); };
 for (const name of ['pan', 'pen', 'eraser']) $(name).onclick = () => setTool(name);
 $('undo').onclick = () => { discard(); inkStore.undo(); }; $('redo').onclick = () => { discard(); inkStore.redo(); };
 unsubscribeInk = inkStore.subscribe(sync);
 function selectQuestion(id, updateUrl = true) {
   const next = findModuleQuestion(id); if (!next) return;
-  stopAnimation(); pointers.clear(); discard(); unsubscribeInk();
+  stopCountPad();stopAnimation(); pointers.clear(); discard(); unsubscribeInk();
   q = next; lesson = createModuleLesson(q); axisPulseUntil = 0; clearScrub();
   if (!questionInk.has(q.id)) questionInk.set(q.id, new DocumentStore());
   inkStore = questionInk.get(q.id); unsubscribeInk = inkStore.subscribe(sync);

@@ -1,3 +1,4 @@
+@import url('./direction-pad.css?v=1');
 .angle-explorer.transform-mode {
   width: 97vw; max-width: 1800px; height: 96dvh; max-height: 96dvh;
   padding: 18px 22px 12px; display: flex; flex-direction: column; gap: 12px; overflow: hidden;
@@ -33,14 +34,6 @@
 .tf-dpad { position: absolute; width: 144px; padding: 6px; pointer-events: none; touch-action: none; }
 .transform-mode .tf-pad-grip { display: flex; width: 86px; margin: 0 auto; min-height: 28px; padding: 2px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 11px; cursor: grab; touch-action: none; pointer-events: auto; box-shadow: 0 2px 5px #0001; }
 .tf-pad-grip:active { cursor: grabbing; }
-.tf-pad-cross { display: grid; grid-template: repeat(3, 42px) / repeat(3, 42px); margin-top: 3px; }
-.transform-mode .tf-pad-cross button { pointer-events: auto; padding: 0; min-width: 42px; min-height: 42px; border: 1px solid #496381; border-radius: 5px; background: linear-gradient(#34495f, #243345); color: #f1f5fa; font-size: 18px; box-shadow: inset 0 1px 1px #ffffff26, 0 2px 2px #0002; touch-action: none; }
-.transform-mode .tf-pad-cross button:active { background: #316db7; box-shadow: inset 0 2px 4px #0004; }
-#tfNudgeUp { grid-area: 1 / 2; border-radius: 7px 7px 0 0; }
-#tfNudgeLeft { grid-area: 2 / 1; border-radius: 7px 0 0 7px; }
-#tfPadReset { grid-area: 2 / 2; border-radius: 0; font-size: 14px; color: #c1d2e6; }
-#tfNudgeRight { grid-area: 2 / 3; border-radius: 0 7px 7px 0; }
-#tfNudgeDown { grid-area: 3 / 2; border-radius: 0 0 7px 7px; }
 .tf-canvas-hint { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 30px); padding: 8px 13px; border: 1px solid #b4c9e5; border-radius: 10px; background: #f3f7fdeF; color: #1b3d68; box-shadow: 0 2px 8px #0001; pointer-events: none; user-select: none; -webkit-user-select: none; display: grid; gap: 3px; text-align: center; }
 .tf-canvas-hint strong { font-size: 13px; }
 .tf-canvas-hint span { font-size: 12px; line-height: 1.4; max-width: 470px; }

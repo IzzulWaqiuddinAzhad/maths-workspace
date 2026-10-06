@@ -1,3 +1,4 @@
+import { bindRepeatingButton } from './direction-pad.js?v=1';
 import { zoomAt } from './core.js?v=14';
 import { installCanvasOwnership } from './interaction.js?v=13';
 import {
@@ -229,12 +230,7 @@ export function mountTransformations(host, { language = () => 'en', back }) {
     schedule();
   }
   function repeat(button, action) {
-    let delay, timer, pointer = null;
-    const stop = () => { clearTimeout(delay); clearInterval(timer); pointer = null; };
-    button.onpointerdown = e => { if (e.button !== 0) return; e.preventDefault(); pointer = e.pointerId; button.setPointerCapture(e.pointerId); action(); delay = setTimeout(() => { timer = setInterval(action, 110); }, 420); };
-    button.onpointerup = button.onpointercancel = button.onlostpointercapture = stop;
-    button.onclick = e => { if (e.detail === 0 && pointer === null) action(); };
-    cleanups.push(stop);
+    cleanups.push(bindRepeatingButton(button,action).dispose);
   }
   for (const [dir, x, y] of [['Left', -1, 0], ['Right', 1, 0], ['Up', 0, 1], ['Down', 0, -1]]) {
     repeat(get('tfNudge' + dir), () => { if (selectedObject()) { vector = { x: Math.max(-1000, Math.min(1000, vector.x + x)), y: Math.max(-1000, Math.min(1000, vector.y + y)) }; sync(); } });
