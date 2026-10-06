@@ -70,7 +70,7 @@ body.clean-view header{display:none}body.clean-view main{height:100dvh}body.clea
 .summary-row button{min-height:44px;padding:6px 10px;border:1px solid #d7e2ee;border-radius:8px;background:#f7faff;font-size:14px;color:inherit}
 .summary-row button:disabled{opacity:.45}.summary-row .summary-operation{background:transparent;border-color:transparent;text-align:left}
 .summary-order{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#e8eef6;font-size:12px;flex-shrink:0}
-body.clean-view .question-summary{display:none!important}
+
 @media(max-width:700px){.question-summary{width:calc(100% - 24px);top:54px;max-height:26%;padding:5px}.summary-row{gap:3px}.summary-row button{font-size:12px;padding:4px 6px}}
 
 /* Full-page writing stays within reach, away from the browser's top exit. */
@@ -78,3 +78,5 @@ body.clean-view .question-summary{display:none!important}
 .module-notebook #writingDock #tools{justify-content:flex-start;overflow-x:auto}
 body.clean-view[data-tool=pen] .context,body.clean-view[data-tool=highlighter] .context,body.clean-view[data-tool=eraser] .context{display:flex!important;top:auto;bottom:max(74px,calc(env(safe-area-inset-bottom) + 62px));left:94px;max-width:calc(100% - 168px)}
 .question-summary button{max-width:100%;overflow-wrap:anywhere;white-space:normal}
+
+.rotation-directions{display:flex;justify-content:space-between;font-size:12px;color:#5e6877;gap:10px}

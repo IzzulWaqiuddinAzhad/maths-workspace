@@ -1,5 +1,5 @@
 import { graphToScreen, screenToGraph, GRID_UNIT, formatNumber, lineHandles, lineFoot, mirrorGrip } from './transform-model.js?v=29';
-import { LabelLayout, polarCandidates, paintLabel } from './label-layout.js?v=13';
+import { LabelLayout, polarCandidates, paintLabel } from './label-layout.js?v=14';
 
 export function createTransformationRenderer(canvas) {
   const ctx = canvas.getContext('2d'), labels = new LabelLayout();

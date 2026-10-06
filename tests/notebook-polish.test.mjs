@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {NOTEBOOK_GRAPHS,NotebookRotationLesson,saveLesson,restoreLesson,graphSummaryBounds} from '../dist/notebook-model.js';
 import {NotebookSession} from '../dist/notebook-session.js';
-import {notebookReadoutPlacement,graphViewport,paintNotebookGraph} from '../dist/notebook-render.js';
+import {graphViewport,paintNotebookGraph} from '../dist/notebook-render.js';
 import {PRINTED_LABELS} from '../dist/notebook-assets/label-anchors.js';
 import {coordinateGuideFrame,coordinateGuideDuration,paintCoordinateGuide,coordinateReadoutLayout} from '../dist/module-coordinate-guide.js';
 import {LabelLayout} from '../dist/label-layout.js';
@@ -41,17 +41,14 @@ test('a legacy straight cross is reopened at its saved tip rather than incorrect
   const l=restoreLesson(q,{stage:9,buildIndex:8,buildCounts:[3,0,3,0,-3,0,-3,0],firstAxis:'x',progress:-90,constructionVersion:2});
   assert.equal(l.constructionComplete,false);assert.deepEqual(l.constructionCursor,{x:3,y:0});assert.equal(l.angle,0);
 });
-test('original printed letters receive only the coordinate suffix, in the same position during and after reading',()=>{
-  const g=graph('9'),s=new NotebookSession(g),{ctx,texts}=canvas(),viewport=graphViewport(g);
-  const placement=notebookReadoutPlacement(ctx,g,s,'source'),anchor=PRINTED_LABELS[s.source.id][0];
-  assert.ok(placement.omitLabel);assert.ok(placement.x>anchor.x*40/g.unit);
-  const options={point:s.source.points[0],label:'A',...viewport,placement};
-  const layout=coordinateReadoutLayout(ctx,options);
-  assert.equal(layout.parts[0],'(');assert.ok(layout.y+layout.fontSize*.65<viewport.view.y-options.point.y*40);
-  paintCoordinateGuide(ctx,{...options,mode:'read',elapsed:4800});
-  assert.ok(!texts.some(t=>t.text.includes('A')));assert.ok(texts.some(t=>t.text==='3'));
-  s.lesson.readPoints.source=true;texts.length=0;paintNotebookGraph(ctx,{...g,session:s,layout:new LabelLayout()});
-  assert.ok(!texts.some(t=>t.text.includes('A')));assert.ok(texts.some(t=>t.text==='('));
+test('original printed labels and their coordinates are drawn once in a stable shared position',()=>{
+  const g=graph('9'),s=new NotebookSession(g),{ctx,texts}=canvas();s.lesson.readPoints.source=true;
+  const full={...g,session:s,layout:new LabelLayout()};
+  const before=paintNotebookGraph(ctx,full,{guide:{key:'source',mode:'read',point:s.source.points[0],label:'A',start:0},now:1600});
+  texts.length=0;const after=paintNotebookGraph(ctx,full);
+  assert.equal(texts.filter(t=>t.text.includes('A')).length,1);
+  assert.equal(texts.find(t=>t.text.includes('A')).text,'A (');
+  assert.deepEqual(before.find(r=>r.label==='A').placement,after.find(r=>r.label==='A').placement);
 });
 test('all original point labels have matching printed anchors',()=>{
   for(const g of NOTEBOOK_GRAPHS)for(const o of g.objects)if(o.labels?.length)for(let i=0;i<o.labels.length;i++){
@@ -86,12 +83,14 @@ test('switching modes retains earlier work and resetting that mode removes only 
   s.chooseMode('translation');assert.equal(s.presentations.length,1);s.reset();
   assert.equal(s.imageReady,false);assert.equal(s.presentations[0].mode,'rotation');
 });
-test('summary tracks the graph width through pan and zoom within iPad controls',()=>{
+test('summary follows graph pan and zoom, including scrolling off-screen instead of pinning',()=>{
   const g={x:30,y:160,width:240};
   for(const width of [768,1024,1366])for(const zoom of [.5,1,1.5]){
-    const view={x:0,y:0,zoom},b=graphSummaryBounds(g,view,width,768,80,290);
-    assert.equal(b.left,g.x*zoom);assert.equal(b.width,Math.min(g.width*zoom,width-290-12-b.left));
-    assert.ok(b.top>=58);assert.ok(b.left+b.width<=width-290-12);
+    const view={x:0,y:0,zoom},b=graphSummaryBounds(g,view,width,768,80);
+    assert.equal(b.left,g.x*zoom);assert.equal(b.width,g.width*zoom);
+    assert.equal(b.top,g.y*zoom-90);
+    const moved=graphSummaryBounds(g,{...view,x:-50,y:-400},width,768,80);
+    assert.equal(moved.left,b.left-50);assert.equal(moved.top,b.top-400);assert.ok(moved.top<0);
   }
 });
 

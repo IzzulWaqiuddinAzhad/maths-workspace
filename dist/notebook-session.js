@@ -1,6 +1,6 @@
 import {notebookQuestionPlans} from './notebook-questions.js';
 import {findModuleQuestion,TranslationLesson,ReflectionLesson,EnlargementLesson} from './module-lesson.js?v=15';
-import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=5';
+import {NotebookRotationLesson,saveLesson,restoreLesson} from './notebook-model.js?v=6';
 import {translatePoint,rotatePoint,flipPoint,completedImage} from './transform-model.js?v=29';
 import {enlargePoint} from './module-lesson.js?v=15';
 

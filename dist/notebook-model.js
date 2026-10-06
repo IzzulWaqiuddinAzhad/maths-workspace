@@ -27,11 +27,12 @@ export function fitQuestion(graph,width,height,reserved={right:0,bottom:0}){
 export function fitGraph(graph,width,height,reserved={}){
   return fitQuestion({...graph,questionBox:{x:graph.x-18,y:graph.y-18,w:(graph.width??200)+36,h:(graph.height??200)+44}},width,height,reserved);
 }
-export function graphSummaryBounds(graph,view,width,height,summaryHeight=80,right=0){
-  const left=Math.max(12,graph.x*view.zoom+view.x);
-  const edge=Math.min(width-right-12,(graph.x+graph.width)*view.zoom+view.x);
-  return {left,width:Math.max(0,edge-left),top:Math.max(58,Math.min(height-summaryHeight-12,graph.y*view.zoom+view.y-summaryHeight-10))};
+export function graphSummaryBounds(graph,view,width,height,summaryHeight=80){
+  // Follow the graph even when it scrolls off-screen; never pin to the window.
+  return {left:graph.x*view.zoom+view.x,width:graph.width*view.zoom,top:graph.y*view.zoom+view.y-summaryHeight-10};
 }
+export const rotationFromSlider=value=>-Number(value)||0;
+export const rotationToSlider=angle=>-angle||0;
 export function constrainPage(view,width,height){
   const paperWidth=NOTEBOOK_SIZE.width*view.zoom,paperHeight=NOTEBOOK_SIZE.height*view.zoom;
   const side=Math.min(160,width/3);

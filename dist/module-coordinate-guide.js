@@ -77,7 +77,7 @@ export function paintCoordinateReadout(ctx,options){
   ctx.restore();return {x:slots[0],y:slots[1]};
 }
 
-export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,width,height,pointColour,placement}) {
+export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,width,height,pointColour,placement,transientReadout=false}) {
   const frame=coordinateGuideFrame(point,mode,elapsed),screen=p=>graphToScreen(p,view);
   const c=screen(point),x=screen(frame.xAxis),y=screen(frame.yAxis);
   const paper=dark?'#15181d':'#fff',ink=dark?'#edf0f5':'#20242c';
@@ -110,12 +110,21 @@ export function paintCoordinateGuide(ctx,{point,label,mode,elapsed,view,dark,wid
   }
   ctx.restore();
   if(!frame.origin&&(mode==='read'||placement)){
+    ctx.save();if(transientReadout)ctx.globalAlpha=frame.opacity;
     const slots=paintCoordinateReadout(ctx,{point,label,view,dark,width,height,pointColour,placement,xRead:frame.xRead,yRead:frame.yRead});
     ctx.save();
     for(const [amount,start,end,value,colour]of[[frame.xFlight,xBadge,slots.x,point.x,orange],[frame.yFlight,yBadge,slots.y,point.y,blue]]){
       if(start&&amount>0&&amount<1){const p=mix(start,end,amount);badge(fmt(value),p.x,p.y,colour,true);}
     }
-    ctx.restore();
+    ctx.restore();ctx.restore();
   }
   return frame;
+}
+
+// A persistent centre cue contains no text and leaves the axes unobscured.
+export function paintCoordinatePulse(ctx,{point,view,now=0,active=true,colour='#c23246'}){
+  const p=graphToScreen(point,view),pulse=.5+.5*Math.sin(now/240);
+  ctx.save();ctx.strokeStyle=colour;ctx.fillStyle=colour;ctx.lineWidth=2;
+  if(active){ctx.globalAlpha=.3+.45*pulse;ctx.beginPath();ctx.arc(p.x,p.y,9+6*pulse,0,Math.PI*2);ctx.stroke();}
+  ctx.globalAlpha=1;ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fill();ctx.restore();
 }

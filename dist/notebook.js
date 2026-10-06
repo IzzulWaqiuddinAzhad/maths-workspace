@@ -1,14 +1,14 @@
-import {formatPair,transformationText} from './notebook-questions.js';
+import {transformationText} from './notebook-questions.js';
 import {bindLineEquationInput} from './line-equation-input.js';
 import {workspaceHost as host} from './workspace-host.js';
-import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,constrainPage} from './notebook-model.js?v=5';
-import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=5';
-import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=6';
-import {coordinateGuideDuration} from './module-coordinate-guide.js?v=3';
+import {NOTEBOOK_PAGES,NOTEBOOK_GRAPHS,pageAt,pageToGraph,fitPage,fitQuestion,fitGraph,graphSummaryBounds,rotationFromSlider,rotationToSlider,constrainPage} from './notebook-model.js?v=6';
+import {NotebookSession,migrateNotebookDocument} from './notebook-session.js?v=6';
+import {paintNotebookGraph,readKey,vertexLabel} from './notebook-render.js?v=7';
+import {coordinateGuideDuration} from './module-coordinate-guide.js?v=4';
 import {RotationSnap,ReflectionScrub,lineFoot,objectHit,parseMirrorEquation,lineHandles} from './transform-model.js?v=29';
 import {EnlargementSnap,squareCountAt} from './module-lesson.js?v=15';
 import {bindDirectionPad} from './direction-pad.js?v=2';
-import {LabelLayout} from './label-layout.js?v=13';
+import {LabelLayout} from './label-layout.js?v=14';
 import {calculatorPanel} from './calculator-panel.js?v=13';
 import {worldToScreen,screenToWorld} from './core.js?v=14';
 
@@ -29,30 +29,33 @@ function loadPage(p){
 function visible(p,view,height){return (p.y+p.height)*view.zoom+view.y>=-100&&p.y*view.zoom+view.y<=height+100;}
 Object.assign(host,{
   documentKey:DOCUMENT_KEY,preferencesKey:'module-notebook:tools:v1',title:'BIJAK SPM - Transformations',theme:'light',scrollPage:true,hideExplorations:true,
+  startupOptions:{shape:'line'},
   defaultOptions:{widths:{ball:1.2,pressure:1.2,pencil:.65},highWidth:10,fontSize:12,touchDraw:false},constrainView:constrainPage,
-  resize:({view,old,width,height,saved})=>clean&&active?fitGraph(active,width,height,{bottom:146,top:-62}):old.width||saved?view:fitPage(width,height),
+  resize:({view,old,width,height,saved})=>clean&&active?fitGraph(active,width,height,{bottom:146,top:-50+($('questionSummary')?.offsetHeight??0)}):old.width||saved?view:fitPage(width,height),
   paintBackground(ctx){
     const view=api?.view??fitPage(innerWidth,innerHeight),height=api?.size.height??innerHeight;
     ctx.save();ctx.fillStyle='#fff';
     for(const p of pages)if(visible(p,view,height)){
       loadPage(p);ctx.fillRect(p.x,p.y,p.width,p.height);
       if(p.image.complete&&p.image.naturalWidth)ctx.drawImage(p.image,p.x,p.y,p.width,p.height);
-      for(const g of graphs.filter(g=>g.page===p.id-1&&g.started))paintNotebookGraph(ctx,g,{now,active:g===active,guide:guide?.graph===g?guide:null});
+      for(const g of graphs.filter(g=>g.page===p.id-1&&g.started))paintNotebookGraph(ctx,g,{now,active:g===active,guide:guide?.graph===g?guide:null,annotations:api?.store.document.objects??[]});
     }
     ctx.restore();
   },
   afterDraw({view,width,height}){
     currentPage=pageAt(screenToWorld({x:width/2,y:Math.min(height/2,220)},view).y).id-1;
     $('pagePicker').value=String(currentPage);$('previousPage').disabled=!currentPage;$('nextPage').disabled=currentPage===pages.length-1;
-    $('questionSummary').hidden=!active||clean||!visible(active,view,height);
+    $('questionSummary').hidden=!active;
     positionSummary();document.body.dataset.tool=api.tool;
-    if(active&&visible(active,view,height)&&(active.session.lesson.clockVisible||active.session.usesConstruction&&active.session.lesson.stage&&!active.session.lesson.constructionComplete))animate();
+    if(active&&visible(active,view,height)&&(active.session.lesson.clockVisible||active.session.lesson.readPoints.centre||active.session.usesConstruction&&active.session.lesson.stage&&!active.session.lesson.constructionComplete))animate();
     for(const g of graphs){
       const a=worldToScreen({x:g.x,y:g.y},view),b=worldToScreen({x:g.x+g.width,y:g.y+g.height},view),image=pages[g.page].image;
       g.button.hidden=!api||!image?.naturalWidth||b.x<12||a.x>width-12||b.y<60||a.y>height-48;
       g.button.style.left=`${Math.max(12,Math.min(width-88,b.x-72))}px`;g.button.style.top=`${Math.max(55,Math.min(height-48,a.y-25))}px`;
     }
   },
+  hasInteractionIntent:()=>!!intent,
+  toolChanged:()=>{intent=null;if(active)sync();},
   beginInteraction:beginGraphInteraction,
 });
 for(const p of pages){const o=document.createElement('option');o.value=p.id-1;o.textContent=`${p.id} · ${p.section}`;$('pagePicker').append(o);}
@@ -61,7 +64,7 @@ for(const g of graphs){
   b.onclick=()=>openGraph(g);g.button=b;$('demoAnchors').append(b);
 }
 const summary=document.createElement('section');summary.className='notebook-accessible';summary.ariaLabel='Printed module';summary.textContent='BIJAK SPM PPDMT 2026. 23 pages, 64 questions. Choose a page or scroll. Each Cartesian graph has a Demo button.';document.querySelector('main').append(summary);
-const {workspace}=await import('./app.js?v=54');api=workspace;
+const {workspace}=await import('./app.js?v=55');api=workspace;
 document.querySelector('header').prepend($('tools'));
 $('overlay').setAttribute('aria-label','Module pages. Write with a pen, use one finger to pan, or pinch to zoom. Select to interact with the active graph.');
 
@@ -82,7 +85,7 @@ function frame(time){
   api.requestDraw(true);
   const s=active?.session,l=s?.lesson;
   const inView=active&&visible(active,api.view,api.size.height);
-  if(animation||guide||inView&&(l?.clockVisible||s?.usesConstruction&&l.stage&&!l.constructionComplete||time-(active.mirrorChanged||0)<900))animate();
+  if(animation||guide||inView&&(l?.clockVisible||l?.readPoints.centre||s?.usesConstruction&&l.stage&&!l.constructionComplete||time-(active.mirrorChanged||0)<900))animate();
 }
 function showCoordinates(mode,kind='source',index=active?.readIndex??0){
   if(!active)return;stopAnimation();const s=active.session,l=s.lesson;
@@ -91,25 +94,25 @@ function showCoordinates(mode,kind='source',index=active?.readIndex??0){
   guide={graph:active,mode,key:centre?'centre':readKey(kind,index),point:centre?l.question.centre:kind==='image'?s.imagePoints[index]:s.source.points[index],label:centre?'Centre':vertexLabel(s,index,kind==='image'),start:performance.now()};
   sync();animate();
 }
-function openGraph(g){stopAnimation();active=g;g.started=true;g.readIndex=0;api.setTool('select');$('demoPanel').hidden=false;for(const a of graphs)a.button.setAttribute('aria-pressed',String(a===g));sync();fitActive(true);animate();}
+function openGraph(g){stopAnimation();active=g;g.started=true;g.readIndex=0;$('demoPanel').hidden=false;for(const a of graphs)a.button.setAttribute('aria-pressed',String(a===g));sync();fitActive(true);animate();}
 function positionSummary(){
   const root=$('questionSummary');if(!active||root.hidden)return;
-  const {width,height}=api.size,b=graphSummaryBounds(active,api.view,width,height,root.offsetHeight,width>700?290:0);
+  const {width,height}=api.size,b=graphSummaryBounds(active,api.view,width,height,root.offsetHeight);
   root.style.left=`${b.left}px`;root.style.width=`${b.width}px`;root.style.top=`${b.top}px`;
-  root.style.visibility=b.width<100?'hidden':'visible';
+  root.style.visibility='visible';
 }
 function fitActive(closer=false){
   if(!active)return;const {width,height}=api.size,bottom=width<=700&&!clean?Math.min(height*.48,$('demoPanel').offsetHeight)+66:clean?146:0;
   // A second measurement accounts for wrapping at the graph's fitted width.
   for(let pass=0;pass<2;pass++){
     positionSummary();
-    api.setView((closer||clean?fitGraph:fitQuestion)(active,width,height,{right:width>700&&!clean?290:0,bottom,top:clean?-62:$('questionSummary').hidden?0:$('questionSummary').offsetHeight+12}));
+    api.setView((closer||clean?fitGraph:fitQuestion)(active,width,height,{right:width>700&&!clean?290:0,bottom,top:(clean?-62:0)+($('questionSummary').hidden?0:$('questionSummary').offsetHeight+12)}));
   }
   positionSummary();
 }
 function changed(){save();sync();api.requestDraw(true);animate();}
 function syncSummary(){
-  const s=active.session,root=$('questionSummary');root.hidden=clean;root.replaceChildren();
+  const s=active.session,root=$('questionSummary');root.hidden=false;root.replaceChildren();
   const heading=document.createElement('div');heading.className='summary-heading';
   const title=document.createElement('strong');title.textContent=`Question ${active.questionId}`;heading.append(title);
   if(s.plans.length>1){const picker=document.createElement('select');picker.ariaLabel='Question part';s.plans.forEach((plan,i)=>{const option=document.createElement('option');option.value=i;option.textContent=plan.label;picker.append(option);});picker.value=s.planIndex;picker.onchange=()=>{stopAnimation();s.choosePlan(+picker.value);active.readIndex=0;changed();fitActive();};heading.append(picker);}
@@ -125,13 +128,13 @@ function syncSummary(){
     const description=transformationText(current&&step.type&&s.mode!==step.type?{describe:true}:step,s.lesson)+(step.describe&&step.targetName?` → ${step.targetName}`:'');
     const operation=button(row,`${step.symbol?step.symbol+' · ':''}${description}`,()=>{useStep();},!available);operation.className='summary-operation';
     const centre=current?(['rotation','enlargement'].includes(s.mode)?s.lesson.question.centre:null):step.centre;
-    if(centre)button(row,`${step.describe?'Demo centre':'Centre'} ${formatPair(centre)}`,()=>{if(useStep())showCoordinates('plot','centre');},!available);
+    if(centre)button(row,'Centre',()=>{if(useStep())showCoordinates('plot','centre');},!available);
     if(current&&s.imageReady)button(row,`${s.lesson.answerLabel} → use image`,()=>{stopAnimation();if(s.keepImage()){active.readIndex=0;changed();}},!s.canKeepImage);
     root.append(row);
   });
   // A free continuation remains visible after all printed stages, or when a
   // teacher selects a different object to investigate.
-  if(s.stepIndex>=s.plan.steps.length||!s.step){const row=document.createElement('div');row.className='summary-row';button(row,s.source.name,()=>showCoordinates('read','source'));const text=document.createElement('span');text.textContent=s.mode;row.append(text);if(['rotation','enlargement'].includes(s.mode))button(row,`Centre ${formatPair(s.lesson.question.centre)}`,()=>showCoordinates('plot','centre'));root.append(row);}
+  if(s.stepIndex>=s.plan.steps.length||!s.step){const row=document.createElement('div');row.className='summary-row';button(row,s.source.name,()=>showCoordinates('read','source'));const text=document.createElement('span');text.textContent=s.mode;row.append(text);if(['rotation','enlargement'].includes(s.mode))button(row,'Centre',()=>showCoordinates('plot','centre'));root.append(row);}
 }
 function sync(){
   if(!active)return;syncSummary();const s=active.session,l=s.lesson,m=s.mode,busy=!!animation||!!guide,rot=m==='rotation',enl=m==='enlargement',ref=m==='reflection';
@@ -151,7 +154,7 @@ function sync(){
   $('constructionControls').hidden=!pad;
   document.querySelectorAll('[data-nudge]').forEach(b=>b.disabled=busy||rot&&!l.stage||ref&&!l.choice);
   if(m==='translation'){$('countValue').textContent=`Horizontal ${fmt(l.vector.x)}\nVertical ${fmt(l.vector.y)}`;$('countCaption').textContent='Move the image';}
-  if(rot){$('countValue').textContent=`${l.completedArms} / 4`;$('countCaption').textContent='Complete arms';$('rotationSlider').value=l.angle;$('rotationValue').textContent=`${fmt(Math.abs(l.angle))}°${l.angle<0?' clockwise':l.angle>0?' anticlockwise':''}`;document.querySelectorAll('[data-angle]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(+b.dataset.angle===l.angle));});}
+  if(rot){$('countValue').textContent=`${l.completedArms} / 4`;$('countCaption').textContent='Complete arms';$('rotationSlider').value=rotationToSlider(l.angle);$('rotationValue').textContent=`${fmt(Math.abs(l.angle))}°${l.angle<0?' clockwise':l.angle>0?' anticlockwise':''}`;$('rotationSlider').setAttribute('aria-valuetext',$('rotationValue').textContent);document.querySelectorAll('[data-angle]').forEach(b=>{b.disabled=busy;b.setAttribute('aria-pressed',String(+b.dataset.angle===l.angle));});}
   if(ref){$('mirrorEquation').textContent=l.equation||'Choose or draw a line';$('reflectionSlider').disabled=busy||!l.choice;$('reflectionSlider').value=l.progress;$('countValue').textContent='Shift line';$('countCaption').textContent='Drag the end points to tilt';$('mirrorGuides').setAttribute('aria-pressed',String(l.guideVisible));$('drawMirror').setAttribute('aria-pressed',String(intent==='line'));document.querySelectorAll('[data-mirror]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mirror===l.choice?.kind)));}
   if(enl){$('scaleSlider').value=l.factor;$('scaleFactor').value=l.factor;$('countValue').textContent=`Horizontal ${fmt(l.imageCounts.x)}\nVertical ${fmt(l.imageCounts.y)}`;$('countCaption').textContent='Count from the centre';document.querySelectorAll('[data-enlarge]').forEach(b=>{b.hidden=s.polygon&&b.dataset.enlarge==='count';b.setAttribute('aria-pressed',String(b.dataset.enlarge===l.mode));});}
   $('rotationSlider').disabled=busy;$('scaleSlider').disabled=busy;
@@ -193,7 +196,7 @@ function nudge(direction){
 padBinding=bindDirectionPad(document.querySelector('.notebook-pad'),nudge,{interval:180,enabled:()=>!!active&&!clean&&!animation&&!guide&&!$('constructionControls').hidden});
 $('demoPanel').addEventListener('keydown',e=>{if(['INPUT','SELECT'].includes(e.target.tagName)||e.target.closest('#mirrorInputPanel'))return;const d={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'}[e.key];if(d){e.preventDefault();nudge(d);}if(e.key==='Escape')closeDemo();});
 $('rotationSlider').onpointerdown=()=>{rotationSnap=new RotationSnap(active.session.lesson.angle);};
-$('rotationSlider').oninput=e=>{active.session.lesson.scrub(rotationSnap?rotationSnap.move(+e.target.value):+e.target.value);changed();};
+$('rotationSlider').oninput=e=>{active.session.lesson.scrub(rotationSnap?rotationSnap.move(rotationFromSlider(e.target.value)):rotationFromSlider(e.target.value));changed();};
 $('rotationSlider').onpointerup=$('rotationSlider').onpointercancel=()=>{rotationSnap=null;};
 document.querySelectorAll('[data-angle]').forEach(b=>b.onclick=()=>{stopAnimation();active.session.lesson.scrub(+b.dataset.angle);changed();});
 document.querySelectorAll('[data-mirror]').forEach(b=>b.onclick=()=>{stopAnimation();active.session.lesson.chooseOrientation(b.dataset.mirror);active.mirrorChanged=performance.now();changed();});
@@ -203,8 +206,8 @@ $('enterMirror').onclick=()=>{const open=$('mirrorInputPanel').hidden;stopAnimat
 function applyMirror(){try{const line=parseMirrorEquation(equationInput.getValue()),b=active.bounds;stopAnimation();active.session.lesson.setHandles(lineHandles(line,{x:(b.xmin+b.xmax)/2,y:(b.ymin+b.ymax)/2},Math.min(3,(b.xmax-b.xmin)/4)));active.mirrorChanged=performance.now();changed();}catch{$('mirrorError').textContent='Use a straight line, such as x = 3 or y = 2x + 1.';}}
 $('applyMirror').onclick=applyMirror;
 $('mirrorGuides').onclick=()=>{active.session.lesson.toggleGuides();changed();};
-$('drawMirror').onclick=()=>{stopAnimation();intent='line';api.setTool('select');sync();};
-$('pickCentre').onclick=()=>{stopAnimation();intent='centre';api.setTool('select');sync();};
+$('drawMirror').onclick=()=>{stopAnimation();intent='line';sync();};
+$('pickCentre').onclick=()=>{stopAnimation();intent='centre';sync();};
 for(const id of ['centreX','centreY'])$(id).onchange=()=>{stopAnimation();active.session.setCentre({x:+$('centreX').value,y:+$('centreY').value});changed();};
 $('reflectionSlider').onpointerdown=()=>{reflectionScrub=new ReflectionScrub(active.session.lesson.progress);};
 $('reflectionSlider').oninput=e=>{const n=+e.target.value;active.session.lesson.scrub(reflectionScrub?reflectionScrub.move(n):n);changed();};
@@ -221,7 +224,7 @@ $('scaleFactor').onchange=e=>{active.session.lesson.scrub(+e.target.value);chang
 function beginGraphInteraction({point,view}){
   if(!active||animation||guide)return null;
   const g=active,s=g.session,l=s.lesson,p=pageToGraph(g,point),b=g.bounds;
-  if(p.x<b.xmin||p.x>b.xmax||p.y<b.ymin||p.y>b.ymax)return null;
+  if(p.x<b.xmin||p.x>b.xmax||p.y<b.ymin||p.y>b.ymax)return intent?{end(){}}:null;
   const snap=q=>({x:Math.round(q.x),y:Math.round(q.y)}),tolerance=15/(g.unit*view.zoom),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
   let kind=intent,handle=-1;
   if(!kind&&['rotation','enlargement'].includes(s.mode)&&l.stage&&distance(p,l.question.centre)<tolerance)kind='centre';
@@ -249,7 +252,7 @@ function pageFit(index=currentPage){if(active)closeDemo();currentPage=Math.max(0
 $('pageFit').onclick=()=>pageFit();$('home').onclick=()=>pageFit();$('zoomvalue').onclick=()=>pageFit();
 $('previousPage').onclick=()=>pageFit(currentPage-1);$('nextPage').onclick=()=>pageFit(currentPage+1);$('pagePicker').onchange=e=>pageFit(+e.target.value);
 function setClean(value,{focus=false}={}){
-  clean=value;$('questionSummary').hidden=clean||!active;document.body.classList.toggle('clean-view',clean);$('showTools').hidden=!clean;$('exitClean').hidden=!clean;
+  clean=value;$('questionSummary').hidden=!active;document.body.classList.toggle('clean-view',clean);$('showTools').hidden=!clean;$('exitClean').hidden=!clean;
   if(clean){padBinding.stop();calculatorPanel().hide();$('writingDock').append($('tools'),$('historyControls'));}else {document.querySelector('header').prepend($('tools'));$('menu').before($('historyControls'));}$('writingDock').hidden=!clean;$('fullscreen').ariaLabel=full?'Exit full screen':'Full screen';
   if(active&&(focus||!clean))requestAnimationFrame(()=>requestAnimationFrame(()=>fitActive(true)));
 }

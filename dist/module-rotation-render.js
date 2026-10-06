@@ -1,4 +1,4 @@
-import { LabelLayout, edgeCandidates, paintLabel } from './label-layout.js?v=13';
+import { LabelLayout, edgeCandidates, paintLabel } from './label-layout.js?v=14';
 const defaultCountLabels=new LabelLayout();
 import { graphToScreen } from './transform-model.js?v=29';
 
@@ -66,6 +66,8 @@ export function paintRotationLesson(ctx, { lesson, view, dark, clockTime = 0, wi
     const radius = Math.min(distance * .8, Math.max(lesson.clockVisible ? clockRadius+12 : 18, Math.min(64,distance*.5)));
     if (radius > 3) {
       ctx.beginPath(); ctx.arc(c.x,c.y,radius,start,start+sweep,sweep<0); ctx.strokeStyle=blue; ctx.lineWidth=2;ctx.stroke();
+      let previous={x:c.x+Math.cos(start)*radius,y:c.y+Math.sin(start)*radius};
+      for(let i=1;i<=32;i++){const a=start+sweep*i/32,p={x:c.x+Math.cos(a)*radius,y:c.y+Math.sin(a)*radius};segments.push([previous,p]);previous=p;}
       const end=start+sweep, tangent=end+(sweep<0?-1:1)*Math.PI/2;
       const x=c.x+Math.cos(end)*radius,y=c.y+Math.sin(end)*radius;
       ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-8*Math.cos(tangent-.45),y-8*Math.sin(tangent-.45));ctx.lineTo(x-8*Math.cos(tangent+.45),y-8*Math.sin(tangent+.45));ctx.closePath();ctx.fillStyle=blue;ctx.fill();
